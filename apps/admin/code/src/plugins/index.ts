@@ -11,6 +11,7 @@ import pageBuilderPlugins from "./pageBuilder";
 import formBuilderPlugins from "./formBuilder";
 import headlessCmsPlugins from "./headlessCms";
 import theme from "theme";
+import carManufacturerPlugin from "app-car-manufacturers";
 
 plugins.register([
     /**
@@ -56,7 +57,9 @@ plugins.register([
     /**
      * App theme controls page builder and form builder layouts, styles, etc.
      */
-    theme()
+    theme(),
+
+    carManufacturerPlugin()
 ]);
 
 /**

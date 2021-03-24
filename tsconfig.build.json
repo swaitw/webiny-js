@@ -1,35 +1,54 @@
 {
-  "compilerOptions": {
-    "target": "es6",
-    "allowJs": true,
-    "forceConsistentCasingInFileNames": true,
-    "allowSyntheticDefaultImports": true,
-    "moduleResolution": "node",
-    "module": "esnext",
-    "lib": ["dom", "dom.iterable"],
-    "esModuleInterop": true,
-    "declaration": true,
-    "composite": true,
-    "noEmit": false,
-    "jsx": "preserve",
-    "emitDeclarationOnly": true,
-    "baseUrl": ".",
-    "paths": {},
-    "typeRoots": ["./typings", "./node_modules/@types", "@types/testing-library__cypress"],
-    "plugins": [{ "transform": "typescript-transform-paths", "afterDeclarations": true }]
-  },
-  "exclude": [
-    "node_modules",
-    "dist",
-    "./scripts/**",
-    "**jest**",
-    "./packages/cli-plugin-workspaces",
-    "./packages/cli-plugin-deploy-pulumi",
-    "./packages/cli",
-    "./packages/create-webiny-project",
-    "./packages/cwp-template-aws/**",
-    "./packages/project-utils",
-    "./packages/tracking",
-    "./webiny.root.js"
-  ]
+	"compilerOptions": {
+		"target": "es6",
+		"allowJs": true,
+		"forceConsistentCasingInFileNames": true,
+		"allowSyntheticDefaultImports": true,
+		"moduleResolution": "node",
+		"module": "esnext",
+		"lib": [
+			"dom",
+			"dom.iterable"
+		],
+		"esModuleInterop": true,
+		"declaration": true,
+		"composite": true,
+		"noEmit": false,
+		"jsx": "preserve",
+		"emitDeclarationOnly": true,
+		"baseUrl": ".",
+		"paths": {
+			"app-car-manufacturers": [
+				"./packages/app-car-manufacturers/src"
+			],
+			"app-car-manufacturers/*": [
+				"./packages/app-car-manufacturers/src/*"
+			]
+		},
+		"typeRoots": [
+			"./typings",
+			"./node_modules/@types",
+			"@types/testing-library__cypress"
+		],
+		"plugins": [
+			{
+				"transform": "typescript-transform-paths",
+				"afterDeclarations": true
+			}
+		]
+	},
+	"exclude": [
+		"node_modules",
+		"dist",
+		"./scripts/**",
+		"**jest**",
+		"./packages/cli-plugin-workspaces",
+		"./packages/cli-plugin-deploy-pulumi",
+		"./packages/cli",
+		"./packages/create-webiny-project",
+		"./packages/cwp-template-aws/**",
+		"./packages/project-utils",
+		"./packages/tracking",
+		"./webiny.root.js"
+	]
 }
