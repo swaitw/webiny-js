@@ -131,11 +131,13 @@ module.exports = async (inputs, context) => {
     if (inputs.preview) {
         context.info(`Skipped "hook-before-deploy" hook.`);
     } else {
-        context.info(`Running "hook-before-deploy" hook...`);
-        await processHooks("hook-before-deploy", hookDeployArgs);
+        if (!inputs.watch) {
+            context.info(`Running "hook-before-deploy" hook...`);
+            await processHooks("hook-before-deploy", hookDeployArgs);
 
-        const continuing = inputs.preview ? `Previewing deployment...` : `Deploying...`;
-        context.success(`Hook "hook-before-deploy" completed. ${continuing}`);
+            const continuing = inputs.preview ? `Previewing deployment...` : `Deploying...`;
+            context.success(`Hook "hook-before-deploy" completed. ${continuing}`);
+        }
     }
 
     if (inputs.preview) {
@@ -150,22 +152,39 @@ module.exports = async (inputs, context) => {
             }
         });
     } else {
-        await pulumi.run({
-            command: "up",
-            args: {
-                yes: true,
-                skipPreview: true,
-                secretsProvider: SECRETS_PROVIDER
-            },
-            execa: {
-                // stdio: ["inherit", "inherit", process.stderr],
-                stdio: ["inherit", "inherit", "pipe"],
-                env: {
-                    WEBINY_ENV: env,
-                    WEBINY_PROJECT_NAME: context.projectName
+        if (inputs.watch) {
+            await pulumi.run({
+                command: "watch",
+                args: {
+                    secretsProvider: SECRETS_PROVIDER
+                },
+                execa: {
+                    // stdio: ["inherit", "inherit", process.stderr],
+                    stdio: ["inherit", "inherit", "pipe"],
+                    env: {
+                        WEBINY_ENV: env,
+                        WEBINY_PROJECT_NAME: context.projectName
+                    }
                 }
-            }
-        });
+            });
+        } else {
+            await pulumi.run({
+                command: "up",
+                args: {
+                    yes: true,
+                    skipPreview: true,
+                    secretsProvider: SECRETS_PROVIDER
+                },
+                execa: {
+                    // stdio: ["inherit", "inherit", process.stderr],
+                    stdio: ["inherit", "inherit", "pipe"],
+                    env: {
+                        WEBINY_ENV: env,
+                        WEBINY_PROJECT_NAME: context.projectName
+                    }
+                }
+            });
+        }
     }
 
     const duration = getDuration();

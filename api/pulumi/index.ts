@@ -1,18 +1,48 @@
-import { tagResources } from "@webiny/cli-plugin-deploy-pulumi/utils";
+import * as aws from "@pulumi/aws";
+import * as pulumi from "@pulumi/pulumi";
+import ApiGateway from "./dev/apiGateway";
 
-export = async () => {
-    // Add tags to all resources that support tagging.
-    tagResources({
-        WbyProjectName: process.env.WEBINY_PROJECT_NAME as string,
-        WbyEnvironment: process.env.WEBINY_ENV as string,
-        "lumigo:auto-trace": "true"
-    });
-
-    if (process.env.WEBINY_ENV === "prod") {
-        // Import "prod" resources config and initialize resources.
-        return await import("./prod").then(module => module.default());
+const role = new aws.iam.Role("api-lambda-role", {
+    assumeRolePolicy: {
+        Version: "2012-10-17",
+        Statement: [
+            {
+                Action: "sts:AssumeRole",
+                Principal: {
+                    Service: "lambda.amazonaws.com"
+                },
+                Effect: "Allow"
+            }
+        ]
     }
+});
 
-    // Import "dev" resources config and initialize resources.
-    return await import("./dev").then(module => module.default());
-};
+new aws.iam.RolePolicyAttachment("api-lambda-role-policy", {
+    role: role,
+    policyArn: "arn:aws:iam::aws:policy/AdministratorAccess"
+});
+
+const lambdaFunction = new aws.lambda.Function("headless-cms2", {
+    runtime: "nodejs12.x",
+    handler: "handler.handler",
+    role: role.arn,
+    timeout: 30,
+    memorySize: 512,
+    code: new pulumi.asset.AssetArchive({
+        ".": new pulumi.asset.FileArchive("./../code/headlessCMS/build")
+    })
+});
+
+const apiGateway = new ApiGateway({
+    routes: [
+        {
+            name: "test",
+            path: "/test",
+            method: "GET",
+            function: lambdaFunction
+        }
+    ]
+});
+
+export const LAMBDA_ARN = lambdaFunction.arn;
+export const API_GW = apiGateway.defaultStage.invokeUrl;
