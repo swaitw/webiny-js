@@ -312,8 +312,8 @@ export interface PbTheme {
 }
 
 export type PbPluginsLoader = Plugin & {
-    loadEditorPlugins?: () => Promise<any>;
-    loadRenderPlugins?: () => Promise<any>;
+    loadEditorPlugins?: () => Promise<Plugin[]> | undefined;
+    loadRenderPlugins?: () => Promise<Plugin[]> | undefined;
 };
 
 export type PbThemePlugin = Plugin & {
