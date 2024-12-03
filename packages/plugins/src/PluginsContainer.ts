@@ -1,6 +1,8 @@
 import { Plugin, PluginCollection } from "./types";
 import uniqid from "uniqid";
 
+export type WithName<T extends Plugin> = T & { name: string };
+
 const isOptionsObject = (item?: any) => item && !Array.isArray(item) && !item.type && !item.name;
 const normalizeArgs = (args: any[]): [Plugin[], any] => {
     let options = {};
@@ -53,32 +55,32 @@ const assign = (
 
 export class PluginsContainer {
     private plugins: Record<string, Plugin> = {};
-    private _byTypeCache: Record<string, Plugin[]> = {};
+    private _byTypeCache: Record<string, WithName<Plugin>[]> = {};
 
     constructor(...args: PluginCollection) {
         this.register(...args);
     }
 
-    public byName<T extends Plugin>(name: T["name"]): T | null {
+    public byName<T extends Plugin>(name: T["name"]) {
         if (!name) {
             return null;
         }
         /**
          * We can safely cast name as string, we know it is so.
          */
-        return this.plugins[name as string] as T;
+        return this.plugins[name as string] as WithName<T>;
     }
 
-    public byType<T extends Plugin>(type: T["type"]): T[] {
+    public byType<T extends Plugin>(type: T["type"]) {
         if (this._byTypeCache[type]) {
-            return Array.from(this._byTypeCache[type]) as T[];
+            return Array.from(this._byTypeCache[type]) as WithName<T>[];
         }
         const plugins = this.findByType<T>(type);
         this._byTypeCache[type] = plugins;
         return Array.from(plugins);
     }
 
-    public atLeastOneByType<T extends Plugin>(type: T["type"]): T[] {
+    public atLeastOneByType<T extends Plugin>(type: T["type"]) {
         const list = this.byType<T>(type);
         if (list.length === 0) {
             throw new Error(`There are no plugins by type "${type}".`);
@@ -86,7 +88,7 @@ export class PluginsContainer {
         return list;
     }
 
-    public oneByType<T extends Plugin>(type: T["type"]): T {
+    public oneByType<T extends Plugin>(type: T["type"]) {
         const list = this.atLeastOneByType<T>(type);
         if (list.length > 1) {
             throw new Error(
@@ -125,7 +127,9 @@ export class PluginsContainer {
         delete this.plugins[name];
     }
 
-    private findByType<T extends Plugin>(type: T["type"]): T[] {
-        return Object.values(this.plugins).filter((pl): pl is T => pl.type === type) as T[];
+    private findByType<T extends Plugin>(type: T["type"]) {
+        return Object.values(this.plugins).filter(
+            (pl): pl is T => pl.type === type
+        ) as WithName<T>[];
     }
 }
