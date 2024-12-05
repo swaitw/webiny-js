@@ -32,6 +32,7 @@ import { plugins } from "@webiny/plugins";
 import { PbEditorPageElementPlugin } from "~/types";
 import { ElementControls } from "./EditorPageElementsProvider/ElementControls";
 import { mediaToContainer } from "./EditorPageElementsProvider/mediaToContainer";
+import { NullLoaderCache } from "@webiny/app-page-builder-elements/hooks/useLoader/NullLoaderCache";
 
 interface EditorPageElementsProviderProps {
     children: React.ReactNode;
@@ -96,11 +97,16 @@ export const EditorPageElementsProvider = ({ children }: EditorPageElementsProvi
         } as Theme;
     }, [pageBuilder.theme]);
 
+    const nullLoaderCache = useMemo(() => {
+        return new NullLoaderCache();
+    }, []);
+
     return (
         <PbPageElementsProvider
             theme={containerizedTheme!}
             renderers={renderers}
             modifiers={modifiers}
+            loaderCache={nullLoaderCache}
             beforeRenderer={ElementControls}
         >
             {children}

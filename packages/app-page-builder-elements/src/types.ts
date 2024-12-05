@@ -6,6 +6,7 @@ import React, { HTMLAttributes } from "react";
 import { type CSSObject } from "@emotion/react";
 import { StylesObject, ThemeBreakpoints, Theme } from "@webiny/theme/types";
 import { ElementInputs, ElementInputValues } from "~/inputs/ElementInput";
+import { ILoaderCache } from "~/hooks/useLoader/ILoaderCache";
 
 export interface Page {
     id: string;
@@ -34,6 +35,7 @@ export interface PageElementsProviderProps {
     beforeRenderer?: React.ComponentType | null;
     afterRenderer?: React.ComponentType | null;
     children?: React.ReactNode;
+    loaderCache: ILoaderCache;
 }
 
 export type AttributesObject = React.ComponentProps<any>;

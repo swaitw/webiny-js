@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { css } from "emotion";
 import { plugins } from "@webiny/plugins";
 import ElementPreview from "./SaveDialog/ElementPreview";
 import { CircularProgress } from "@webiny/ui/Progress";
 import { PageElementsProvider } from "~/contexts/PageBuilder/PageElementsProvider";
+import { NullLoaderCache } from "@webiny/app-page-builder-elements/hooks/useLoader/NullLoaderCache";
 
 import {
     Dialog,
@@ -91,6 +92,10 @@ const SaveDialog = (props: Props) => {
         }
     };
 
+    const nullLoaderCache = useMemo(() => {
+        return new NullLoaderCache();
+    }, []);
+
     return (
         <Dialog open={open} onClose={onClose} className={narrowDialog}>
             <Form onSubmit={onSubmit} data={{ type, id: element.id }}>
@@ -142,7 +147,7 @@ const SaveDialog = (props: Props) => {
                             <Grid>
                                 <Cell span={12}>
                                     <PreviewBox>
-                                        <PageElementsProvider>
+                                        <PageElementsProvider loaderCache={nullLoaderCache}>
                                             <ElementPreview element={pbElement} />
                                         </PageElementsProvider>
                                     </PreviewBox>

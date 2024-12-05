@@ -25,11 +25,25 @@ export interface RenderApolloState {
 /**
  * @internal
  */
+
+export interface GraphQLCacheEntry {
+    query: any;
+    variables: Record<string, any>;
+    data: Record<string, any>;
+}
+
+export interface PeLoaderCacheEntry {
+    key: string;
+    value: string;
+}
+
 export interface RenderResult {
     content: string;
     meta: {
         apolloState: RenderApolloState;
-        gqlCache: {
+        cachedData: {
+            apolloGraphQl: GraphQLCacheEntry[];
+            peLoaders: PeLoaderCacheEntry[];
             [key: string]: any;
         };
         [key: string]: any;

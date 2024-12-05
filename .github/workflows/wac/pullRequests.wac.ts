@@ -210,7 +210,10 @@ export const pullRequests = createWorkflow({
         assignMilestone: createJob({
             name: "Assign milestone",
             needs: "constants",
-            if: "needs.constants.outputs.is-fork-pr != 'true'",
+            if: [
+                "needs.constants.outputs.is-fork-pr != 'true'",
+                "github.event.pull_request.milestone == null"
+            ].join(" && "),
             steps: [
                 {
                     name: "Print latest Webiny version",

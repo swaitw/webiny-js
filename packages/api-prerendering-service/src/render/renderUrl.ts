@@ -14,8 +14,11 @@ import injectRenderTs from "./injectRenderTs";
 import injectTenantLocale from "./injectTenantLocale";
 import injectNotFoundPageFlag from "./injectNotFoundPageFlag";
 import getPsTags from "./getPsTags";
+import extractPeLoaderDataFromHtml from "./extractPeLoaderDataFromHtml";
 import { generateAlphaNumericId } from "@webiny/utils/generateId";
 import {
+    GraphQLCacheEntry,
+    PeLoaderCacheEntry,
     RenderResult,
     RenderUrlCallableParams,
     RenderUrlParams,
@@ -108,8 +111,8 @@ export default async (url: string, args: RenderUrlParams): Promise<[File[], Meta
                 }
             },
             {
-                name: "graphql.json",
-                body: JSON.stringify(render.meta.gqlCache),
+                name: "cache.json",
+                body: JSON.stringify(render.meta.cachedData),
                 type: "application/json",
                 meta: {}
             }
@@ -117,12 +120,6 @@ export default async (url: string, args: RenderUrlParams): Promise<[File[], Meta
         allArgs
     ];
 };
-
-interface GraphQLCache {
-    query: any;
-    variables: Record<string, any>;
-    data: Record<string, any>;
-}
 
 export const defaultRenderUrlFunction = async (
     url: string,
@@ -168,7 +165,13 @@ export const defaultRenderUrlFunction = async (
             }
         });
 
-        const gqlCache: GraphQLCache[] = [];
+        const cachedData: {
+            apolloGraphQl: GraphQLCacheEntry[];
+            peLoaders: PeLoaderCacheEntry[];
+        } = {
+            apolloGraphQl: [],
+            peLoaders: []
+        };
 
         // TODO: should be a plugin.
         browserPage.on("response", async response => {
@@ -189,7 +192,7 @@ export const defaultRenderUrlFunction = async (
 
                     if (mustCache) {
                         const data = Array.isArray(responses) ? responses[i].data : responses.data;
-                        gqlCache.push({
+                        cachedData.apolloGraphQl.push({
                             query,
                             variables,
                             data
@@ -208,11 +211,15 @@ export const defaultRenderUrlFunction = async (
             return window.getApolloState();
         });
 
+        const content = await browserPage.content();
+
+        cachedData.peLoaders = extractPeLoaderDataFromHtml(content);
+
         return {
-            content: await browserPage.content(),
+            content,
             // TODO: ideally, meta should be assigned here in a more "plugins style" way, not hardcoded.
             meta: {
-                gqlCache,
+                cachedData,
                 apolloState
             }
         };

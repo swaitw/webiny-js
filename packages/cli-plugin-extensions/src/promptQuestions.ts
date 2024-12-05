@@ -23,10 +23,7 @@ export const promptQuestions: QuestionCollection = [
         choices: [
             { name: "Admin extension", value: "admin" },
             { name: "API extension", value: "api" },
-
-            // TODO: Bring back when we design the new PB Element React Configs API.
-            // { name: "Page Builder element", value: "pbElement" },
-
+            { name: "Page Builder element", value: "pbElement" },
             { name: "Website extension", value: "website" }
         ]
     },

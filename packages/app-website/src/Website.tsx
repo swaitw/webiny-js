@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { App, AppProps, Decorator, GenericComponent } from "@webiny/app";
 import { ApolloProvider } from "@apollo/react-hooks";
 import { CacheProvider } from "@emotion/react";
@@ -9,6 +9,7 @@ import { PageBuilderProvider } from "@webiny/app-page-builder/contexts/PageBuild
 import { PageBuilder } from "@webiny/app-page-builder/render";
 import { RouteProps } from "@webiny/react-router";
 import { LinkPreload } from "~/LinkPreload";
+import { WebsiteLoaderCache } from "~/utils/WebsiteLoaderCache";
 
 export interface WebsiteProps extends AppProps {
     apolloClient?: ReturnType<typeof createApolloClient>;
@@ -17,9 +18,13 @@ export interface WebsiteProps extends AppProps {
 const PageBuilderProviderHOC: Decorator<
     GenericComponent<{ children: React.ReactNode }>
 > = PreviousProvider => {
+    const websiteLoaderCache = useMemo(() => {
+        return new WebsiteLoaderCache();
+    }, []);
+
     return function PageBuilderProviderHOC({ children }) {
         return (
-            <PageBuilderProvider>
+            <PageBuilderProvider loaderCache={websiteLoaderCache}>
                 <PreviousProvider>{children}</PreviousProvider>
             </PageBuilderProvider>
         );

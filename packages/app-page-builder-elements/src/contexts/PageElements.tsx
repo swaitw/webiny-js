@@ -31,7 +31,8 @@ export const PageElementsProvider = ({
     renderers = {},
     modifiers,
     beforeRenderer = null,
-    afterRenderer = null
+    afterRenderer = null,
+    loaderCache
 }: PageElementsProviderProps) => {
     // Attributes-related callbacks.
     const getElementAttributes = useCallback<GetElementAttributes>(
@@ -42,7 +43,8 @@ export const PageElementsProvider = ({
                 renderers,
                 modifiers,
                 beforeRenderer,
-                afterRenderer
+                afterRenderer,
+                loaderCache
             });
         },
         [theme]
@@ -79,7 +81,8 @@ export const PageElementsProvider = ({
                 modifiers,
                 assignStyles: customAssignStylesCallback,
                 beforeRenderer,
-                afterRenderer
+                afterRenderer,
+                loaderCache
             });
         },
         [theme, customElementStylesCallback, customAssignStylesCallback]
@@ -95,7 +98,8 @@ export const PageElementsProvider = ({
                 modifiers,
                 assignStyles: customAssignStylesCallback,
                 beforeRenderer,
-                afterRenderer
+                afterRenderer,
+                loaderCache
             });
         },
         [theme, customStylesCallback, customAssignStylesCallback]
@@ -122,7 +126,8 @@ export const PageElementsProvider = ({
         setElementStylesCallback,
         setStylesCallback,
         beforeRenderer,
-        afterRenderer
+        afterRenderer,
+        loaderCache
     };
 
     return (

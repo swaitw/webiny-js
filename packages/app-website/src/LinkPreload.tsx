@@ -5,6 +5,7 @@ import { makeDecoratable } from "@webiny/app";
 import { Link, To } from "@webiny/react-router";
 import { getPrerenderId, isPrerendering } from "@webiny/app/utils";
 import { GET_PUBLISHED_PAGE } from "./Page/graphql";
+import { usePageElements } from "@webiny/app-page-builder-elements";
 
 const preloadedPaths: string[] = [];
 
@@ -23,6 +24,8 @@ const defaultGetPreloadPagePath: GetPreloadPagePath = path => {
 const useLinkPreload = (path: string | To, options: LinkPreloadOptions) => {
     const getPreloadPagePath = options.getPreloadPagePath ?? defaultGetPreloadPagePath;
 
+    const { loaderCache } = usePageElements();
+
     const apolloClient = useApolloClient();
     const preloadPath = async (pathname: string) => {
         // We only need a clean pathname, without query parameters.
@@ -34,22 +37,32 @@ const useLinkPreload = (path: string | To, options: LinkPreloadOptions) => {
 
         preloadedPaths.push(pathname);
 
-        const graphqlJson = `graphql.json?k=${getPrerenderId()}`;
+        const graphqlJson = `cache.json?k=${getPrerenderId()}`;
         const fetchPath = pathname !== "/" ? `${pathname}/${graphqlJson}` : `/${graphqlJson}`;
         const pageState = await fetch(fetchPath.replace("//", "/"))
             .then(res => res.json())
             .catch(() => null);
 
         if (pageState) {
-            for (let i = 0; i < pageState.length; i++) {
-                const { query, variables, data } = pageState[i];
-                apolloClient.writeQuery({
-                    query: gql`
-                        ${query}
-                    `,
-                    data,
-                    variables
-                });
+            const { apolloGraphQl, peLoaders } = pageState;
+            if (Array.isArray(apolloGraphQl)) {
+                for (let i = 0; i < apolloGraphQl.length; i++) {
+                    const { query, variables, data } = apolloGraphQl[i];
+                    apolloClient.writeQuery({
+                        query: gql`
+                            ${query}
+                        `,
+                        data,
+                        variables
+                    });
+                }
+            }
+
+            if (Array.isArray(peLoaders)) {
+                for (let i = 0; i < peLoaders.length; i++) {
+                    const { key, value } = peLoaders[i];
+                    loaderCache.write(key, value);
+                }
             }
         } else {
             const finalPath = getPreloadPagePath(pathname);
