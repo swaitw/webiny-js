@@ -93,9 +93,26 @@ export const generateExtension = async ({ input, ora, context }: GenerateExtensi
                 }
 
                 try {
-                    const { stdout } = await execa("npm", ["view", packageName, "version", "json"]);
+                    const parsedPackageName = (() => {
+                        const parts = packageName.split("@");
+                        if (packageName.startsWith("@")) {
+                            return { name: parts[0] + parts[1], version: parts[2] };
+                        }
 
-                    packageJsonUpdates[packageName] = `^${stdout}`;
+                        return { name: parts[0], version: parts[1] };
+                    })();
+
+                    if (parsedPackageName.version) {
+                        packageJsonUpdates[parsedPackageName.name] = parsedPackageName.version;
+                    } else {
+                        const { stdout } = await execa("npm", [
+                            "view",
+                            parsedPackageName.name,
+                            "version"
+                        ]);
+
+                        packageJsonUpdates[packageName] = `^${stdout}`;
+                    }
                 } catch (e) {
                     throw new Error(
                         `Could not find ${log.error.hl(
