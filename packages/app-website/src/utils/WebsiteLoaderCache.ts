@@ -1,6 +1,6 @@
 import type { ILoaderCache } from "@webiny/app-page-builder-elements/hooks/useLoader/ILoaderCache";
 import { getPrerenderId, isPrerendering } from "@webiny/app/utils";
-import { PeLoaderHtmlCache } from "~/utils/WebsiteLoaderCache/PeLoaderHtmlCache";
+import { PeLoaderHtmlCache } from "./WebsiteLoaderCache/PeLoaderHtmlCache";
 
 export class WebsiteLoaderCache implements ILoaderCache {
     private loaderCache: Record<string, any> = {};
@@ -19,7 +19,12 @@ export class WebsiteLoaderCache implements ILoaderCache {
         return this.loaderCache[key];
     }
 
-    write<TData = unknown>(key: string, value: TData) {
+    write<TData = unknown>(key: string, rawValue: TData) {
+        // We assume it's compressed data if the value is a string.
+        const value = PeLoaderHtmlCache.isCompressedData<TData>(rawValue)
+            ? PeLoaderHtmlCache.decompressData(rawValue as string)
+            : rawValue;
+
         this.loaderCache[key] = value;
 
         if (isPrerendering()) {

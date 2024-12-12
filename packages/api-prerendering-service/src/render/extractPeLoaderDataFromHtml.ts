@@ -1,5 +1,4 @@
 import { PeLoaderCacheEntry } from "./types";
-import he from "he";
 
 const parsePeLoaderDataCacheTag = (content: string): PeLoaderCacheEntry | null => {
     const regex =
@@ -14,10 +13,7 @@ const parsePeLoaderDataCacheTag = (content: string): PeLoaderCacheEntry | null =
 
         const [, key, value] = m;
 
-        // JSON in `data-value` is HTML Entities-encoded. So, we need to decode it here first.
-        const heParsedValue = he.decode(value);
-        const parsedValue = JSON.parse(heParsedValue);
-        return { key, value: parsedValue };
+        return { key, value };
     }
 
     return null;
