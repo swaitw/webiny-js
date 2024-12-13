@@ -5,6 +5,7 @@ import chalk from "chalk";
 import { JsxFragment, Node, Project } from "ts-morph";
 import { formatCode } from "@webiny/cli-plugin-scaffold/utils";
 import { updateDependencies, updateWorkspaces } from "~/utils";
+import Case from "case";
 
 export class AdminExtension extends AbstractExtension {
     async link() {
@@ -38,12 +39,10 @@ export class AdminExtension extends AbstractExtension {
     }
 
     private async addPluginToAdminApp() {
-        const { name, packageName } = this.params;
-
         const extensionsFilePath = path.join("apps", "admin", "src", "Extensions.tsx");
 
-        const ucFirstName = name.charAt(0).toUpperCase() + name.slice(1);
-        const componentName = ucFirstName + "Extension";
+        const { packageName } = this.params;
+        const componentName = Case.pascal(packageName) + "Extension";
 
         const importName = "{ Extension as " + componentName + " }";
         const importPath = packageName;

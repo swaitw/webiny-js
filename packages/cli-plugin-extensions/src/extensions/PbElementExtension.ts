@@ -5,6 +5,7 @@ import chalk from "chalk";
 import { JsxFragment, Node, Project } from "ts-morph";
 import { formatCode } from "@webiny/cli-plugin-scaffold/utils";
 import { updateDependencies, updateWorkspaces } from "~/utils";
+import Case from "case";
 
 export class PbElementExtension extends AbstractExtension {
     async link() {
@@ -46,12 +47,10 @@ export class PbElementExtension extends AbstractExtension {
     }
 
     private async addPluginToApp(app: "admin" | "website") {
-        const { name: extensionName, packageName } = this.params;
-
         const extensionsFilePath = path.join("apps", app, "src", "Extensions.tsx");
 
-        const ucFirstExtName = extensionName.charAt(0).toUpperCase() + extensionName.slice(1);
-        const componentName = ucFirstExtName + "Extension";
+        const { packageName } = this.params;
+        const componentName = Case.pascal(packageName) + "Extension";
 
         const importName = "{ Extension as " + componentName + " }";
         const importPath = packageName + "/src/" + app;
