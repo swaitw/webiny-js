@@ -1,9 +1,17 @@
 import type { PbRenderElementPlugin as BasePbRenderElementPlugin } from "@webiny/app-page-builder/types";
 import { legacyPluginToReactComponent } from "@webiny/app/utils";
 
-export const PbRenderElementPlugin = legacyPluginToReactComponent<
-    Pick<BasePbRenderElementPlugin, "elementType" | "render">
->({
+interface PbRenderElementPluginProps extends Pick<BasePbRenderElementPlugin, "elementType"> {
+    renderer: BasePbRenderElementPlugin["render"];
+}
+
+export const PbRenderElementPlugin = legacyPluginToReactComponent<PbRenderElementPluginProps>({
     pluginType: "pb-render-page-element",
-    componentDisplayName: "PbRenderElementPlugin"
+    componentDisplayName: "PbRenderElementPlugin",
+    mapProps: props => {
+        return {
+            ...props,
+            render: props.renderer
+        };
+    }
 });

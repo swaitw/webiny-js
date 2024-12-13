@@ -1,8 +1,10 @@
 import type { PbEditorPageElementPlugin as BasePbEditorPageElementPlugin } from "~/types";
+import type { Renderer } from "@webiny/app-page-builder-elements/types";
+
 import { legacyPluginToReactComponent } from "@webiny/app/utils";
 
-export const PbEditorPageElementPlugin = legacyPluginToReactComponent<
-    Pick<
+export interface PbEditorPageElementPluginProps
+    extends Pick<
         BasePbEditorPageElementPlugin,
         | "elementType"
         | "toolbar"
@@ -10,15 +12,24 @@ export const PbEditorPageElementPlugin = legacyPluginToReactComponent<
         | "target"
         | "settings"
         | "create"
-        | "render"
         | "canDelete"
         | "canReceiveChildren"
         | "onReceived"
         | "onChildDeleted"
         | "onCreate"
         | "renderElementPreview"
-    >
->({
-    pluginType: "pb-editor-page-element",
-    componentDisplayName: "PbEditorPageElementPlugin"
-});
+    > {
+    renderer: Renderer;
+}
+
+export const PbEditorPageElementPlugin =
+    legacyPluginToReactComponent<PbEditorPageElementPluginProps>({
+        pluginType: "pb-editor-page-element",
+        componentDisplayName: "PbEditorPageElementPlugin",
+        mapProps: props => {
+            return {
+                ...props,
+                render: props.renderer
+            };
+        }
+    });
