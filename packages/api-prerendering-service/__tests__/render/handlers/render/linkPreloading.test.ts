@@ -15,7 +15,9 @@ describe(`"renderUrl" Function Test`, () => {
             renderUrlFunction: async () => {
                 return {
                     content: BASE_HTML,
-                    meta: {}
+                    meta: {
+                        interceptedRequests: []
+                    }
                 };
             }
         });
@@ -58,7 +60,9 @@ describe(`"renderUrl" Function Test`, () => {
             renderUrlFunction: async () => {
                 return {
                     content: BASE_HTML,
-                    meta: {}
+                    meta: {
+                        interceptedRequests: []
+                    }
                 };
             }
         });
