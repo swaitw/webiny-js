@@ -239,6 +239,25 @@ const createBaseContextPlugin = () => {
             return results;
         };
 
+        const withLocale: I18NContextObject["withLocale"] = async (locale, cb) => {
+            const initialLocale = getDefaultLocale();
+            if (!initialLocale) {
+                return;
+            }
+
+            setContentLocale(locale);
+            setCurrentLocale("default", locale);
+
+            try {
+                // We have to await the callback, because, in case it's an async function,
+                // the `finally` block would get executed before the callback finishes.
+                return await cb();
+            } finally {
+                setContentLocale(initialLocale);
+                setCurrentLocale("default", initialLocale);
+            }
+        };
+
         context.i18n = {
             ...context.i18n,
             getDefaultLocale,
@@ -252,7 +271,8 @@ const createBaseContextPlugin = () => {
             reloadLocales,
             hasI18NContentPermission: () => hasI18NContentPermission(context),
             checkI18NContentPermission,
-            withEachLocale
+            withEachLocale,
+            withLocale
         };
     });
 };

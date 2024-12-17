@@ -8,8 +8,12 @@ import i18nContext from "@webiny/api-i18n/graphql/context";
 import { mockLocalesPlugins } from "@webiny/api-i18n/graphql/testing";
 import { SecurityIdentity, SecurityPermission } from "@webiny/api-security/types";
 import { createFormBuilder } from "~/index";
+import { createI18NGraphQL } from "@webiny/api-i18n/graphql";
+
 // Graphql
 import { INSTALL as INSTALL_FILE_MANAGER } from "./graphql/fileManagerSettings";
+import { CREATE_LOCALE } from "./graphql/i18n";
+
 import {
     GET_SETTINGS,
     INSTALL,
@@ -41,11 +45,7 @@ import { PluginCollection } from "@webiny/plugins/types";
 import { getStorageOps } from "@webiny/project-utils/testing/environment";
 import { FileManagerStorageOperations } from "@webiny/api-file-manager/types";
 import { HeadlessCmsStorageOperations } from "@webiny/api-headless-cms/types";
-import {
-    CmsParametersPlugin,
-    createHeadlessCmsContext,
-    createHeadlessCmsGraphQL
-} from "@webiny/api-headless-cms";
+import { createHeadlessCmsContext, createHeadlessCmsGraphQL } from "@webiny/api-headless-cms";
 import { FormBuilderStorageOperations } from "~/types";
 import { APIGatewayEvent, LambdaContext } from "@webiny/handler-aws/types";
 import { createPageBuilderContext } from "@webiny/api-page-builder";
@@ -83,14 +83,9 @@ export default (params: UseGqlHandlerParams = {}) => {
             graphqlHandlerPlugins(),
             ...createTenancyAndSecurity({ permissions, identity }),
             i18nContext(),
+            createI18NGraphQL(),
             i18nStorage.storageOperations,
             mockLocalesPlugins(),
-            new CmsParametersPlugin(async () => {
-                return {
-                    locale: "en-US",
-                    type: "manage"
-                };
-            }),
             createHeadlessCmsContext({ storageOperations: cmsStorage.storageOperations }),
             createHeadlessCmsGraphQL(),
             createPageBuilderContext({
@@ -228,6 +223,11 @@ export default (params: UseGqlHandlerParams = {}) => {
         },
         async exportFormSubmissions(variables: Record<string, any>) {
             return invoke({ body: { query: EXPORT_FORM_SUBMISSIONS, variables } });
+        },
+
+        // Locales.
+        async createI18NLocale(variables: Record<string, any>) {
+            return invoke({ body: { query: CREATE_LOCALE, variables } });
         }
     };
 };

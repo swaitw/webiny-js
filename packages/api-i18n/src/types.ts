@@ -44,6 +44,10 @@ export interface I18NContextObject {
         locales: I18NLocale[],
         cb: (locale: I18NLocale) => Promise<TReturn>
     ) => Promise<TReturn[] | undefined>;
+    withLocale: <TReturn>(
+        locale: I18NLocale,
+        cb: () => Promise<TReturn>
+    ) => Promise<TReturn | undefined>;
 }
 
 export interface SystemInstallParams {
