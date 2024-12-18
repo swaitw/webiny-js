@@ -15,15 +15,18 @@ import { CliContext } from "@webiny/cli/types";
 import { Ora } from "ora";
 
 const EXTENSIONS_ROOT_FOLDER = "extensions";
-
 const S3_BUCKET_NAME = "webiny-examples";
 const S3_BUCKET_REGION = "us-east-1";
+const FOLDER_NAME_IS_VERSION_REGEX = /^\d+\.\d+\.x$/;
 
 const getVersionFromVersionFolders = async (
     versionFoldersList: string[],
     currentWebinyVersion: string
 ) => {
-    const availableVersions = versionFoldersList.map(v => v.replace(".x", ".0")).sort();
+    const availableVersions = versionFoldersList
+        .filter(v => v.match(FOLDER_NAME_IS_VERSION_REGEX))
+        .map(v => v.replace(".x", ".0"))
+        .sort();
 
     let versionToUse = "";
 
