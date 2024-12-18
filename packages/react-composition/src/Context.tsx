@@ -10,6 +10,7 @@ import { useCompositionScope } from "~/CompositionScope";
 import {
     ComposedFunction,
     ComposeWith,
+    Decoratable,
     DecoratableComponent,
     DecoratableHook,
     Decorator,
@@ -70,35 +71,56 @@ interface CompositionContext {
 
 const CompositionContext = createContext<CompositionContext | undefined>(undefined);
 
+export type DecoratorsTuple = [Decoratable, Decorator<any>[]];
+export type DecoratorsCollection = Array<DecoratorsTuple>;
+
 interface CompositionProviderProps {
+    decorators?: DecoratorsCollection;
     children: React.ReactNode;
 }
 
-export const CompositionProvider = ({ children }: CompositionProviderProps) => {
-    const [components, setComponents] = useState<ComponentScopes>(new Map());
+const composeComponents = (
+    components: ComponentScopes,
+    decorators: Array<[GenericComponent | GenericHook, Decorator<any>[]]>,
+    scope = "*"
+) => {
+    const scopeMap: ComposedComponents = components.get(scope) || new Map();
+    for (const [component, hocs] of decorators) {
+        const recipe = scopeMap.get(component) || { component: null, hocs: [] };
+
+        const newHocs = [...(recipe.hocs || []), ...hocs] as Decorator<
+            GenericHook | GenericComponent
+        >[];
+
+        scopeMap.set(component, {
+            component: compose(...[...newHocs].reverse())(component),
+            hocs: newHocs
+        });
+
+        components.set(scope, scopeMap);
+    }
+
+    return components;
+};
+
+export const CompositionProvider = ({ decorators = [], children }: CompositionProviderProps) => {
+    const [components, setComponents] = useState<ComponentScopes>(() => {
+        return composeComponents(
+            new Map(),
+            decorators.map(tuple => {
+                return [tuple[0].original, tuple[1]];
+            })
+        );
+    });
 
     const composeComponent = useCallback(
         (
-            component: GenericHook | GenericComponent,
+            component: GenericComponent | GenericHook,
             hocs: HigherOrderComponent<any, any>[],
             scope: string | undefined = "*"
         ) => {
             setComponents(prevComponents => {
-                const components = new Map(prevComponents);
-                const scopeMap: ComposedComponents = components.get(scope) || new Map();
-                const recipe = scopeMap.get(component) || { component: null, hocs: [] };
-
-                const newHocs = [...(recipe.hocs || []), ...hocs] as Decorator<
-                    GenericHook | GenericComponent
-                >[];
-
-                scopeMap.set(component, {
-                    component: compose(...[...newHocs].reverse())(component),
-                    hocs: newHocs
-                });
-
-                components.set(scope, scopeMap);
-                return components;
+                return composeComponents(new Map(prevComponents), [[component, hocs]], scope);
             });
 
             // Return a function that will remove the added HOCs.

@@ -6,7 +6,7 @@ import { LexicalParagraphRenderer } from "~/render/plugins/elements/paragraph/Le
 import { LexicalHeadingRenderer } from "~/render/plugins/elements/heading/LexicalHeading";
 import { ConvertIconSettings } from "~/render/plugins/elementSettings/icon";
 
-export const PageBuilder = () => {
+export const PageBuilder = React.memo(() => {
     return (
         <>
             <AddButtonLinkComponent />
@@ -17,4 +17,6 @@ export const PageBuilder = () => {
             <ConvertIconSettings />
         </>
     );
-};
+});
+
+PageBuilder.displayName = "PageBuilder";

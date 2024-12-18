@@ -98,6 +98,7 @@ const HeaderMobileWrapper = styled.div`
         }
 
         > nav {
+            display: none;
             -moz-osx-font-smoothing: grayscale;
             -webkit-font-smoothing: antialiased;
             animation: slide-out 0.5s forwards;

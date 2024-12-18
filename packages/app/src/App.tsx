@@ -13,7 +13,8 @@ import {
     GenericComponent,
     compose,
     Decorator,
-    HigherOrderComponent
+    HigherOrderComponent,
+    DecoratorsCollection
 } from "@webiny/react-composition";
 import { Routes as SortRoutes } from "./core/Routes";
 import { DebounceRender } from "./core/DebounceRender";
@@ -53,6 +54,7 @@ export interface AppProps {
     debounceRender?: number;
     routes?: Array<RouteProps>;
     providers?: Array<Decorator<GenericComponent<ProviderProps>>>;
+    decorators?: DecoratorsCollection;
     children?: React.ReactNode | React.ReactNode[];
 }
 
@@ -62,7 +64,13 @@ interface ProviderProps {
 
 type ComponentWithChildren = React.ComponentType<{ children?: React.ReactNode }>;
 
-export const App = ({ debounceRender = 50, routes = [], providers = [], children }: AppProps) => {
+export const App = ({
+    debounceRender = 50,
+    routes = [],
+    providers = [],
+    decorators = [],
+    children
+}: AppProps) => {
     const [state, setState] = useState<State>({
         routes: routes.reduce<RoutesByPath>((acc, item) => {
             return { ...acc, [item.path as string]: <Route {...item} /> };
@@ -129,7 +137,7 @@ export const App = ({ debounceRender = 50, routes = [], providers = [], children
 
     return (
         <AppContext.Provider value={appContext}>
-            <CompositionProvider>
+            <CompositionProvider decorators={decorators}>
                 {children}
                 <BrowserRouter>
                     <Providers>
