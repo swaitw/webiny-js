@@ -18,6 +18,7 @@ import {
     ParentValueIndexProvider,
     ModelFieldProvider
 } from "~/admin/components/ModelFieldProvider";
+import { useConfirmationDialog } from "@webiny/app-admin";
 
 type GetBind = CmsModelFieldRendererProps["getBind"];
 
@@ -34,6 +35,12 @@ export const SingleValueDynamicZone = ({
     contentModel,
     getBind
 }: SingleValueDynamicZoneProps) => {
+    const { showConfirmation } = useConfirmationDialog({
+        message: `Are you sure you want to remove this item? This action is not reversible.`,
+        acceptLabel: `Yes, I'm sure!`,
+        cancelLabel: `No, leave it.`
+    });
+
     const onTemplate = (template: CmsDynamicZoneTemplateWithTypename) => {
         bind.onChange({ _templateId: template.id, __typename: template.__typename });
     };
@@ -47,7 +54,9 @@ export const SingleValueDynamicZone = ({
     const Bind = getBind();
 
     const unsetValue = () => {
-        bind.onChange(null);
+        showConfirmation(() => {
+            bind.onChange(null);
+        });
     };
 
     return (

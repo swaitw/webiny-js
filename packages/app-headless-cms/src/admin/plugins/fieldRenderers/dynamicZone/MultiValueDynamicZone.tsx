@@ -22,6 +22,7 @@ import {
 import { makeDecoratable } from "@webiny/react-composition";
 import { TemplateProvider } from "~/admin/plugins/fieldRenderers/dynamicZone/TemplateProvider";
 import { ParentValueIndexProvider } from "~/admin/components/ModelFieldProvider";
+import { useConfirmationDialog } from "@webiny/app-admin";
 
 const BottomMargin = styled.div`
     margin-bottom: 20px;
@@ -189,6 +190,12 @@ interface MultiValueDynamicZoneProps {
 }
 
 export const MultiValueDynamicZone = (props: MultiValueDynamicZoneProps) => {
+    const { showConfirmation } = useConfirmationDialog({
+        message: `Are you sure you want to delete this item? This action is not reversible.`,
+        acceptLabel: `Yes, I'm sure!`,
+        cancelLabel: `No, leave it.`
+    });
+
     const { bind, getBind, contentModel } = props;
     const onTemplate = (template: CmsDynamicZoneTemplateWithTypename) => {
         bind.appendValue({ _templateId: template.id, __typename: template.__typename });
@@ -211,6 +218,12 @@ export const MultiValueDynamicZone = (props: MultiValueDynamicZoneProps) => {
                         {values.map((value, index) => {
                             const Bind = getBind(index);
 
+                            const onDelete = () => {
+                                showConfirmation(() => {
+                                    bind.removeValue(index);
+                                });
+                            };
+
                             return (
                                 <ParentValueIndexProvider key={index} index={index}>
                                     <TemplateValueForm
@@ -221,7 +234,7 @@ export const MultiValueDynamicZone = (props: MultiValueDynamicZoneProps) => {
                                         isLast={index === values.length - 1}
                                         onMoveUp={() => bind.moveValueUp(index)}
                                         onMoveDown={() => bind.moveValueDown(index)}
-                                        onDelete={() => bind.removeValue(index)}
+                                        onDelete={onDelete}
                                         onClone={value => cloneValue(value, index)}
                                     />
                                 </ParentValueIndexProvider>

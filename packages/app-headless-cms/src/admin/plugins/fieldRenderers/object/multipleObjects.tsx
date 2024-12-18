@@ -22,6 +22,7 @@ import {
 } from "./StyledComponents";
 import { generateAlphaNumericLowerCaseId } from "@webiny/utils";
 import { FieldSettings } from "~/admin/plugins/fieldRenderers/object/FieldSettings";
+import { useConfirmationDialog } from "@webiny/app-admin";
 
 const t = i18n.ns("app-headless-cms/admin/fields/text");
 
@@ -35,6 +36,12 @@ interface ActionsProps {
 }
 
 const Actions = ({ setHighlightIndex, bind, index }: ActionsProps) => {
+    const { showConfirmation } = useConfirmationDialog({
+        message: `Are you sure you want to delete this item? This action is not reversible.`,
+        acceptLabel: `Yes, I'm sure!`,
+        cancelLabel: `No, leave it.`
+    });
+
     const { moveValueDown, moveValueUp } = bind.field;
 
     const onDown = useCallback(
@@ -61,11 +68,21 @@ const Actions = ({ setHighlightIndex, bind, index }: ActionsProps) => {
         [moveValueUp, index]
     );
 
+    const onDelete = useCallback(
+        (ev: React.BaseSyntheticEvent) => {
+            ev.stopPropagation();
+            showConfirmation(() => {
+                bind.field.removeValue(index);
+            });
+        },
+        [index]
+    );
+
     return (
         <>
             <IconButton icon={<ArrowDown />} onClick={onDown} />
             <IconButton icon={<ArrowUp />} onClick={onUp} />
-            <IconButton icon={<DeleteIcon />} onClick={() => bind.field.removeValue(index)} />
+            <IconButton icon={<DeleteIcon />} onClick={onDelete} />
         </>
     );
 };
