@@ -1,17 +1,17 @@
-import { ElasticsearchContext } from "@webiny/api-elasticsearch/types";
-import { Entity } from "@webiny/db-dynamodb/toolbox";
-import {
+import type { ElasticsearchContext } from "@webiny/api-elasticsearch/types";
+import type {
     Context as TasksContext,
     IIsCloseToTimeoutCallable,
+    ITaskManagerStore,
+    ITaskResponse,
     ITaskResponseDoneResultOutput
 } from "@webiny/tasks/types";
-import { DynamoDBDocument } from "@webiny/aws-sdk/client-dynamodb";
-import { Client } from "@webiny/api-elasticsearch";
+import type { DynamoDBDocument } from "@webiny/aws-sdk/client-dynamodb";
+import type { Client } from "@webiny/api-elasticsearch";
 import { createTable } from "~/definitions";
-import { ITaskResponse } from "@webiny/tasks/response/abstractions";
-import { ITaskManagerStore } from "@webiny/tasks/runner/abstractions";
-import { BatchWriteItem, BatchWriteResult } from "@webiny/db-dynamodb";
-import { ITimer } from "@webiny/handler-aws";
+import type { BatchReadItem, IEntity } from "@webiny/db-dynamodb";
+import type { ITimer } from "@webiny/handler-aws";
+import type { GenericRecord } from "@webiny/api/types";
 import { Context as LoggerContext } from "@webiny/api-log/types";
 
 export interface Context extends ElasticsearchContext, TasksContext, LoggerContext {}
@@ -43,17 +43,18 @@ export interface IElasticsearchIndexingTaskValues {
 }
 
 export interface AugmentedError extends Error {
-    data?: Record<string, any>;
+    data?: GenericRecord;
     [key: string]: any;
 }
 
 export interface IDynamoDbElasticsearchRecord {
     PK: string;
     SK: string;
+    TYPE?: string;
     index: string;
     _et?: string;
     entity: string;
-    data: Record<string, any>;
+    data: GenericRecord;
     modified: string;
 }
 
@@ -71,7 +72,7 @@ export interface IManager<
     readonly store: ITaskManagerStore<T>;
     readonly timer: ITimer;
 
-    getEntity: (name: string) => Entity<any>;
+    getEntity: (name: string) => IEntity;
 
-    write: (items: BatchWriteItem[]) => Promise<BatchWriteResult>;
+    read<T>(items: BatchReadItem[]): Promise<T[]>;
 }

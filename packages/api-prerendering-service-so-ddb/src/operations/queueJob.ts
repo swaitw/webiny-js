@@ -1,14 +1,14 @@
 import WebinyError from "@webiny/error";
-import {
+import type {
     PrerenderingServiceQueueJobStorageOperations,
     PrerenderingServiceStorageOperationsCreateQueueJobParams,
     PrerenderingServiceStorageOperationsDeleteQueueJobsParams,
     QueueJob
 } from "@webiny/api-prerendering-service/types";
-import { Entity } from "@webiny/db-dynamodb/toolbox";
-import { batchWriteAll } from "@webiny/db-dynamodb/utils/batchWrite";
-import { queryAllClean, QueryAllParams } from "@webiny/db-dynamodb/utils/query";
-import { put } from "@webiny/db-dynamodb";
+import type { Entity } from "@webiny/db-dynamodb/toolbox";
+import { createEntityWriteBatch, put } from "@webiny/db-dynamodb";
+import type { QueryAllParams } from "@webiny/db-dynamodb/utils/query";
+import { queryAllClean } from "@webiny/db-dynamodb/utils/query";
 
 export interface CreateQueueJobStorageOperationsParams {
     entity: Entity<any>;
@@ -89,18 +89,18 @@ export const createQueueJobStorageOperations = (
     ) => {
         const { queueJobs } = params;
 
-        const items = queueJobs.map(job => {
-            return entity.deleteBatch({
-                PK: createQueueJobPartitionKey(),
-                SK: createQueueJobSortKey(job.id)
-            });
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            delete: queueJobs.map(job => {
+                return {
+                    PK: createQueueJobPartitionKey(),
+                    SK: createQueueJobSortKey(job.id)
+                };
+            })
         });
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
             return queueJobs;
         } catch (ex) {
             throw new WebinyError(

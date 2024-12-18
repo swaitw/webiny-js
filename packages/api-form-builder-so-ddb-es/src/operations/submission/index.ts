@@ -10,7 +10,7 @@ import {
 import { Entity, Table } from "@webiny/db-dynamodb/toolbox";
 import { Client } from "@elastic/elasticsearch";
 import WebinyError from "@webiny/error";
-import { batchReadAll } from "@webiny/db-dynamodb/utils/batchRead";
+import { batchReadAll } from "@webiny/db-dynamodb";
 import { sortItems } from "@webiny/db-dynamodb/utils/sort";
 import { createLimit, decodeCursor, encodeCursor } from "@webiny/api-elasticsearch";
 import {

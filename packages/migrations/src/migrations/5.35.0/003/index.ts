@@ -1,10 +1,11 @@
 import { Table } from "@webiny/db-dynamodb/toolbox";
 import { DataMigrationContext, PrimaryDynamoTableSymbol } from "@webiny/data-migration";
-import { queryOne, queryAll, batchWriteAll } from "~/utils";
+import { queryAll, queryOne } from "~/utils";
 import { createTenantEntity } from "./createTenantEntity";
 import { createLegacyUserEntity, createUserEntity, getUserData } from "./createUserEntity";
-import { makeInjectable, inject } from "@webiny/ioc";
+import { inject, makeInjectable } from "@webiny/ioc";
 import { executeWithRetry } from "@webiny/utils";
+import { createEntityWriteBatch } from "@webiny/db-dynamodb";
 
 export class AdminUsers_5_35_0_003 {
     private readonly newUserEntity: ReturnType<typeof createUserEntity>;
@@ -73,24 +74,27 @@ export class AdminUsers_5_35_0_003 {
                 continue;
             }
 
-            const newUsers = users
-                .filter(user => !user.data)
-                .map(user => {
-                    return this.newUserEntity.putBatch({
-                        PK: `T#${tenant.id}#ADMIN_USER#${user.id}`,
-                        SK: "A",
-                        GSI1_PK: `T#${tenant.id}#ADMIN_USERS`,
-                        GSI1_SK: user.email,
-                        TYPE: "adminUsers.user",
-                        ...getUserData(user),
-                        // Move all data to a `data` envelope
-                        data: getUserData(user)
-                    });
-                });
+            const newUsersEntityBatch = createEntityWriteBatch({
+                entity: this.newUserEntity,
+                put: users
+                    .filter(user => !user.data)
+                    .map(user => {
+                        return {
+                            PK: `T#${tenant.id}#ADMIN_USER#${user.id}`,
+                            SK: "A",
+                            GSI1_PK: `T#${tenant.id}#ADMIN_USERS`,
+                            GSI1_SK: user.email,
+                            TYPE: "adminUsers.user",
+                            ...getUserData(user),
+                            // Move all data to a `data` envelope
+                            data: getUserData(user)
+                        };
+                    })
+            });
 
-            await executeWithRetry(() =>
-                batchWriteAll({ table: this.newUserEntity.table, items: newUsers })
-            );
+            await executeWithRetry(async () => {
+                return await newUsersEntityBatch.execute();
+            });
         }
     }
 }

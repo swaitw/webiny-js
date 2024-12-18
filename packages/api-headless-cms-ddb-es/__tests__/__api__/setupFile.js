@@ -73,6 +73,9 @@ module.exports = () => {
             })
         });
 
+        createOrRefreshIndexSubscription.name =
+            "headlessCmsDdbEs.context.createOrRefreshIndexSubscription";
+
         return {
             storageOperations: createStorageOperations({
                 documentClient,

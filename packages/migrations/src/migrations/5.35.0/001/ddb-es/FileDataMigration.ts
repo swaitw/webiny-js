@@ -5,12 +5,12 @@ import { PrimitiveValue } from "@webiny/api-elasticsearch/types";
 import { executeWithRetry } from "@webiny/utils";
 import { DataMigration, DataMigrationContext } from "@webiny/data-migration";
 import {
-    createStandardEntity,
-    queryOne,
-    queryAll,
     batchWriteAll,
+    createStandardEntity,
+    esGetIndexName,
     esQueryAllWithCallback,
-    esGetIndexName
+    queryAll,
+    queryOne
 } from "~/utils";
 import { createFileEntity, getFileData, legacyAttributes } from "../entities/createFileEntity";
 import { createLocaleEntity } from "../entities/createLocaleEntity";
@@ -160,8 +160,11 @@ export class FileManager_5_35_0_001_FileData implements DataMigration<FileMigrat
 
                         const execute = () => {
                             return Promise.all(
-                                chunk(items, 200).map(fileChunk => {
-                                    return batchWriteAll({
+                                chunk(items, 200).map(async fileChunk => {
+                                    /**
+                                     * Leave batch write for now.
+                                     */
+                                    return await batchWriteAll({
                                         table: this.newFileEntity.table,
                                         items: fileChunk
                                     });

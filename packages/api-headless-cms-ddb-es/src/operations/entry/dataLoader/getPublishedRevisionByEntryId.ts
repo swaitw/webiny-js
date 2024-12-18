@@ -1,5 +1,5 @@
 import DataLoader from "dataloader";
-import { batchReadAll } from "@webiny/db-dynamodb/utils/batchRead";
+import { batchReadAll } from "@webiny/db-dynamodb";
 import { cleanupItems } from "@webiny/db-dynamodb/utils/cleanup";
 import { CmsStorageEntry } from "@webiny/api-headless-cms/types";
 import { createPartitionKey, createPublishedSortKey } from "~/operations/entry/keys";

@@ -14,7 +14,6 @@
     "@webiny/aws-sdk": "0.0.0",
     "@webiny/db": "0.0.0",
     "@webiny/error": "0.0.0",
-    "@webiny/handler-db": "0.0.0",
     "@webiny/plugins": "0.0.0",
     "@webiny/utils": "0.0.0",
     "date-fns": "^2.22.1",

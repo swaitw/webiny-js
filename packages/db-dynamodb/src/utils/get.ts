@@ -1,12 +1,14 @@
 import { Entity } from "~/toolbox";
 import { cleanupItem } from "~/utils/cleanup";
 
+export interface GetRecordParamsKeys {
+    PK: string;
+    SK: string;
+}
+
 export interface GetRecordParams {
     entity: Entity;
-    keys: {
-        PK: string;
-        SK: string;
-    };
+    keys: GetRecordParamsKeys;
 }
 
 /**

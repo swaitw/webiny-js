@@ -272,15 +272,15 @@ export class CmsEntriesRootFolder_5_37_0_002
                     );
                 }
 
-                const execute = () => {
-                    return batchWriteAll({
+                const execute = async () => {
+                    return await batchWriteAll({
                         table: this.ddbEntryEntity.table,
                         items: ddbItems
                     });
                 };
 
-                const executeDdbEs = () => {
-                    return batchWriteAll({
+                const executeDdbEs = async () => {
+                    return await batchWriteAll({
                         table: this.ddbEsEntryEntity.table,
                         items: ddbEsItems
                     });

@@ -7,8 +7,6 @@ import { createLocaleEntity } from "../entities/createLocaleEntity";
 import { createTenantEntity } from "../entities/createTenantEntity";
 import { createDdbEntryEntity, createDdbEsEntryEntity } from "../entities/createEntryEntity";
 import {
-    batchWriteAll,
-    BatchWriteItem,
     esFindOne,
     esGetIndexExist,
     esGetIndexName,
@@ -20,6 +18,7 @@ import { CmsEntryAcoFolder, I18NLocale, ListLocalesParams, Tenant } from "../typ
 import { ACO_FOLDER_MODEL_ID, ROOT_FOLDER, UPPERCASE_ROOT_FOLDER } from "../constants";
 import { getElasticsearchLatestEntryData } from "./latestElasticsearchData";
 import { getDecompressedData } from "~/migrations/5.37.0/003/utils/getDecompressedData";
+import { createEntityWriteBatch } from "@webiny/db-dynamodb";
 
 const isGroupMigrationCompleted = (
     status: PrimitiveValue[] | boolean | undefined
@@ -236,8 +235,12 @@ export class AcoRecords_5_37_0_003_AcoFolder
                             `Processing batch #${batch} in group ${groupId} (${folders.length} folders).`
                         );
 
-                        const ddbItems: BatchWriteItem[] = [];
-                        const ddbEsItems: BatchWriteItem[] = [];
+                        const entityBatch = createEntityWriteBatch({
+                            entity: this.ddbEntryEntity
+                        });
+                        const elasticsearchEntityBatch = createEntityWriteBatch({
+                            entity: this.ddbEsEntryEntity
+                        });
 
                         for (const folder of folders) {
                             const folderPk = `T#${tenantId}#L#${localeCode}#CMS#CME#${folder.entryId}`;
@@ -278,10 +281,8 @@ export class AcoRecords_5_37_0_003_AcoFolder
                                 TYPE: "cms.entry"
                             };
 
-                            ddbItems.push(
-                                this.ddbEntryEntity.putBatch(latestDdb),
-                                this.ddbEntryEntity.putBatch(revisionDdb)
-                            );
+                            entityBatch.put(latestDdb);
+                            entityBatch.put(revisionDdb);
 
                             const esLatestRecord = await get<CmsEntryAcoFolderElasticsearchRecord>({
                                 entity: this.ddbEsEntryEntity,
@@ -316,21 +317,15 @@ export class AcoRecords_5_37_0_003_AcoFolder
                                 index: foldersIndexName
                             };
 
-                            ddbEsItems.push(this.ddbEsEntryEntity.putBatch(latestDdbEs));
+                            elasticsearchEntityBatch.put(latestDdbEs);
                         }
 
-                        const executeDdb = () => {
-                            return batchWriteAll({
-                                table: this.ddbEntryEntity.table,
-                                items: ddbItems
-                            });
+                        const executeDdb = async () => {
+                            return entityBatch.execute();
                         };
 
-                        const executeDdbEs = () => {
-                            return batchWriteAll({
-                                table: this.ddbEsEntryEntity.table,
-                                items: ddbEsItems
-                            });
+                        const executeDdbEs = async () => {
+                            return elasticsearchEntityBatch.execute();
                         };
 
                         await executeWithRetry(executeDdb, {

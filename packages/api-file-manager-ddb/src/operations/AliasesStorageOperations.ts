@@ -1,13 +1,12 @@
-import { DynamoDBDocument } from "@webiny/aws-sdk/client-dynamodb";
-import { Entity, Table } from "@webiny/db-dynamodb/toolbox";
-import {
-    FileManagerAliasesStorageOperations,
+import type { DynamoDBDocument } from "@webiny/aws-sdk/client-dynamodb";
+import type { Entity, Table } from "@webiny/db-dynamodb/toolbox";
+import type {
     File,
-    FileAlias
+    FileAlias,
+    FileManagerAliasesStorageOperations
 } from "@webiny/api-file-manager/types";
 import {
-    BatchWriteItem,
-    batchWriteAll,
+    createEntityWriteBatch,
     createStandardEntity,
     createTable,
     DbItem,
@@ -39,52 +38,49 @@ export class AliasesStorageOperations implements FileManagerAliasesStorageOperat
 
     async deleteAliases(file: File): Promise<void> {
         const aliasItems = await this.getExistingAliases(file);
-        const items: BatchWriteItem[] = [];
 
-        aliasItems.forEach(item => {
-            items.push(
-                this.aliasEntity.deleteBatch({
+        const batchWrite = createEntityWriteBatch({
+            entity: this.aliasEntity,
+            delete: aliasItems.map(item => {
+                return {
                     PK: this.createPartitionKey({
                         id: item.fileId,
                         tenant: item.tenant,
                         locale: item.locale
                     }),
                     SK: `ALIAS#${item.alias}`
-                })
-            );
+                };
+            })
         });
 
-        await batchWriteAll({ table: this.table, items });
+        await batchWrite.execute();
     }
 
     async storeAliases(file: File): Promise<void> {
-        const items: BatchWriteItem[] = [];
         const existingAliases = await this.getExistingAliases(file);
         const newAliases = this.createNewAliasesRecords(file, existingAliases);
 
-        newAliases.forEach(alias => {
-            items.push(this.aliasEntity.putBatch(alias));
+        const batchWrite = createEntityWriteBatch({
+            entity: this.aliasEntity
         });
+        for (const alias of newAliases) {
+            batchWrite.put(alias);
+        }
 
         // Delete aliases that are in the DB but are NOT in the file.
         for (const data of existingAliases) {
             if (!file.aliases.some(alias => data.alias === alias)) {
-                items.push(
-                    this.aliasEntity.deleteBatch({
-                        PK: this.createPartitionKey(file),
-                        SK: `ALIAS#${data.alias}`
-                    })
-                );
+                batchWrite.delete({
+                    PK: this.createPartitionKey(file),
+                    SK: `ALIAS#${data.alias}`
+                });
             }
         }
 
-        await batchWriteAll({
-            table: this.table,
-            items
-        });
+        await batchWrite.execute();
     }
 
-    private async getExistingAliases(file: File) {
+    private async getExistingAliases(file: File): Promise<FileAlias[]> {
         const aliases = await queryAll<{ data: FileAlias }>({
             entity: this.aliasEntity,
             partitionKey: this.createPartitionKey(file),

@@ -4,18 +4,13 @@ import {
     DataMigrationContext,
     PrimaryDynamoTableSymbol
 } from "@webiny/data-migration";
-import {
-    batchWriteAll,
-    BatchWriteItem,
-    count,
-    ddbQueryAllWithCallback,
-    forEachTenantLocale
-} from "~/utils";
+import { count, ddbQueryAllWithCallback, forEachTenantLocale } from "~/utils";
 import { inject, makeInjectable } from "@webiny/ioc";
 import { executeWithRetry, generateAlphaNumericId } from "@webiny/utils";
 import { createBlockEntity } from "~/migrations/5.40.0/001/ddb/createBlockEntity";
 import { ContentElement, PageBlock } from "./types";
 import { compress, decompress } from "./compression";
+import { createEntityWriteBatch } from "@webiny/db-dynamodb";
 
 const isGroupMigrationCompleted = (status: boolean | undefined): status is boolean => {
     return typeof status === "boolean";
@@ -99,6 +94,10 @@ export class PbUniqueBlockElementIds_5_40_0_001 implements DataMigration {
                             `Processing batch #${batch} in group ${groupId} (${blocks.length} blocks).`
                         );
 
+                        const entityBatch = createEntityWriteBatch({
+                            entity: this.blockEntity
+                        });
+
                         const items = await Promise.all(
                             blocks.map(async block => {
                                 const newContent = await this.generateElementIds(block);
@@ -106,18 +105,17 @@ export class PbUniqueBlockElementIds_5_40_0_001 implements DataMigration {
                                     return null;
                                 }
 
-                                return this.blockEntity.putBatch({
+                                const item = {
                                     ...block,
                                     content: newContent
-                                });
+                                };
+                                entityBatch.put(item);
+                                return item;
                             })
                         );
 
-                        const execute = () => {
-                            return batchWriteAll({
-                                table: this.blockEntity.table,
-                                items: items.filter(Boolean) as BatchWriteItem[]
-                            });
+                        const execute = async () => {
+                            return await entityBatch.execute();
                         };
 
                         await executeWithRetry(execute, {

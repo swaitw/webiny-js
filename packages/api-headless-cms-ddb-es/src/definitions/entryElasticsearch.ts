@@ -28,6 +28,9 @@ export const createEntryElasticsearchEntity = (
             data: {
                 type: "map"
             },
+            TYPE: {
+                type: "string"
+            },
             ...(attributes || {})
         }
     });

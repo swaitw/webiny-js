@@ -2,7 +2,7 @@ import { ContextPlugin } from "@webiny/api";
 import { CmsContext } from "@webiny/api-headless-cms/types";
 
 export const createDummyLocales = () => {
-    return new ContextPlugin<CmsContext>(async context => {
+    const plugin = new ContextPlugin<CmsContext>(async context => {
         const { i18n, security } = context;
 
         await security.withoutAuthorization(async () => {
@@ -23,4 +23,7 @@ export const createDummyLocales = () => {
             });
         });
     });
+
+    plugin.name = "headlessCmsDdbEs.context.createDummyLocales";
+    return plugin;
 };

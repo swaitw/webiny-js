@@ -7,8 +7,6 @@ import { CmsModel } from "@webiny/api-headless-cms/types";
 import { get } from "@webiny/db-dynamodb";
 import { createPartitionKey } from "~/operations/entry/keys";
 
-jest.retryTimes(0);
-
 describe("storage field path converters disabled", () => {
     const { elasticsearch, entryEntity } = useHandler();
 

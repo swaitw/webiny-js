@@ -6,6 +6,8 @@ export type {
     TableConstructor
 } from "dynamodb-toolbox/dist/cjs/classes/Table";
 export type {
+    Readonly,
+    EntityConstructor,
     AttributeDefinition,
     EntityQueryOptions,
     AttributeDefinitions

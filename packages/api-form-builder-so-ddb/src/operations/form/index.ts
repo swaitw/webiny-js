@@ -1,5 +1,5 @@
 import WebinyError from "@webiny/error";
-import {
+import type {
     FbForm,
     FormBuilderStorageOperationsCreateFormFromParams,
     FormBuilderStorageOperationsCreateFormParams,
@@ -14,14 +14,14 @@ import {
     FormBuilderStorageOperationsUnpublishFormParams,
     FormBuilderStorageOperationsUpdateFormParams
 } from "@webiny/api-form-builder/types";
-import { Entity, Table } from "@webiny/db-dynamodb/toolbox";
+import type { Entity, Table } from "@webiny/db-dynamodb/toolbox";
 import { queryAll, QueryAllParams } from "@webiny/db-dynamodb/utils/query";
-import { batchWriteAll } from "@webiny/db-dynamodb/utils/batchWrite";
+import { createEntityWriteBatch } from "@webiny/db-dynamodb";
 import { filterItems } from "@webiny/db-dynamodb/utils/filter";
 import { sortItems } from "@webiny/db-dynamodb/utils/sort";
 import { createIdentifier, parseIdentifier } from "@webiny/utils";
-import { PluginsContainer } from "@webiny/plugins";
-import {
+import type { PluginsContainer } from "@webiny/plugins";
+import type {
     FormBuilderFormCreateGSIPartitionKeyParams,
     FormBuilderFormCreatePartitionKeyParams,
     FormBuilderFormStorageOperations
@@ -60,7 +60,7 @@ export interface CreateFormStorageOperationsParams {
 export const createFormStorageOperations = (
     params: CreateFormStorageOperationsParams
 ): FormBuilderFormStorageOperations => {
-    const { entity, table, plugins } = params;
+    const { entity, plugins } = params;
 
     const formDynamoDbFields = plugins.byType<FormDynamoDbFieldPlugin>(
         FormDynamoDbFieldPlugin.type
@@ -123,28 +123,30 @@ export const createFormStorageOperations = (
         return "fb.form.latestPublished";
     };
 
-    const createRevisionKeys = (form: FbForm): Keys => {
+    const createRevisionKeys = (form: Pick<FbForm, "id" | "tenant" | "locale">): Keys => {
         return {
             PK: createFormPartitionKey(form),
             SK: createRevisionSortKey(form)
         };
     };
 
-    const createLatestKeys = (form: FbForm): Keys => {
+    const createLatestKeys = (form: Pick<FbForm, "tenant" | "locale" | "id" | "formId">): Keys => {
         return {
             PK: createFormLatestPartitionKey(form),
             SK: createFormLatestSortKey(form)
         };
     };
 
-    const createLatestPublishedKeys = (form: FbForm): Keys => {
+    const createLatestPublishedKeys = (
+        form: Pick<FbForm, "tenant" | "locale" | "id" | "formId">
+    ): Keys => {
         return {
             PK: createFormLatestPublishedPartitionKey(form),
             SK: createLatestPublishedSortKey(form)
         };
     };
 
-    const createGSIKeys = (form: FbForm): GsiKeys => {
+    const createGSIKeys = (form: Pick<FbForm, "version" | "tenant" | "locale">): GsiKeys => {
         return {
             GSI1_PK: createFormGSIPartitionKey(form),
             GSI1_SK: createGSISortKey(form.version)
@@ -160,25 +162,25 @@ export const createFormStorageOperations = (
         const latestKeys = createLatestKeys(form);
         const gsiKeys = createGSIKeys(form);
 
-        const items = [
-            entity.putBatch({
-                ...form,
-                ...revisionKeys,
-                ...gsiKeys,
-                TYPE: createFormType()
-            }),
-            entity.putBatch({
-                ...form,
-                ...latestKeys,
-                TYPE: createFormLatestType()
-            })
-        ];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...form,
+                    ...revisionKeys,
+                    ...gsiKeys,
+                    TYPE: createFormType()
+                },
+                {
+                    ...form,
+                    ...latestKeys,
+                    TYPE: createFormLatestType()
+                }
+            ]
+        });
 
         try {
-            await batchWriteAll({
-                table,
-                items
-            });
+            await entityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not insert form data into table.",
@@ -202,25 +204,25 @@ export const createFormStorageOperations = (
         const latestKeys = createLatestKeys(form);
         const gsiKeys = createGSIKeys(form);
 
-        const items = [
-            entity.putBatch({
-                ...form,
-                ...revisionKeys,
-                ...gsiKeys,
-                TYPE: createFormType()
-            }),
-            entity.putBatch({
-                ...form,
-                ...latestKeys,
-                TYPE: createFormLatestType()
-            })
-        ];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...form,
+                    ...revisionKeys,
+                    ...gsiKeys,
+                    TYPE: createFormType()
+                },
+                {
+                    ...form,
+                    ...latestKeys,
+                    TYPE: createFormLatestType()
+                }
+            ]
+        });
 
         try {
-            await batchWriteAll({
-                table,
-                items
-            });
+            await entityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not create form data in the table, from existing form.",
@@ -259,28 +261,27 @@ export const createFormStorageOperations = (
         });
         const isLatestForm = latestForm ? latestForm.id === form.id : false;
 
-        const items = [
-            entity.putBatch({
-                ...form,
-                ...revisionKeys,
-                ...gsiKeys,
-                TYPE: createFormType()
-            })
-        ];
-        if (isLatestForm) {
-            items.push(
-                entity.putBatch({
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
                     ...form,
-                    ...latestKeys,
-                    TYPE: createFormLatestType()
-                })
-            );
+                    ...revisionKeys,
+                    ...gsiKeys,
+                    TYPE: createFormType()
+                }
+            ]
+        });
+
+        if (isLatestForm) {
+            entityBatch.put({
+                ...form,
+                ...latestKeys,
+                TYPE: createFormLatestType()
+            });
         }
         try {
-            await batchWriteAll({
-                table,
-                items
-            });
+            await entityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not update form data in the table.",
@@ -510,29 +511,27 @@ export const createFormStorageOperations = (
                 }
             );
         }
+        let latestPublishedKeys: Keys | undefined;
+        const entityBatch = createEntityWriteBatch({
+            entity
+        });
 
-        let hasLatestPublishedRecord = false;
-
-        const deleteItems = items.map(item => {
-            if (!hasLatestPublishedRecord && item.published) {
-                hasLatestPublishedRecord = true;
+        for (const item of items) {
+            if (!latestPublishedKeys && item.published) {
+                latestPublishedKeys = createLatestPublishedKeys(item);
             }
-            return entity.deleteBatch({
+            entityBatch.delete({
                 PK: item.PK,
                 SK: item.SK
             });
-        });
-        if (hasLatestPublishedRecord) {
-            deleteItems.push(entity.deleteBatch(createLatestPublishedKeys(items[0])));
         }
 
-        deleteItems.push(entity.deleteBatch(createLatestKeys(items[0])));
+        if (latestPublishedKeys) {
+            entityBatch.delete(latestPublishedKeys);
+        }
 
         try {
-            await batchWriteAll({
-                table,
-                items: deleteItems
-            });
+            await entityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not delete form and it's submissions.",
@@ -561,7 +560,10 @@ export const createFormStorageOperations = (
         const isLatest = latestForm ? latestForm.id === form.id : false;
         const isLatestPublished = latestPublishedForm ? latestPublishedForm.id === form.id : false;
 
-        const items = [entity.deleteBatch(revisionKeys)];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            delete: [revisionKeys]
+        });
 
         if (isLatest || isLatestPublished) {
             /**
@@ -578,42 +580,36 @@ export const createFormStorageOperations = (
                     })
                     .shift();
                 if (previouslyPublishedForm) {
-                    items.push(
-                        entity.putBatch({
-                            ...previouslyPublishedForm,
-                            ...createLatestPublishedKeys(previouslyPublishedForm),
-                            GSI1_PK: null,
-                            GSI1_SK: null,
-                            TYPE: createFormLatestPublishedType()
-                        })
-                    );
+                    entityBatch.put({
+                        ...previouslyPublishedForm,
+                        ...createLatestPublishedKeys(previouslyPublishedForm),
+                        GSI1_PK: null,
+                        GSI1_SK: null,
+                        TYPE: createFormLatestPublishedType()
+                    });
                 } else {
-                    items.push(entity.deleteBatch(createLatestPublishedKeys(form)));
+                    entityBatch.delete(createLatestPublishedKeys(form));
                 }
             }
             /**
              * Sort out the latest record.
              */
             if (isLatest) {
-                items.push(
-                    entity.putBatch({
-                        ...previous,
-                        ...latestKeys,
-                        GSI1_PK: null,
-                        GSI1_SK: null,
-                        TYPE: createFormLatestType()
-                    })
-                );
+                entityBatch.put({
+                    ...previous,
+                    ...latestKeys,
+                    GSI1_PK: null,
+                    GSI1_SK: null,
+                    TYPE: createFormLatestType()
+                });
             }
         }
         /**
          * Now save the batch data.
          */
         try {
-            await batchWriteAll({
-                table,
-                items
-            });
+            await entityBatch.execute();
+
             return form;
         } catch (ex) {
             throw new WebinyError(
@@ -667,37 +663,36 @@ export const createFormStorageOperations = (
         /**
          * Update revision and latest published records
          */
-        const items = [
-            entity.putBatch({
-                ...form,
-                ...revisionKeys,
-                ...gsiKeys,
-                TYPE: createFormType()
-            }),
-            entity.putBatch({
-                ...form,
-                ...latestPublishedKeys,
-                TYPE: createFormLatestPublishedType()
-            })
-        ];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...form,
+                    ...revisionKeys,
+                    ...gsiKeys,
+                    TYPE: createFormType()
+                },
+                {
+                    ...form,
+                    ...latestPublishedKeys,
+                    TYPE: createFormLatestPublishedType()
+                }
+            ]
+        });
+
         /**
          * Update the latest form as well
          */
         if (isLatestForm) {
-            items.push(
-                entity.putBatch({
-                    ...form,
-                    ...latestKeys,
-                    TYPE: createFormLatestType()
-                })
-            );
+            entityBatch.put({
+                ...form,
+                ...latestKeys,
+                TYPE: createFormLatestType()
+            });
         }
 
         try {
-            await batchWriteAll({
-                table,
-                items
-            });
+            await entityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not publish form.",
@@ -754,17 +749,20 @@ export const createFormStorageOperations = (
         const isLatest = latestForm ? latestForm.id === form.id : false;
         const isLatestPublished = latestPublishedForm ? latestPublishedForm.id === form.id : false;
 
-        const items = [
-            entity.putBatch({
-                ...form,
-                ...revisionKeys,
-                ...gsiKeys,
-                TYPE: createFormType()
-            })
-        ];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...form,
+                    ...revisionKeys,
+                    ...gsiKeys,
+                    TYPE: createFormType()
+                }
+            ]
+        });
 
         if (isLatest) {
-            entity.putBatch({
+            entityBatch.put({
                 ...form,
                 ...latestKeys,
                 TYPE: createFormLatestType()
@@ -788,23 +786,18 @@ export const createFormStorageOperations = (
 
             const previouslyPublishedRevision = revisions.shift();
             if (previouslyPublishedRevision) {
-                items.push(
-                    entity.putBatch({
-                        ...previouslyPublishedRevision,
-                        ...latestPublishedKeys,
-                        TYPE: createFormLatestPublishedType()
-                    })
-                );
+                entityBatch.put({
+                    ...previouslyPublishedRevision,
+                    ...latestPublishedKeys,
+                    TYPE: createFormLatestPublishedType()
+                });
             } else {
-                items.push(entity.deleteBatch(latestPublishedKeys));
+                entityBatch.delete(latestPublishedKeys);
             }
         }
 
         try {
-            await batchWriteAll({
-                table,
-                items
-            });
+            await entityBatch.execute();
             return form;
         } catch (ex) {
             throw new WebinyError(

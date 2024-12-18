@@ -1,14 +1,15 @@
 import { Table } from "@webiny/db-dynamodb/toolbox";
-import { makeInjectable, inject } from "@webiny/ioc";
+import { inject, makeInjectable } from "@webiny/ioc";
 import { DataMigrationContext, PrimaryDynamoTableSymbol } from "@webiny/data-migration";
-import { queryAll, batchWriteAll } from "~/utils";
+import { queryAll } from "~/utils";
 import { createModelEntity } from "./createModelEntity";
 import { createTenantEntity } from "./createTenantEntity";
 import { createLocaleEntity } from "./createLocaleEntity";
-import { Tenant, I18NLocale, CmsModel } from "./types";
+import { CmsModel, I18NLocale, Tenant } from "./types";
 import pluralize from "pluralize";
 import upperFirst from "lodash/upperFirst";
 import camelCase from "lodash/camelCase";
+import { createEntityWriteBatch } from "@webiny/db-dynamodb";
 
 const createSingularApiName = (model: CmsModel) => {
     return upperFirst(camelCase(model.modelId));
@@ -91,22 +92,23 @@ export class CmsModels_5_35_0_005 {
             return;
         }
 
-        const items = models.map(model => {
-            return this.modelEntity.putBatch({
-                ...model,
-                /**
-                 * Add singular and plural API names.
-                 */
-                singularApiName: createSingularApiName(model),
-                pluralApiName: createPluralApiName(model)
-            });
+        const entityBatch = createEntityWriteBatch({
+            entity: this.modelEntity,
+            put: models.map(model => {
+                return {
+                    ...model,
+                    /**
+                     * Add singular and plural API names.
+                     */
+                    singularApiName: createSingularApiName(model),
+                    pluralApiName: createPluralApiName(model)
+                };
+            })
         });
-        logger.info(`Updating total of ${items.length} models.`);
 
-        await batchWriteAll({
-            table: this.modelEntity.table,
-            items
-        });
+        logger.info(`Updating total of ${entityBatch.total} models.`);
+
+        await entityBatch.execute();
         logger.info("Updated all the models.");
     }
 

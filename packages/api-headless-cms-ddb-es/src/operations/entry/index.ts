@@ -1,17 +1,25 @@
 import WebinyError from "@webiny/error";
-import {
+import type {
     CmsEntry,
     CmsModel,
     CmsStorageEntry,
-    CONTENT_ENTRY_STATUS,
     StorageOperationsCmsModel
 } from "@webiny/api-headless-cms/types";
+import { CONTENT_ENTRY_STATUS } from "@webiny/api-headless-cms/types";
 import { extractEntriesFromIndex } from "~/helpers";
 import { configurations } from "~/configurations";
-import { Entity } from "@webiny/db-dynamodb/toolbox";
-import { Client } from "@elastic/elasticsearch";
-import { PluginsContainer } from "@webiny/plugins";
-import { batchWriteAll, BatchWriteItem } from "@webiny/db-dynamodb/utils/batchWrite";
+import type { Entity } from "@webiny/db-dynamodb/toolbox";
+import type { Client } from "@elastic/elasticsearch";
+import type { PluginsContainer } from "@webiny/plugins";
+import type { BatchReadItem, QueryAllParams, QueryOneParams } from "@webiny/db-dynamodb";
+import {
+    batchReadAll,
+    cleanupItem,
+    createEntityWriteBatch,
+    getClean,
+    queryAll,
+    queryOne
+} from "@webiny/db-dynamodb";
 import { DataLoadersHandler } from "./dataLoaders";
 import {
     createLatestSortKey,
@@ -20,33 +28,23 @@ import {
     createRevisionSortKey
 } from "./keys";
 import {
-    queryAll,
-    QueryAllParams,
-    queryOne,
-    QueryOneParams
-} from "@webiny/db-dynamodb/utils/query";
-import {
     compress,
     createLimit,
     decodeCursor,
     decompress,
     encodeCursor
 } from "@webiny/api-elasticsearch";
-import { getClean } from "@webiny/db-dynamodb/utils/get";
 import { zeroPad } from "@webiny/utils";
-import { cleanupItem } from "@webiny/db-dynamodb/utils/cleanup";
-import {
+import type {
     ElasticsearchSearchResponse,
     SearchBody as ElasticsearchSearchBody
 } from "@webiny/api-elasticsearch/types";
-import { CmsEntryStorageOperations, CmsIndexEntry } from "~/types";
+import type { CmsEntryStorageOperations, CmsIndexEntry } from "~/types";
 import { createElasticsearchBody } from "./elasticsearch/body";
 import { logIgnoredEsResponseError } from "./elasticsearch/logIgnoredEsResponseError";
 import { shouldIgnoreEsResponseError } from "./elasticsearch/shouldIgnoreEsResponseError";
 import { createLatestRecordType, createPublishedRecordType, createRecordType } from "./recordType";
 import { StorageOperationsCmsModelPlugin } from "@webiny/api-headless-cms";
-import { WriteRequest } from "@webiny/aws-sdk/client-dynamodb";
-import { batchReadAll, BatchReadItem } from "@webiny/db-dynamodb";
 import { createTransformer } from "./transformations";
 import { convertEntryKeysFromStorage } from "./transformations/convertEntryKeys";
 import {
@@ -57,6 +55,9 @@ import {
 } from "@webiny/api-headless-cms/constants";
 
 interface ElasticsearchDbRecord {
+    PK: string;
+    SK: string;
+    TYPE: string;
     index: string;
     data: Record<string, any>;
 }
@@ -164,37 +165,35 @@ export const createEntriesStorageOperations = (
             SK: createPublishedSortKey()
         };
 
-        const items = [
-            entity.putBatch({
-                ...storageEntry,
-                locked,
-                ...revisionKeys,
-                TYPE: createRecordType()
-            }),
-            entity.putBatch({
-                ...storageEntry,
-                locked,
-                ...latestKeys,
-                TYPE: createLatestRecordType()
-            })
-        ];
-
-        if (isPublished) {
-            items.push(
-                entity.putBatch({
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
                     ...storageEntry,
                     locked,
-                    ...publishedKeys,
-                    TYPE: createPublishedRecordType()
-                })
-            );
+                    ...revisionKeys,
+                    TYPE: createRecordType()
+                },
+                {
+                    ...storageEntry,
+                    locked,
+                    ...latestKeys,
+                    TYPE: createLatestRecordType()
+                }
+            ]
+        });
+
+        if (isPublished) {
+            entityBatch.put({
+                ...storageEntry,
+                locked,
+                ...publishedKeys,
+                TYPE: createPublishedRecordType()
+            });
         }
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
             dataLoaders.clearAll({
                 model
             });
@@ -211,29 +210,29 @@ export const createEntriesStorageOperations = (
         }
 
         const esLatestData = await transformer.getElasticsearchLatestEntryData();
-        const esItems: BatchWriteItem[] = [
-            esEntity.putBatch({
-                ...latestKeys,
-                index: esIndex,
-                data: esLatestData
-            })
-        ];
+
+        const elasticsearchEntityBatch = createEntityWriteBatch({
+            entity: esEntity,
+            put: [
+                {
+                    ...latestKeys,
+                    index: esIndex,
+                    data: esLatestData
+                }
+            ]
+        });
+
         if (isPublished) {
             const esPublishedData = await transformer.getElasticsearchPublishedEntryData();
-            esItems.push(
-                esEntity.putBatch({
-                    ...publishedKeys,
-                    index: esIndex,
-                    data: esPublishedData
-                })
-            );
+            elasticsearchEntityBatch.put({
+                ...publishedKeys,
+                index: esIndex,
+                data: esPublishedData
+            });
         }
 
         try {
-            await batchWriteAll({
-                table: esEntity.table,
-                items: esItems
-            });
+            await elasticsearchEntityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not insert entry data into the Elasticsearch DynamoDB table.",
@@ -295,27 +294,28 @@ export const createEntriesStorageOperations = (
 
         const esLatestData = await transformer.getElasticsearchLatestEntryData();
 
-        const items = [
-            entity.putBatch({
-                ...storageEntry,
-                TYPE: createRecordType(),
-                ...revisionKeys
-            }),
-            entity.putBatch({
-                ...storageEntry,
-                TYPE: createLatestRecordType(),
-                ...latestKeys
-            })
-        ];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...storageEntry,
+                    TYPE: createRecordType(),
+                    ...revisionKeys
+                },
+                {
+                    ...storageEntry,
+                    TYPE: createLatestRecordType(),
+                    ...latestKeys
+                }
+            ]
+        });
 
         if (isPublished) {
-            items.push(
-                entity.putBatch({
-                    ...storageEntry,
-                    TYPE: createPublishedRecordType(),
-                    ...publishedKeys
-                })
-            );
+            entityBatch.put({
+                ...storageEntry,
+                TYPE: createPublishedRecordType(),
+                ...publishedKeys
+            });
 
             // Unpublish previously published revision (if any).
             const [publishedRevisionStorageEntry] = await dataLoaders.getPublishedRevisionByEntryId(
@@ -326,27 +326,23 @@ export const createEntriesStorageOperations = (
             );
 
             if (publishedRevisionStorageEntry) {
-                items.push(
-                    entity.putBatch({
-                        ...publishedRevisionStorageEntry,
-                        PK: createPartitionKey({
-                            id: publishedRevisionStorageEntry.id,
-                            locale: model.locale,
-                            tenant: model.tenant
-                        }),
-                        SK: createRevisionSortKey(publishedRevisionStorageEntry),
-                        TYPE: createRecordType(),
-                        status: CONTENT_ENTRY_STATUS.UNPUBLISHED
-                    })
-                );
+                entityBatch.put({
+                    ...publishedRevisionStorageEntry,
+                    PK: createPartitionKey({
+                        id: publishedRevisionStorageEntry.id,
+                        locale: model.locale,
+                        tenant: model.tenant
+                    }),
+                    SK: createRevisionSortKey(publishedRevisionStorageEntry),
+                    TYPE: createRecordType(),
+                    status: CONTENT_ENTRY_STATUS.UNPUBLISHED
+                });
             }
         }
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
+
             dataLoaders.clearAll({
                 model
             });
@@ -366,30 +362,28 @@ export const createEntriesStorageOperations = (
             model
         });
 
-        const esItems: BatchWriteItem[] = [
-            esEntity.putBatch({
-                ...latestKeys,
-                index: esIndex,
-                data: esLatestData
-            })
-        ];
+        const elasticsearchEntityBatch = createEntityWriteBatch({
+            entity: esEntity,
+            put: [
+                {
+                    ...latestKeys,
+                    index: esIndex,
+                    data: esLatestData
+                }
+            ]
+        });
 
         if (isPublished) {
             const esPublishedData = await transformer.getElasticsearchPublishedEntryData();
-            esItems.push(
-                esEntity.putBatch({
-                    ...publishedKeys,
-                    index: esIndex,
-                    data: esPublishedData
-                })
-            );
+            elasticsearchEntityBatch.put({
+                ...publishedKeys,
+                index: esIndex,
+                data: esPublishedData
+            });
         }
 
         try {
-            await batchWriteAll({
-                table: esEntity.table,
-                items: esItems
-            });
+            await elasticsearchEntityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not update latest entry in the DynamoDB Elasticsearch table.",
@@ -461,26 +455,30 @@ export const createEntriesStorageOperations = (
             ids: [entry.id]
         });
 
-        const items = [
-            entity.putBatch({
-                ...storageEntry,
-                locked,
-                ...revisionKeys,
-                TYPE: createRecordType()
-            })
-        ];
-        if (isPublished) {
-            items.push(
-                entity.putBatch({
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
                     ...storageEntry,
                     locked,
-                    ...publishedKeys,
-                    TYPE: createPublishedRecordType()
-                })
-            );
+                    ...revisionKeys,
+                    TYPE: createRecordType()
+                }
+            ]
+        });
+
+        if (isPublished) {
+            entityBatch.put({
+                ...storageEntry,
+                locked,
+                ...publishedKeys,
+                TYPE: createPublishedRecordType()
+            });
         }
 
-        const esItems: BatchWriteItem[] = [];
+        const elasticsearchEntityBatch = createEntityWriteBatch({
+            entity: esEntity
+        });
 
         const { index: esIndex } = configurations.es({
             model
@@ -495,26 +493,22 @@ export const createEntriesStorageOperations = (
                 /**
                  * First we update the regular DynamoDB table.
                  */
-                items.push(
-                    entity.putBatch({
-                        ...storageEntry,
-                        ...latestKeys,
-                        TYPE: createLatestRecordType()
-                    })
-                );
+                entityBatch.put({
+                    ...storageEntry,
+                    ...latestKeys,
+                    TYPE: createLatestRecordType()
+                });
 
                 /**
                  * And then update the Elasticsearch table to propagate changes to the Elasticsearch
                  */
                 const elasticsearchLatestData = await transformer.getElasticsearchLatestEntryData();
 
-                esItems.push(
-                    esEntity.putBatch({
-                        ...latestKeys,
-                        index: esIndex,
-                        data: elasticsearchLatestData
-                    })
-                );
+                elasticsearchEntityBatch.put({
+                    ...latestKeys,
+                    index: esIndex,
+                    data: elasticsearchLatestData
+                });
             } else {
                 /**
                  * If not updating latest revision, we still want to update the latest revision's
@@ -536,25 +530,21 @@ export const createEntriesStorageOperations = (
                  * - one for the actual revision record
                  * - one for the latest record
                  */
-                items.push(
-                    entity.putBatch({
-                        ...updatedLatestStorageEntry,
-                        PK: createPartitionKey({
-                            id: latestStorageEntry.id,
-                            locale: model.locale,
-                            tenant: model.tenant
-                        }),
-                        SK: createRevisionSortKey(latestStorageEntry),
-                        TYPE: createRecordType()
-                    })
-                );
+                entityBatch.put({
+                    ...updatedLatestStorageEntry,
+                    PK: createPartitionKey({
+                        id: latestStorageEntry.id,
+                        locale: model.locale,
+                        tenant: model.tenant
+                    }),
+                    SK: createRevisionSortKey(latestStorageEntry),
+                    TYPE: createRecordType()
+                });
 
-                items.push(
-                    entity.putBatch({
-                        ...updatedLatestStorageEntry,
-                        TYPE: createLatestRecordType()
-                    })
-                );
+                entityBatch.put({
+                    ...updatedLatestStorageEntry,
+                    TYPE: createLatestRecordType()
+                });
 
                 /**
                  * Update the Elasticsearch table to propagate changes to the Elasticsearch.
@@ -575,13 +565,11 @@ export const createEntriesStorageOperations = (
                         ...updatedEntryLevelMetaFields
                     });
 
-                    esItems.push(
-                        esEntity.putBatch({
-                            ...latestKeys,
-                            index: esIndex,
-                            data: updatedLatestEntry
-                        })
-                    );
+                    elasticsearchEntityBatch.put({
+                        ...latestKeys,
+                        index: esIndex,
+                        data: updatedLatestEntry
+                    });
                 }
             }
         }
@@ -589,19 +577,15 @@ export const createEntriesStorageOperations = (
         if (isPublished && publishedStorageEntry?.id === entry.id) {
             const elasticsearchPublishedData =
                 await transformer.getElasticsearchPublishedEntryData();
-            esItems.push(
-                esEntity.putBatch({
-                    ...publishedKeys,
-                    index: esIndex,
-                    data: elasticsearchPublishedData
-                })
-            );
+            elasticsearchEntityBatch.put({
+                ...publishedKeys,
+                index: esIndex,
+                data: elasticsearchPublishedData
+            });
         }
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
+
             dataLoaders.clearAll({
                 model
             });
@@ -616,15 +600,8 @@ export const createEntriesStorageOperations = (
                 }
             );
         }
-        if (esItems.length === 0) {
-            return initialStorageEntry;
-        }
-
         try {
-            await batchWriteAll({
-                table: esEntity.table,
-                items: esItems
-            });
+            await elasticsearchEntityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not update entry DynamoDB Elasticsearch records.",
@@ -664,17 +641,19 @@ export const createEntriesStorageOperations = (
          */
         let latestRecord: CmsEntry | undefined = undefined;
         let publishedRecord: CmsEntry | undefined = undefined;
-        const items: BatchWriteItem[] = [];
+        const entityBatch = createEntityWriteBatch({
+            entity
+        });
+
         for (const record of records) {
-            items.push(
-                entity.putBatch({
-                    ...record,
-                    location: {
-                        ...record?.location,
-                        folderId
-                    }
-                })
-            );
+            entityBatch.put({
+                ...record,
+                location: {
+                    ...record?.location,
+                    folderId
+                }
+            });
+
             /**
              * We need to get the published and latest records, so we can update the Elasticsearch.
              */
@@ -685,10 +664,7 @@ export const createEntriesStorageOperations = (
             }
         }
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
             dataLoaders.clearAll({
                 model
             });
@@ -743,27 +719,27 @@ export const createEntriesStorageOperations = (
         if (esItems.length === 0) {
             return;
         }
-        const esUpdateItems: BatchWriteItem[] = [];
-        for (const item of esItems) {
-            esUpdateItems.push(
-                esEntity.putBatch({
-                    ...item,
-                    data: await compress(plugins, {
-                        ...item.data,
-                        location: {
-                            ...item.data?.location,
-                            folderId
-                        }
-                    })
+
+        const elasticsearchEntityBatch = createEntityWriteBatch({
+            entity: esEntity,
+            put: await Promise.all(
+                esItems.map(async item => {
+                    return {
+                        ...item,
+                        data: await compress(plugins, {
+                            ...item.data,
+                            location: {
+                                ...item.data?.location,
+                                folderId
+                            }
+                        })
+                    };
                 })
-            );
-        }
+            )
+        });
 
         try {
-            await batchWriteAll({
-                table: esEntity.table,
-                items: esUpdateItems
-            });
+            await elasticsearchEntityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not move entry DynamoDB Elasticsearch records.",
@@ -820,18 +796,20 @@ export const createEntriesStorageOperations = (
          */
         let latestRecord: CmsEntry | undefined = undefined;
         let publishedRecord: CmsEntry | undefined = undefined;
-        const items: BatchWriteItem[] = [];
+
+        const entityBatch = createEntityWriteBatch({
+            entity
+        });
 
         for (const record of records) {
-            items.push(
-                entity.putBatch({
-                    ...record,
-                    ...updatedEntryMetaFields,
-                    wbyDeleted: storageEntry.wbyDeleted,
-                    location: storageEntry.location,
-                    binOriginalFolderId: storageEntry.binOriginalFolderId
-                })
-            );
+            entityBatch.put({
+                ...record,
+                ...updatedEntryMetaFields,
+                wbyDeleted: storageEntry.wbyDeleted,
+                location: storageEntry.location,
+                binOriginalFolderId: storageEntry.binOriginalFolderId
+            });
+
             /**
              * We need to get the published and latest records, so we can update the Elasticsearch.
              */
@@ -846,10 +824,8 @@ export const createEntriesStorageOperations = (
          * We write the records back to the primary DynamoDB table.
          */
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
+
             dataLoaders.clearAll({
                 model
             });
@@ -915,30 +891,28 @@ export const createEntriesStorageOperations = (
         /**
          * We update all ES records with data received.
          */
-        const esUpdateItems: BatchWriteItem[] = [];
+        const elasticsearchEntityBatch = createEntityWriteBatch({
+            entity: esEntity
+        });
+
         for (const item of esItems) {
-            esUpdateItems.push(
-                esEntity.putBatch({
-                    ...item,
-                    data: await compress(plugins, {
-                        ...item.data,
-                        ...updatedEntryMetaFields,
-                        wbyDeleted: entry.wbyDeleted,
-                        location: entry.location,
-                        binOriginalFolderId: entry.binOriginalFolderId
-                    })
+            elasticsearchEntityBatch.put({
+                ...item,
+                data: await compress(plugins, {
+                    ...item.data,
+                    ...updatedEntryMetaFields,
+                    wbyDeleted: entry.wbyDeleted,
+                    location: entry.location,
+                    binOriginalFolderId: entry.binOriginalFolderId
                 })
-            );
+            });
         }
 
         /**
          * We write the records back to the primary DynamoDB Elasticsearch table.
          */
         try {
-            await batchWriteAll({
-                table: esEntity.table,
-                items: esUpdateItems
-            });
+            await elasticsearchEntityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message ||
@@ -1000,18 +974,20 @@ export const createEntriesStorageOperations = (
          */
         let latestRecord: CmsEntry | undefined = undefined;
         let publishedRecord: CmsEntry | undefined = undefined;
-        const items: BatchWriteItem[] = [];
+
+        const entityBatch = createEntityWriteBatch({
+            entity
+        });
 
         for (const record of records) {
-            items.push(
-                entity.putBatch({
-                    ...record,
-                    ...updatedEntryMetaFields,
-                    wbyDeleted: storageEntry.wbyDeleted,
-                    location: storageEntry.location,
-                    binOriginalFolderId: storageEntry.binOriginalFolderId
-                })
-            );
+            entityBatch.put({
+                ...record,
+                ...updatedEntryMetaFields,
+                wbyDeleted: storageEntry.wbyDeleted,
+                location: storageEntry.location,
+                binOriginalFolderId: storageEntry.binOriginalFolderId
+            });
+
             /**
              * We need to get the published and latest records, so we can update the Elasticsearch.
              */
@@ -1026,10 +1002,8 @@ export const createEntriesStorageOperations = (
          * We write the records back to the primary DynamoDB table.
          */
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
+
             dataLoaders.clearAll({
                 model
             });
@@ -1092,30 +1066,27 @@ export const createEntriesStorageOperations = (
         /**
          * We update all ES records with data received.
          */
-        const esUpdateItems: BatchWriteItem[] = [];
+        const elasticsearchEntityBatch = createEntityWriteBatch({
+            entity: esEntity
+        });
         for (const item of esItems) {
-            esUpdateItems.push(
-                esEntity.putBatch({
-                    ...item,
-                    data: await compress(plugins, {
-                        ...item.data,
-                        ...updatedEntryMetaFields,
-                        wbyDeleted: entry.wbyDeleted,
-                        location: entry.location,
-                        binOriginalFolderId: entry.binOriginalFolderId
-                    })
+            elasticsearchEntityBatch.put({
+                ...item,
+                data: await compress(plugins, {
+                    ...item.data,
+                    ...updatedEntryMetaFields,
+                    wbyDeleted: entry.wbyDeleted,
+                    location: entry.location,
+                    binOriginalFolderId: entry.binOriginalFolderId
                 })
-            );
+            });
         }
 
         /**
          * We write the records back to the primary DynamoDB Elasticsearch table.
          */
         try {
-            await batchWriteAll({
-                table: esEntity.table,
-                items: esUpdateItems
-            });
+            await elasticsearchEntityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not restore entry records from DynamoDB Elasticsearch table.",
@@ -1158,25 +1129,29 @@ export const createEntriesStorageOperations = (
             }
         });
 
-        const deleteItems = items.map(item => {
-            return entity.deleteBatch({
-                PK: item.PK,
-                SK: item.SK
-            });
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            delete: items.map(item => {
+                return {
+                    PK: item.PK,
+                    SK: item.SK
+                };
+            })
         });
 
-        const deleteEsItems = esItems.map(item => {
-            return esEntity.deleteBatch({
-                PK: item.PK,
-                SK: item.SK
-            });
+        const elasticsearchEntityBatch = createEntityWriteBatch({
+            entity: esEntity,
+            delete: esItems.map(item => {
+                return {
+                    PK: item.PK,
+                    SK: item.SK
+                };
+            })
         });
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items: deleteItems
-            });
+            await entityBatch.execute();
+
             dataLoaders.clearAll({
                 model
             });
@@ -1192,10 +1167,7 @@ export const createEntriesStorageOperations = (
         }
 
         try {
-            await batchWriteAll({
-                table: esEntity.table,
-                items: deleteEsItems
-            });
+            await elasticsearchEntityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not destroy entry records from DynamoDB Elasticsearch table.",
@@ -1234,34 +1206,33 @@ export const createEntriesStorageOperations = (
         /**
          * We need to delete all existing records of the given entry revision.
          */
-        const items = [
-            /**
-             * Delete records of given entry revision.
-             */
-            entity.deleteBatch({
-                PK: partitionKey,
-                SK: createRevisionSortKey(entry)
-            })
-        ];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            delete: [
+                {
+                    PK: partitionKey,
+                    SK: createRevisionSortKey(entry)
+                }
+            ]
+        });
 
-        const esItems: BatchWriteItem[] = [];
+        const elasticsearchEntityBatch = createEntityWriteBatch({
+            entity: esEntity
+        });
 
         /**
          * If revision we are deleting is the published one as well, we need to delete those records as well.
          */
         if (publishedStorageEntry?.id === entry.id) {
-            items.push(
-                entity.deleteBatch({
-                    PK: partitionKey,
-                    SK: createPublishedSortKey()
-                })
-            );
-            esItems.push(
-                esEntity.deleteBatch({
-                    PK: partitionKey,
-                    SK: createPublishedSortKey()
-                })
-            );
+            entityBatch.delete({
+                PK: partitionKey,
+                SK: createPublishedSortKey()
+            });
+
+            elasticsearchEntityBatch.delete({
+                PK: partitionKey,
+                SK: createPublishedSortKey()
+            });
         }
 
         if (latestEntry && initialLatestStorageEntry) {
@@ -1273,31 +1244,27 @@ export const createEntriesStorageOperations = (
             /**
              * In the end we need to set the new latest entry.
              */
-            items.push(
-                entity.putBatch({
-                    ...latestStorageEntry,
-                    PK: partitionKey,
-                    SK: createLatestSortKey(),
-                    TYPE: createLatestRecordType()
-                })
-            );
+            entityBatch.put({
+                ...latestStorageEntry,
+                PK: partitionKey,
+                SK: createLatestSortKey(),
+                TYPE: createLatestRecordType()
+            });
 
             /**
              * Also perform an update on the actual revision. This is needed
              * because of updates on the entry-level meta fields.
              */
-            items.push(
-                entity.putBatch({
-                    ...latestStorageEntry,
-                    PK: createPartitionKey({
-                        id: initialLatestStorageEntry.id,
-                        locale: model.locale,
-                        tenant: model.tenant
-                    }),
-                    SK: createRevisionSortKey(initialLatestStorageEntry),
-                    TYPE: createRecordType()
-                })
-            );
+            entityBatch.put({
+                ...latestStorageEntry,
+                PK: createPartitionKey({
+                    id: initialLatestStorageEntry.id,
+                    locale: model.locale,
+                    tenant: model.tenant
+                }),
+                SK: createRevisionSortKey(initialLatestStorageEntry),
+                TYPE: createRecordType()
+            });
 
             const latestTransformer = createTransformer({
                 plugins,
@@ -1307,21 +1274,16 @@ export const createEntriesStorageOperations = (
             });
 
             const esLatestData = await latestTransformer.getElasticsearchLatestEntryData();
-            esItems.push(
-                esEntity.putBatch({
-                    PK: partitionKey,
-                    SK: createLatestSortKey(),
-                    index,
-                    data: esLatestData
-                })
-            );
+            elasticsearchEntityBatch.put({
+                PK: partitionKey,
+                SK: createLatestSortKey(),
+                index,
+                data: esLatestData
+            });
         }
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
 
             dataLoaders.clearAll({
                 model
@@ -1339,15 +1301,8 @@ export const createEntriesStorageOperations = (
             );
         }
 
-        if (esItems.length === 0) {
-            return;
-        }
-
         try {
-            await batchWriteAll({
-                table: esEntity.table,
-                items: esItems
-            });
+            await elasticsearchEntityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message ||
@@ -1379,82 +1334,74 @@ export const createEntriesStorageOperations = (
         /**
          * Then we need to construct the queries for all the revisions and entries.
          */
-        const items: Record<string, WriteRequest>[] = [];
-        const esItems: Record<string, WriteRequest>[] = [];
+
+        const entityBatch = createEntityWriteBatch({
+            entity
+        });
+        const elasticsearchEntityBatch = createEntityWriteBatch({
+            entity: esEntity
+        });
         for (const id of entries) {
             /**
              * Latest item.
              */
-            items.push(
-                entity.deleteBatch({
-                    PK: createPartitionKey({
-                        id,
-                        locale: model.locale,
-                        tenant: model.tenant
-                    }),
-                    SK: "L"
-                })
-            );
-            esItems.push(
-                esEntity.deleteBatch({
-                    PK: createPartitionKey({
-                        id,
-                        locale: model.locale,
-                        tenant: model.tenant
-                    }),
-                    SK: "L"
-                })
-            );
+            entityBatch.delete({
+                PK: createPartitionKey({
+                    id,
+                    locale: model.locale,
+                    tenant: model.tenant
+                }),
+                SK: "L"
+            });
+
+            elasticsearchEntityBatch.delete({
+                PK: createPartitionKey({
+                    id,
+                    locale: model.locale,
+                    tenant: model.tenant
+                }),
+                SK: "L"
+            });
+
             /**
              * Published item.
              */
-            items.push(
-                entity.deleteBatch({
-                    PK: createPartitionKey({
-                        id,
-                        locale: model.locale,
-                        tenant: model.tenant
-                    }),
-                    SK: "P"
-                })
-            );
-            esItems.push(
-                esEntity.deleteBatch({
-                    PK: createPartitionKey({
-                        id,
-                        locale: model.locale,
-                        tenant: model.tenant
-                    }),
-                    SK: "P"
-                })
-            );
+            entityBatch.delete({
+                PK: createPartitionKey({
+                    id,
+                    locale: model.locale,
+                    tenant: model.tenant
+                }),
+                SK: "P"
+            });
+
+            elasticsearchEntityBatch.delete({
+                PK: createPartitionKey({
+                    id,
+                    locale: model.locale,
+                    tenant: model.tenant
+                }),
+                SK: "P"
+            });
         }
         /**
          * Exact revisions of all the entries
          */
         for (const revision of revisions) {
-            items.push(
-                entity.deleteBatch({
-                    PK: createPartitionKey({
-                        id: revision.id,
-                        locale: model.locale,
-                        tenant: model.tenant
-                    }),
-                    SK: createRevisionSortKey({
-                        version: revision.version
-                    })
+            entityBatch.delete({
+                PK: createPartitionKey({
+                    id: revision.id,
+                    locale: model.locale,
+                    tenant: model.tenant
+                }),
+                SK: createRevisionSortKey({
+                    version: revision.version
                 })
-            );
+            });
         }
 
-        await batchWriteAll({
-            table: entity.table,
-            items
-        });
-        await batchWriteAll({
-            table: esEntity.table,
-            items: esItems
-        });
+        await entityBatch.execute();
+        await elasticsearchEntityBatch.execute();
     };
 
     const list: CmsEntryStorageOperations["list"] = async (initialModel, params) => {
@@ -1641,19 +1588,25 @@ export const createEntriesStorageOperations = (
         });
 
         // 1. Update REV# and P records with new data.
-        const items = [
-            entity.putBatch({
-                ...storageEntry,
-                ...revisionKeys,
-                TYPE: createRecordType()
-            }),
-            entity.putBatch({
-                ...storageEntry,
-                ...publishedKeys,
-                TYPE: createPublishedRecordType()
-            })
-        ];
-        const esItems: BatchWriteItem[] = [];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...storageEntry,
+                    ...revisionKeys,
+                    TYPE: createRecordType()
+                },
+                {
+                    ...storageEntry,
+                    ...publishedKeys,
+                    TYPE: createPublishedRecordType()
+                }
+            ]
+        });
+
+        const elasticsearchEntityBatch = createEntityWriteBatch({
+            entity: esEntity
+        });
 
         const { index: esIndex } = configurations.es({
             model
@@ -1666,12 +1619,10 @@ export const createEntriesStorageOperations = (
 
         if (publishingLatestRevision) {
             // 2.1 If we're publishing the latest revision, we first need to update the L record.
-            items.push(
-                entity.putBatch({
-                    ...storageEntry,
-                    ...latestKeys
-                })
-            );
+            entityBatch.put({
+                ...storageEntry,
+                ...latestKeys
+            });
 
             // 2.2 Additionally, if we have a previously published entry, we need to mark it as unpublished.
             //     Note that we need to take re-publishing into account (same published revision being
@@ -1680,18 +1631,16 @@ export const createEntriesStorageOperations = (
             if (publishedStorageEntry) {
                 const isRepublishing = publishedStorageEntry.id === entry.id;
                 if (!isRepublishing) {
-                    items.push(
-                        /**
-                         * Update currently published entry (unpublish it)
-                         */
-                        entity.putBatch({
-                            ...publishedStorageEntry,
-                            status: CONTENT_ENTRY_STATUS.UNPUBLISHED,
-                            TYPE: createRecordType(),
-                            PK: createPartitionKey(publishedStorageEntry),
-                            SK: createRevisionSortKey(publishedStorageEntry)
-                        })
-                    );
+                    /**
+                     * Update currently published entry (unpublish it)
+                     */
+                    entityBatch.put({
+                        ...publishedStorageEntry,
+                        status: CONTENT_ENTRY_STATUS.UNPUBLISHED,
+                        TYPE: createRecordType(),
+                        PK: createPartitionKey(publishedStorageEntry),
+                        SK: createRevisionSortKey(publishedStorageEntry)
+                    });
                 }
             }
         } else {
@@ -1716,24 +1665,20 @@ export const createEntriesStorageOperations = (
                 status: latestRevisionStatus
             };
 
-            items.push(
-                entity.putBatch({
-                    ...latestStorageEntryFields,
-                    PK: createPartitionKey(latestStorageEntry),
-                    SK: createLatestSortKey(),
-                    TYPE: createLatestRecordType()
-                })
-            );
+            entityBatch.put({
+                ...latestStorageEntryFields,
+                PK: createPartitionKey(latestStorageEntry),
+                SK: createLatestSortKey(),
+                TYPE: createLatestRecordType()
+            });
 
             // 2.5 Update REV# record.
-            items.push(
-                entity.putBatch({
-                    ...latestStorageEntryFields,
-                    PK: createPartitionKey(latestStorageEntry),
-                    SK: createRevisionSortKey(latestStorageEntry),
-                    TYPE: createRecordType()
-                })
-            );
+            entityBatch.put({
+                ...latestStorageEntryFields,
+                PK: createPartitionKey(latestStorageEntry),
+                SK: createRevisionSortKey(latestStorageEntry),
+                TYPE: createRecordType()
+            });
 
             // 2.6 Additionally, if we have a previously published entry, we need to mark it as unpublished.
             //     Note that we need to take re-publishing into account (same published revision being
@@ -1745,15 +1690,13 @@ export const createEntriesStorageOperations = (
                     publishedRevisionId !== latestStorageEntry.id;
 
                 if (!isRepublishing && publishedRevisionDifferentFromLatest) {
-                    items.push(
-                        entity.putBatch({
-                            ...publishedStorageEntry,
-                            PK: createPartitionKey(publishedStorageEntry),
-                            SK: createRevisionSortKey(publishedStorageEntry),
-                            TYPE: createRecordType(),
-                            status: CONTENT_ENTRY_STATUS.UNPUBLISHED
-                        })
-                    );
+                    entityBatch.put({
+                        ...publishedStorageEntry,
+                        PK: createPartitionKey(publishedStorageEntry),
+                        SK: createRevisionSortKey(publishedStorageEntry),
+                        TYPE: createRecordType(),
+                        status: CONTENT_ENTRY_STATUS.UNPUBLISHED
+                    });
                 }
             }
         }
@@ -1764,13 +1707,11 @@ export const createEntriesStorageOperations = (
          * Update the published revision entry in ES.
          */
         const esPublishedData = await transformer.getElasticsearchPublishedEntryData();
-        esItems.push(
-            esEntity.putBatch({
-                ...publishedKeys,
-                index: esIndex,
-                data: esPublishedData
-            })
-        );
+        elasticsearchEntityBatch.put({
+            ...publishedKeys,
+            index: esIndex,
+            data: esPublishedData
+        });
 
         /**
          * Need to decompress the data from Elasticsearch DynamoDB table.
@@ -1797,14 +1738,12 @@ export const createEntriesStorageOperations = (
                 }
             });
 
-            esItems.push(
-                esEntity.putBatch({
-                    index: esIndex,
-                    PK: createPartitionKey(latestEsEntryDataDecompressed),
-                    SK: createLatestSortKey(),
-                    data: await latestTransformer.getElasticsearchLatestEntryData()
-                })
-            );
+            elasticsearchEntityBatch.put({
+                index: esIndex,
+                PK: createPartitionKey(latestEsEntryDataDecompressed),
+                SK: createLatestSortKey(),
+                data: await latestTransformer.getElasticsearchLatestEntryData()
+            });
         } else {
             const updatedEntryLevelMetaFields = pickEntryMetaFields(
                 entry,
@@ -1836,13 +1775,11 @@ export const createEntriesStorageOperations = (
                     status: latestRevisionStatus
                 });
 
-                esItems.push(
-                    esEntity.putBatch({
-                        ...latestKeys,
-                        index: esIndex,
-                        data: updatedLatestEntry
-                    })
-                );
+                elasticsearchEntityBatch.put({
+                    ...latestKeys,
+                    index: esIndex,
+                    data: updatedLatestEntry
+                });
             }
         }
 
@@ -1850,10 +1787,8 @@ export const createEntriesStorageOperations = (
          * Finally, execute regular table batch.
          */
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
+
             dataLoaders.clearAll({
                 model
             });
@@ -1873,10 +1808,7 @@ export const createEntriesStorageOperations = (
          * And Elasticsearch table batch.
          */
         try {
-            await batchWriteAll({
-                table: esEntity.table,
-                items: esItems
-            });
+            await elasticsearchEntityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message ||
@@ -1919,25 +1851,34 @@ export const createEntriesStorageOperations = (
             tenant: model.tenant
         });
 
-        const items = [
-            entity.deleteBatch({
-                PK: partitionKey,
-                SK: createPublishedSortKey()
-            }),
-            entity.putBatch({
-                ...storageEntry,
-                PK: partitionKey,
-                SK: createRevisionSortKey(entry),
-                TYPE: createRecordType()
-            })
-        ];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...storageEntry,
+                    PK: partitionKey,
+                    SK: createRevisionSortKey(entry),
+                    TYPE: createRecordType()
+                }
+            ],
+            delete: [
+                {
+                    PK: partitionKey,
+                    SK: createPublishedSortKey()
+                }
+            ]
+        });
 
-        const esItems: BatchWriteItem[] = [
-            esEntity.deleteBatch({
-                PK: partitionKey,
-                SK: createPublishedSortKey()
-            })
-        ];
+        const elasticsearchEntityBatch = createEntityWriteBatch({
+            entity: esEntity,
+            delete: [
+                {
+                    PK: partitionKey,
+                    SK: createPublishedSortKey()
+                }
+            ]
+        });
+
         /**
          * If we are unpublishing the latest revision, let's also update the latest revision entry's status in both DynamoDB tables.
          */
@@ -1946,34 +1887,28 @@ export const createEntriesStorageOperations = (
                 model
             });
 
-            items.push(
-                entity.putBatch({
-                    ...storageEntry,
-                    PK: partitionKey,
-                    SK: createLatestSortKey(),
-                    TYPE: createLatestRecordType()
-                })
-            );
+            entityBatch.put({
+                ...storageEntry,
+                PK: partitionKey,
+                SK: createLatestSortKey(),
+                TYPE: createLatestRecordType()
+            });
 
             const esLatestData = await transformer.getElasticsearchLatestEntryData();
-            esItems.push(
-                esEntity.putBatch({
-                    PK: partitionKey,
-                    SK: createLatestSortKey(),
-                    index,
-                    data: esLatestData
-                })
-            );
+            elasticsearchEntityBatch.put({
+                PK: partitionKey,
+                SK: createLatestSortKey(),
+                index,
+                data: esLatestData
+            });
         }
 
         /**
          * Finally, execute regular table batch.
          */
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
+
             dataLoaders.clearAll({
                 model
             });
@@ -1991,10 +1926,7 @@ export const createEntriesStorageOperations = (
          * And Elasticsearch table batch.
          */
         try {
-            await batchWriteAll({
-                table: esEntity.table,
-                items: esItems
-            });
+            await elasticsearchEntityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message ||

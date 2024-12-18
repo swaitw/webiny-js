@@ -1,5 +1,5 @@
 import WebinyError from "@webiny/error";
-import {
+import type {
     PrerenderingServiceRenderStorageOperations,
     PrerenderingServiceStorageOperationsCreateRenderParams,
     PrerenderingServiceStorageOperationsCreateTagPathLinksParams,
@@ -12,18 +12,24 @@ import {
     Tag,
     TagPathLink
 } from "@webiny/api-prerendering-service/types";
-import { Entity, EntityQueryOptions } from "@webiny/db-dynamodb/toolbox";
-import { get } from "@webiny/db-dynamodb/utils/get";
-import { queryAll, queryAllClean, QueryAllParams } from "@webiny/db-dynamodb/utils/query";
-import { batchReadAll } from "@webiny/db-dynamodb/utils/batchRead";
-import { batchWriteAll } from "@webiny/db-dynamodb/utils/batchWrite";
-import { cleanupItem, cleanupItems } from "@webiny/db-dynamodb/utils/cleanup";
-import { DataContainer } from "~/types";
-import { deleteItem, put } from "@webiny/db-dynamodb";
+import type { Entity, EntityQueryOptions } from "@webiny/db-dynamodb/toolbox";
+import {
+    batchReadAll,
+    cleanupItem,
+    cleanupItems,
+    createEntityWriteBatch,
+    deleteItem,
+    get,
+    put,
+    queryAll,
+    queryAllClean
+} from "@webiny/db-dynamodb";
+import type { QueryAllParams } from "@webiny/db-dynamodb";
+import type { DataContainer } from "~/types";
 
 export interface CreateRenderStorageOperationsParams {
-    entity: Entity<any>;
-    tagPathLinkEntity: Entity<any>;
+    entity: Entity;
+    tagPathLinkEntity: Entity;
 }
 
 export interface CreateTagPathLinkPartitionKeyParams {
@@ -276,29 +282,29 @@ export const createRenderStorageOperations = (
     ) => {
         const { tagPathLinks } = params;
 
-        const items = tagPathLinks.map(item => {
-            return tagPathLinkEntity.putBatch({
-                data: item,
-                TYPE: createTagPathLinkType(),
-                PK: createTagPathLinkPartitionKey({
-                    tenant: item.tenant,
-                    tag: item,
-                    path: item.path
-                }),
-                SK: createTagPathLinkSortKey({
-                    tag: item,
-                    path: item.path
-                }),
-                GSI1_PK: createTagPathLinkGSI1PartitionKey({ tag: item, tenant: item.tenant }),
-                GSI1_SK: createTagPathLinkGSI1SortKey({ tag: item, path: item.path })
-            });
+        const tagPathLinksBatch = createEntityWriteBatch({
+            entity: tagPathLinkEntity,
+            put: tagPathLinks.map(item => {
+                return {
+                    data: item,
+                    TYPE: createTagPathLinkType(),
+                    PK: createTagPathLinkPartitionKey({
+                        tenant: item.tenant,
+                        tag: item,
+                        path: item.path
+                    }),
+                    SK: createTagPathLinkSortKey({
+                        tag: item,
+                        path: item.path
+                    }),
+                    GSI1_PK: createTagPathLinkGSI1PartitionKey({ tag: item, tenant: item.tenant }),
+                    GSI1_SK: createTagPathLinkGSI1SortKey({ tag: item, path: item.path })
+                };
+            })
         });
 
         try {
-            await batchWriteAll({
-                table: tagPathLinkEntity.table,
-                items
-            });
+            await tagPathLinksBatch.execute();
             return tagPathLinks;
         } catch (ex) {
             throw new WebinyError(
@@ -315,25 +321,26 @@ export const createRenderStorageOperations = (
         params: PrerenderingServiceStorageOperationsDeleteTagPathLinksParams
     ): Promise<void> => {
         const { tenant, tags, path } = params;
-        const items = tags.map(tag => {
-            return tagPathLinkEntity.deleteBatch({
-                PK: createTagPathLinkPartitionKey({
-                    tag,
-                    tenant,
-                    path
-                }),
-                SK: createTagPathLinkSortKey({
-                    tag,
-                    path
-                })
-            });
+
+        const tagPathLinksBatch = createEntityWriteBatch({
+            entity: tagPathLinkEntity,
+            delete: tags.map(tag => {
+                return {
+                    PK: createTagPathLinkPartitionKey({
+                        tag,
+                        tenant,
+                        path
+                    }),
+                    SK: createTagPathLinkSortKey({
+                        tag,
+                        path
+                    })
+                };
+            })
         });
 
         try {
-            await batchWriteAll({
-                table: tagPathLinkEntity.table,
-                items
-            });
+            await tagPathLinksBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not delete tagPathLink records.",

@@ -1,14 +1,14 @@
 import { Entity } from "~/toolbox";
-
-interface Params {
+export interface IDeleteItemKeys {
+    PK: string;
+    SK: string;
+}
+export interface IDeleteItemParams {
     entity: Entity;
-    keys: {
-        PK: string;
-        SK: string;
-    };
+    keys: IDeleteItemKeys;
 }
 
-export const deleteItem = async (params: Params) => {
+export const deleteItem = async (params: IDeleteItemParams) => {
     const { entity, keys } = params;
 
     return await entity.delete(keys, {

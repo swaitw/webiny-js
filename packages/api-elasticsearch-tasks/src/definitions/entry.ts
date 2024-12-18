@@ -1,13 +1,18 @@
-import { Entity, TableDef } from "@webiny/db-dynamodb/toolbox";
+/**
+ * TODO If adding GSIs to the Elasticsearch table, add them here.
+ */
+import type { TableDef } from "@webiny/db-dynamodb/toolbox";
+import type { IEntity } from "@webiny/db-dynamodb";
+import { createEntity } from "@webiny/db-dynamodb";
 
 interface Params {
     table: TableDef;
     entityName: string;
 }
 
-export const createEntry = (params: Params): Entity<any> => {
+export const createEntry = (params: Params): IEntity => {
     const { table, entityName } = params;
-    return new Entity({
+    return createEntity({
         name: entityName,
         table,
         attributes: {
@@ -24,6 +29,9 @@ export const createEntry = (params: Params): Entity<any> => {
             },
             data: {
                 type: "map"
+            },
+            TYPE: {
+                type: "string"
             }
         }
     });

@@ -6,7 +6,7 @@ import {
 } from "~/types";
 import { ITaskResponse, ITaskResponseResult } from "@webiny/tasks/response/abstractions";
 import { scan } from "~/helpers/scan";
-import { BatchWriteItem, ScanResponse } from "@webiny/db-dynamodb";
+import { createTableWriteBatch, ScanResponse } from "@webiny/db-dynamodb";
 import { IndexManager } from "~/settings";
 import { IIndexManager } from "~/settings/types";
 
@@ -73,7 +73,10 @@ export class ReindexingTaskRunner {
                     return this.response.done("No more items to process.");
                 }
 
-                const batch: BatchWriteItem[] = [];
+                const tableWriteBatch = createTableWriteBatch({
+                    table: this.manager.table
+                });
+
                 for (const item of results.items) {
                     /**
                      * No index defined? Impossible but let's skip if really happens.
@@ -110,14 +113,13 @@ export class ReindexingTaskRunner {
                     /**
                      * Reindexing will be triggered by the `putBatch` method.
                      */
-                    batch.push(
-                        entity.putBatch({
-                            ...item,
-                            modified: new Date().toISOString()
-                        })
-                    );
+                    tableWriteBatch.put(entity.entity, {
+                        ...item,
+                        TYPE: item.TYPE || "unknown",
+                        modified: new Date().toISOString()
+                    });
                 }
-                await this.manager.write(batch);
+                await tableWriteBatch.execute();
                 /**
                  * We always store the index settings, so we can restore them later.
                  * Also, we always want to store what was the last key we processed, just in case something breaks, so we can continue from this point.

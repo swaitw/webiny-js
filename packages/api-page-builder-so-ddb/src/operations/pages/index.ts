@@ -1,6 +1,5 @@
 import WebinyError from "@webiny/error";
-import lodashGet from "lodash/get";
-import {
+import type {
     Page,
     PageStorageOperations,
     PageStorageOperationsCreateFromParams,
@@ -18,21 +17,21 @@ import {
     PageStorageOperationsUpdateParams
 } from "@webiny/api-page-builder/types";
 import { getClean } from "@webiny/db-dynamodb/utils/get";
-import { Entity } from "@webiny/db-dynamodb/toolbox";
+import type { Entity } from "@webiny/db-dynamodb/toolbox";
 import { cleanupItem } from "@webiny/db-dynamodb/utils/cleanup";
+import type { QueryAllParams } from "@webiny/db-dynamodb";
 import {
-    DbItem,
+    createEntityWriteBatch,
+    decodeCursor,
+    encodeCursor,
+    filterItems,
     queryAll,
-    QueryAllParams,
     queryOne,
-    queryOneClean
-} from "@webiny/db-dynamodb/utils/query";
-import { batchWriteAll } from "@webiny/db-dynamodb/utils/batchWrite";
-import { filterItems } from "@webiny/db-dynamodb/utils/filter";
-import { sortItems } from "@webiny/db-dynamodb/utils/sort";
-import { decodeCursor, encodeCursor } from "@webiny/db-dynamodb/utils/cursor";
+    queryOneClean,
+    sortItems
+} from "@webiny/db-dynamodb";
 import { PageDynamoDbFieldPlugin } from "~/plugins/definitions/PageDynamoDbFieldPlugin";
-import { PluginsContainer } from "@webiny/plugins";
+import type { PluginsContainer } from "@webiny/plugins";
 import {
     createLatestPartitionKey,
     createLatestSortKey,
@@ -105,25 +104,26 @@ export const createPageStorageOperations = (
          * - latest
          * - revision
          */
-        const items = [
-            entity.putBatch({
-                ...page,
-                titleLC,
-                ...latestKeys,
-                TYPE: createLatestType()
-            }),
-            entity.putBatch({
-                ...page,
-                titleLC,
-                ...revisionKeys,
-                TYPE: createRevisionType()
-            })
-        ];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...page,
+                    titleLC,
+                    ...latestKeys,
+                    TYPE: createLatestType()
+                },
+                {
+                    ...page,
+                    titleLC,
+                    ...revisionKeys,
+                    TYPE: createRevisionType()
+                }
+            ]
+        });
+
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
             return page;
         } catch (ex) {
             throw new WebinyError(
@@ -154,24 +154,24 @@ export const createPageStorageOperations = (
          * - latest
          * - revision
          */
-        const items = [
-            entity.putBatch({
-                ...page,
-                ...latestKeys,
-                TYPE: createLatestType()
-            }),
-            entity.putBatch({
-                ...page,
-                ...revisionKeys,
-                TYPE: createRevisionType()
-            })
-        ];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...page,
+                    ...latestKeys,
+                    TYPE: createLatestType()
+                },
+                {
+                    ...page,
+                    ...revisionKeys,
+                    TYPE: createRevisionType()
+                }
+            ]
+        });
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
             return page;
         } catch (ex) {
             throw new WebinyError(
@@ -211,33 +211,32 @@ export const createPageStorageOperations = (
          * - revision
          * - latest if this is the latest
          */
-        const items = [
-            entity.putBatch({
-                ...page,
-                titleLC,
-                ...revisionKeys,
-                TYPE: createRevisionType()
-            })
-        ];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...page,
+                    titleLC,
+                    ...revisionKeys,
+                    TYPE: createRevisionType()
+                }
+            ]
+        });
+
         /**
          * Latest if it is the one.
          */
         if (latestPage && latestPage.id === page.id) {
-            items.push(
-                entity.putBatch({
-                    ...page,
-                    titleLC,
-                    ...latestKeys,
-                    TYPE: createLatestType()
-                })
-            );
+            entityBatch.put({
+                ...page,
+                titleLC,
+                ...latestKeys,
+                TYPE: createLatestType()
+            });
         }
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
 
             return page;
         } catch (ex) {
@@ -280,9 +279,13 @@ export const createPageStorageOperations = (
          * We need to update
          * - latest, if it exists, with previous record
          */
-        const items = [entity.deleteBatch(revisionKeys)];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            delete: [revisionKeys]
+        });
+
         if (publishedPage && publishedPage.id === page.id) {
-            items.push(entity.deleteBatch(publishedKeys));
+            entityBatch.delete(publishedKeys);
         }
         let previousLatestPage: Page | null = null;
         if (latestPage && latestPage.id === page.id) {
@@ -296,21 +299,17 @@ export const createPageStorageOperations = (
                 }
             });
             if (previousLatestRecord) {
-                items.push(
-                    entity.putBatch({
-                        ...previousLatestRecord,
-                        ...latestKeys,
-                        TYPE: createLatestType()
-                    })
-                );
+                entityBatch.put({
+                    ...previousLatestRecord,
+                    ...latestKeys,
+                    TYPE: createLatestType()
+                });
+
                 previousLatestPage = cleanupItem(entity, previousLatestRecord);
             }
         }
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not batch write all the page records.",
@@ -347,11 +346,14 @@ export const createPageStorageOperations = (
             SK: createPublishedSortKey(page)
         };
 
-        const items = [entity.deleteBatch(latestKeys)];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            delete: [latestKeys]
+        });
 
-        let revisions: DbItem<Page>[];
+        let revisions: Awaited<ReturnType<typeof queryAll<Page>>> = [];
         try {
-            revisions = await queryAll(queryAllParams);
+            revisions = await queryAll<Page>(queryAllParams);
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not query for all revisions of the page.",
@@ -369,22 +371,17 @@ export const createPageStorageOperations = (
          */
         for (const revision of revisions) {
             if (!deletedPublishedRecord && revision.status === "published") {
-                items.push(entity.deleteBatch(publishedKeys));
+                entityBatch.delete(publishedKeys);
                 deletedPublishedRecord = true;
             }
-            items.push(
-                entity.deleteBatch({
-                    PK: revision.PK,
-                    SK: revision.SK
-                })
-            );
+            entityBatch.delete({
+                PK: revision.PK,
+                SK: revision.SK
+            });
         }
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not delete all the page records.",
@@ -420,22 +417,23 @@ export const createPageStorageOperations = (
         /**
          * Update the given revision of the page.
          */
-        const items = [
-            entity.putBatch({
-                ...page,
-                ...revisionKeys,
-                TYPE: createRevisionType()
-            })
-        ];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...page,
+                    ...revisionKeys,
+                    TYPE: createRevisionType()
+                }
+            ]
+        });
 
         if (latestPage.id === page.id) {
-            items.push(
-                entity.putBatch({
-                    ...page,
-                    ...latestKeys,
-                    TYPE: createLatestType()
-                })
-            );
+            entityBatch.put({
+                ...page,
+                ...latestKeys,
+                TYPE: createLatestType()
+            });
         }
         /**
          * If we already have a published revision, and it's not the revision being published:
@@ -446,31 +444,24 @@ export const createPageStorageOperations = (
                 PK: createRevisionPartitionKey(publishedPage),
                 SK: createRevisionSortKey(publishedPage)
             };
-            items.push(
-                entity.putBatch({
-                    ...publishedPage,
-                    status: "unpublished",
-                    ...publishedRevisionKeys,
-                    TYPE: createRevisionType()
-                })
-            );
+            entityBatch.put({
+                ...publishedPage,
+                status: "unpublished",
+                ...publishedRevisionKeys,
+                TYPE: createRevisionType()
+            });
         }
 
-        items.push(
-            entity.putBatch({
-                ...page,
-                ...publishedKeys,
-                GSI1_PK: createPathPartitionKey(page),
-                GSI1_SK: page.path,
-                TYPE: createPublishedType()
-            })
-        );
+        entityBatch.put({
+            ...page,
+            ...publishedKeys,
+            GSI1_PK: createPathPartitionKey(page),
+            GSI1_SK: page.path,
+            TYPE: createPublishedType()
+        });
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not update all the page records when publishing.",
@@ -504,30 +495,28 @@ export const createPageStorageOperations = (
             SK: createPublishedSortKey(page)
         };
 
-        const items = [
-            entity.putBatch({
-                ...page,
-                ...revisionKeys,
-                TYPE: createRevisionType()
-            }),
-            entity.deleteBatch(publishedKeys)
-        ];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...page,
+                    ...revisionKeys,
+                    TYPE: createRevisionType()
+                }
+            ],
+            delete: [publishedKeys]
+        });
 
         if (latestPage.id === page.id) {
-            items.push(
-                entity.putBatch({
-                    ...page,
-                    ...latestKeys,
-                    TYPE: createLatestType()
-                })
-            );
+            entityBatch.put({
+                ...page,
+                ...latestKeys,
+                TYPE: createLatestType()
+            });
         }
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not update all the page records when unpublishing.",
@@ -819,7 +808,7 @@ export const createPageStorageOperations = (
             options
         };
 
-        let pages: DbItem<Page>[] = [];
+        let pages: Awaited<ReturnType<typeof queryAll<Page>>> = [];
         try {
             pages = await queryAll<Page>(queryAllParams);
         } catch (ex) {
@@ -833,22 +822,20 @@ export const createPageStorageOperations = (
             );
         }
 
-        const tags = pages.reduce((collection, page) => {
-            let list: string[] = lodashGet(page, "settings.general.tags") as unknown as string[];
-            if (!list || list.length === 0) {
-                return collection;
+        const tags = new Set<string>();
+        for (const page of pages) {
+            let tagList = page.settings?.general?.tags;
+            if (!tagList?.length) {
+                continue;
             } else if (where.search) {
                 const re = new RegExp(where.search, "i");
-                list = list.filter(t => t.match(re) !== null);
+                tagList = tagList.filter(tag => !!tag && tag.match(re) !== null);
             }
-
-            for (const t of list) {
-                collection[t] = undefined;
+            for (const tag of tagList) {
+                tags.add(tag);
             }
-            return collection;
-        }, {} as Record<string, string | undefined>);
-
-        return Object.keys(tags);
+        }
+        return Array.from(tags);
     };
 
     return {

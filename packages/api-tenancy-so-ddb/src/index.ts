@@ -1,5 +1,10 @@
-import { batchReadAll } from "@webiny/db-dynamodb/utils/batchRead";
-import { batchWriteAll } from "@webiny/db-dynamodb/utils/batchWrite";
+import {
+    batchReadAll,
+    createEntityWriteBatch,
+    createTableWriteBatch,
+    getClean,
+    put
+} from "@webiny/db-dynamodb";
 import { queryAll, QueryAllParams } from "@webiny/db-dynamodb/utils/query";
 import WebinyError from "@webiny/error";
 import { createTable } from "~/definitions/table";
@@ -7,8 +12,7 @@ import { createTenantEntity } from "~/definitions/tenantEntity";
 import { createSystemEntity } from "~/definitions/systemEntity";
 import { createDomainEntity } from "~/definitions/domainEntity";
 import { CreateTenancyStorageOperations, ENTITIES } from "~/types";
-import { ListTenantsParams, System, Tenant, TenantDomain } from "@webiny/api-tenancy/types";
-import { getClean, put } from "@webiny/db-dynamodb";
+import type { ListTenantsParams, System, Tenant, TenantDomain } from "@webiny/api-tenancy/types";
 
 interface TenantDomainRecord {
     PK: string;
@@ -181,19 +185,23 @@ export const createStorageOperations: CreateTenancyStorageOperations = params =>
             };
 
             try {
-                const items: any[] = [
-                    entities.tenants.putBatch({ TYPE: "tenancy.tenant", ...keys, data })
-                ];
+                const tableWrite = createTableWriteBatch({
+                    table: tableInstance
+                });
+
+                tableWrite.put(entities.tenants, {
+                    TYPE: "tenancy.tenant",
+                    ...keys,
+                    data
+                });
+
                 const newDomains = createNewDomainsRecords(data);
 
-                newDomains.forEach(record => {
-                    items.push(entities.domains.putBatch(record));
-                });
+                for (const domain of newDomains) {
+                    tableWrite.put(entities.domains, domain);
+                }
 
-                await batchWriteAll({
-                    table: tableInstance,
-                    items: items
-                });
+                await tableWrite.execute();
 
                 return data as TTenant;
             } catch (err) {
@@ -215,8 +223,6 @@ export const createStorageOperations: CreateTenancyStorageOperations = params =>
                 GSI1_SK: `T#${data.parent}#${data.createdOn}`
             };
 
-            const items: any[] = [entities.tenants.putBatch({ ...keys, data })];
-
             const existingDomains = await queryAll<TenantDomain>({
                 entity: entities.domains,
                 partitionKey: "DOMAINS",
@@ -228,31 +234,30 @@ export const createStorageOperations: CreateTenancyStorageOperations = params =>
 
             const newDomains = createNewDomainsRecords(data, existingDomains);
 
+            const tableWrite = createTableWriteBatch({
+                table: tableInstance
+            });
+
+            tableWrite.put(entities.tenants, { ...keys, data });
+
             // Delete domains that are in the DB but are NOT in the settings.
-            const deleteDomains = [];
+
             for (const { fqdn } of existingDomains) {
-                if (!data.settings.domains.find(d => d.fqdn === fqdn)) {
-                    deleteDomains.push({
-                        PK: `DOMAIN#${fqdn}`,
-                        SK: `A`
-                    });
+                if (data.settings.domains.some(d => d.fqdn === fqdn)) {
+                    continue;
                 }
+                tableWrite.delete(entities.domains, {
+                    PK: `DOMAIN#${fqdn}`,
+                    SK: `A`
+                });
+            }
+
+            for (const domain of newDomains) {
+                tableWrite.put(entities.domains, domain);
             }
 
             try {
-                newDomains.forEach(record => {
-                    items.push(entities.domains.putBatch(record));
-                });
-
-                deleteDomains.forEach(item => {
-                    items.push(entities.domains.deleteBatch(item));
-                });
-
-                await batchWriteAll({
-                    table: tableInstance,
-                    items: items
-                });
-
+                await tableWrite.execute();
                 return data as TTenant;
             } catch (err) {
                 throw WebinyError.from(err, {
@@ -273,27 +278,25 @@ export const createStorageOperations: CreateTenancyStorageOperations = params =>
                 }
             });
 
-            const items = [
-                entities.tenants.deleteBatch({
-                    PK: `T#${id}`,
-                    SK: "A"
-                })
-            ];
-
-            existingDomains.forEach(domain => {
-                items.push(
-                    entities.domains.deleteBatch({
-                        PK: domain.PK,
-                        SK: domain.SK
-                    })
-                );
+            const batchWrite = createEntityWriteBatch({
+                entity: entities.tenants,
+                delete: [
+                    {
+                        PK: `T#${id}`,
+                        SK: "A"
+                    }
+                ]
             });
+
+            for (const domain of existingDomains) {
+                batchWrite.delete({
+                    PK: domain.PK,
+                    SK: domain.SK
+                });
+            }
 
             // Delete tenant and domain items
-            await batchWriteAll({
-                table: tableInstance,
-                items
-            });
+            await batchWrite.execute();
         }
     };
 };

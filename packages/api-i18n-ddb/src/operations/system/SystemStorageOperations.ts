@@ -1,15 +1,14 @@
-import {
+import type {
     I18NContext,
     I18NSystem,
     I18NSystemStorageOperations,
     I18NSystemStorageOperationsCreate,
     I18NSystemStorageOperationsUpdate
 } from "@webiny/api-i18n/types";
-import { Entity } from "@webiny/db-dynamodb/toolbox";
 import WebinyError from "@webiny/error";
 import defineSystemEntity from "~/definitions/systemEntity";
 import defineTable from "~/definitions/table";
-import { getClean, put } from "@webiny/db-dynamodb";
+import type { IEntity } from "@webiny/db-dynamodb";
 
 interface ConstructorParams {
     context: I18NContext;
@@ -19,7 +18,7 @@ const SORT_KEY = "I18N";
 
 export class SystemStorageOperations implements I18NSystemStorageOperations {
     private readonly _context: I18NContext;
-    private readonly _entity: Entity<any>;
+    private readonly entity: IEntity;
 
     private get partitionKey(): string {
         const tenant = this._context.tenancy.getCurrentTenant();
@@ -35,7 +34,7 @@ export class SystemStorageOperations implements I18NSystemStorageOperations {
             context
         });
 
-        this._entity = defineSystemEntity({
+        this.entity = defineSystemEntity({
             context,
             table
         });
@@ -48,10 +47,7 @@ export class SystemStorageOperations implements I18NSystemStorageOperations {
         };
 
         try {
-            return await getClean<I18NSystem>({
-                entity: this._entity,
-                keys
-            });
+            return await this.entity.getClean<I18NSystem>(keys);
         } catch (ex) {
             throw new WebinyError(
                 "Could not load system data from the database.",
@@ -67,12 +63,9 @@ export class SystemStorageOperations implements I18NSystemStorageOperations {
             SK: SORT_KEY
         };
         try {
-            await put({
-                entity: this._entity,
-                item: {
-                    ...system,
-                    ...keys
-                }
+            await this.entity.put({
+                ...system,
+                ...keys
             });
             return system;
         } catch (ex) {
@@ -90,12 +83,9 @@ export class SystemStorageOperations implements I18NSystemStorageOperations {
             SK: SORT_KEY
         };
         try {
-            await put({
-                entity: this._entity,
-                item: {
-                    ...system,
-                    ...keys
-                }
+            await this.entity.put({
+                ...system,
+                ...keys
             });
             return system;
         } catch (ex) {

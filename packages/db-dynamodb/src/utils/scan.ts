@@ -1,8 +1,8 @@
-import { ScanInput, ScanOutput } from "@webiny/aws-sdk/client-dynamodb";
-import { Entity, ScanOptions, Table } from "~/toolbox";
+import type { ScanInput, ScanOutput } from "@webiny/aws-sdk/client-dynamodb";
+import type { Entity, ScanOptions, TableDef } from "~/toolbox";
 import { executeWithRetry, ExecuteWithRetryOptions } from "@webiny/utils";
 
-export type { ScanOptions };
+export type { ScanOptions, ScanInput, ScanOutput };
 
 export interface BaseScanParams {
     options?: ScanOptions;
@@ -10,7 +10,7 @@ export interface BaseScanParams {
 }
 
 export interface ScanWithTable extends BaseScanParams {
-    table: Table<any, any, any>;
+    table: TableDef;
     entity?: never;
 }
 

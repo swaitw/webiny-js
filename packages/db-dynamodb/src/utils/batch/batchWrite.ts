@@ -1,30 +1,11 @@
 import lodashChunk from "lodash/chunk";
 import { TableDef } from "~/toolbox";
-import { WriteRequest } from "@webiny/aws-sdk/client-dynamodb";
-
-export interface BatchWriteItem {
-    [key: string]: WriteRequest;
-}
+import { BatchWriteItem, BatchWriteResponse, BatchWriteResult } from "./types";
 
 export interface BatchWriteParams {
     table: TableDef | undefined;
     items: BatchWriteItem[];
 }
-
-export interface BatchWriteResponse {
-    next?: () => Promise<BatchWriteResponse>;
-    $metadata: {
-        httpStatusCode: number;
-        requestId: string;
-        attempts: number;
-        totalRetryDelay: number;
-    };
-    UnprocessedItems?: {
-        [table: string]: WriteRequest[];
-    };
-}
-
-export type BatchWriteResult = BatchWriteResponse[];
 
 const hasUnprocessedItems = (result: BatchWriteResponse): boolean => {
     if (typeof result.next !== "function") {

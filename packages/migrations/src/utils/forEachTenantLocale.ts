@@ -1,7 +1,17 @@
 import { createLocaleEntity, createTenantEntity, queryAll } from "~/utils";
-import { I18NLocale, Tenant } from "~/migrations/5.37.0/003/types";
 import { Table } from "@webiny/db-dynamodb/toolbox";
 import { Logger } from "@webiny/logger";
+
+export interface Tenant {
+    data: {
+        id: string;
+        name: string;
+    };
+}
+
+export interface I18NLocale {
+    code: string;
+}
 
 type ForEachTenantLocaleCallback = (params: {
     tenantId: string;

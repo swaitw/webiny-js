@@ -1,5 +1,5 @@
 import DataLoader from "dataloader";
-import { batchReadAll } from "@webiny/db-dynamodb/utils/batchRead";
+import { batchReadAll } from "@webiny/db-dynamodb";
 import { PageTemplate } from "@webiny/api-page-builder/types";
 import { Entity } from "@webiny/db-dynamodb/toolbox";
 import { createPrimaryPK } from "./keys";

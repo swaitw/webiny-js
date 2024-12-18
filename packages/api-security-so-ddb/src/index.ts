@@ -1,5 +1,5 @@
 import { ENTITIES, SecurityStorageParams } from "~/types";
-import {
+import type {
     ApiKey,
     Group,
     ListTenantLinksByTypeParams,
@@ -18,16 +18,19 @@ import {
     createTeamEntity,
     createTenantLinkEntity
 } from "~/definitions/entities";
-import { cleanupItem, cleanupItems } from "@webiny/db-dynamodb/utils/cleanup";
+import type { QueryOneParams } from "@webiny/db-dynamodb";
 import {
+    cleanupItem,
+    cleanupItems,
+    createEntityWriteBatch,
+    deleteItem,
+    getClean,
+    put,
     queryAll,
     queryAllClean,
     queryOneClean,
-    QueryOneParams
-} from "@webiny/db-dynamodb/utils/query";
-import { sortItems } from "@webiny/db-dynamodb/utils/sort";
-import { batchWriteAll } from "@webiny/db-dynamodb/utils/batchWrite";
-import { deleteItem, getClean, put } from "@webiny/db-dynamodb";
+    sortItems
+} from "@webiny/db-dynamodb";
 
 const reservedFields: string[] = ["PK", "SK", "index", "data"];
 
@@ -187,17 +190,20 @@ export const createStorageOperations = (
             }
         },
         async createTenantLinks(links): Promise<void> {
-            const items = links.map(link => {
-                return entities.tenantLinks.putBatch({
-                    PK: `IDENTITY#${link.identity}`,
-                    SK: `LINK#T#${link.tenant}`,
-                    GSI1_PK: `T#${link.tenant}`,
-                    GSI1_SK: `TYPE#${link.type}#IDENTITY#${link.identity}`,
-                    ...cleanupItem(entities.tenantLinks, link)
-                });
+            const batchWrite = createEntityWriteBatch({
+                entity: entities.tenantLinks,
+                put: links.map(link => {
+                    return {
+                        PK: `IDENTITY#${link.identity}`,
+                        SK: `LINK#T#${link.tenant}`,
+                        GSI1_PK: `T#${link.tenant}`,
+                        GSI1_SK: `TYPE#${link.type}#IDENTITY#${link.identity}`,
+                        ...cleanupItem(entities.tenantLinks, link)
+                    };
+                })
             });
 
-            await batchWriteAll({ table, items });
+            await batchWrite.execute();
         },
         async deleteApiKey({ apiKey }) {
             const keys = createApiKeyKeys(apiKey);
@@ -248,14 +254,16 @@ export const createStorageOperations = (
             }
         },
         async deleteTenantLinks(links): Promise<void> {
-            const items = links.map(link => {
-                return entities.tenantLinks.deleteBatch({
-                    PK: `IDENTITY#${link.identity}`,
-                    SK: `LINK#T#${link.tenant}`
-                });
+            const batchWrite = createEntityWriteBatch({
+                entity: entities.tenantLinks,
+                delete: links.map(link => {
+                    return {
+                        PK: `IDENTITY#${link.identity}`,
+                        SK: `LINK#T#${link.tenant}`
+                    };
+                })
             });
-
-            await batchWriteAll({ table, items });
+            await batchWrite.execute();
         },
         async getApiKey({ id, tenant }) {
             const keys = createApiKeyKeys({ id, tenant });
@@ -586,17 +594,20 @@ export const createStorageOperations = (
             }
         },
         async updateTenantLinks(links): Promise<void> {
-            const items = links.map(link => {
-                return entities.tenantLinks.putBatch({
-                    PK: `IDENTITY#${link.identity}`,
-                    SK: `LINK#T#${link.tenant}`,
-                    GSI1_PK: `T#${link.tenant}`,
-                    GSI1_SK: `TYPE#${link.type}#IDENTITY#${link.identity}`,
-                    ...cleanupItem(entities.tenantLinks, link)
-                });
+            const batchWrite = createEntityWriteBatch({
+                entity: entities.tenantLinks,
+                put: links.map(link => {
+                    return {
+                        PK: `IDENTITY#${link.identity}`,
+                        SK: `LINK#T#${link.tenant}`,
+                        GSI1_PK: `T#${link.tenant}`,
+                        GSI1_SK: `TYPE#${link.type}#IDENTITY#${link.identity}`,
+                        ...cleanupItem(entities.tenantLinks, link)
+                    };
+                })
             });
 
-            await batchWriteAll({ table, items });
+            await batchWrite.execute();
         }
     };
 };

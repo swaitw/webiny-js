@@ -1,10 +1,11 @@
 import { Table } from "@webiny/db-dynamodb/toolbox";
 import { DataMigrationContext, PrimaryDynamoTableSymbol } from "@webiny/data-migration";
-import { queryOne, queryAll, batchWriteAll } from "~/utils";
+import { queryAll, queryOne } from "~/utils";
 import { createTenantEntity } from "./createTenantEntity";
 import { createUserEntity } from "./createUserEntity";
-import { makeInjectable, inject } from "@webiny/ioc";
+import { inject, makeInjectable } from "@webiny/ioc";
 import { executeWithRetry } from "@webiny/utils";
+import { createEntityWriteBatch } from "@webiny/db-dynamodb";
 
 export class AdminUsers_5_41_0_001 {
     private readonly newUserEntity: ReturnType<typeof createUserEntity>;
@@ -71,22 +72,25 @@ export class AdminUsers_5_41_0_001 {
                 continue;
             }
 
-            const newUsers = users
-                .filter(user => !Array.isArray(user.data.groups))
-                .map(user => {
-                    return this.newUserEntity.putBatch({
-                        ...user,
-                        data: {
-                            ...user.data,
-                            groups: [user.data.group].filter(Boolean),
-                            teams: [user.data.team].filter(Boolean)
-                        }
-                    });
-                });
+            const newUsersEntityBatch = createEntityWriteBatch({
+                entity: this.newUserEntity,
+                put: users
+                    .filter(user => !Array.isArray(user.data.groups))
+                    .map(user => {
+                        return {
+                            ...user,
+                            data: {
+                                ...user.data,
+                                groups: [user.data.group].filter(Boolean),
+                                teams: [user.data.team].filter(Boolean)
+                            }
+                        };
+                    })
+            });
 
-            await executeWithRetry(() =>
-                batchWriteAll({ table: this.newUserEntity.table, items: newUsers })
-            );
+            await executeWithRetry(async () => {
+                return await newUsersEntityBatch.execute();
+            });
         }
     }
 }

@@ -1,4 +1,4 @@
-import {
+import type {
     Page,
     PageStorageOperations,
     PageStorageOperationsCreateFromParams,
@@ -14,12 +14,12 @@ import {
     PageStorageOperationsUnpublishParams,
     PageStorageOperationsUpdateParams
 } from "@webiny/api-page-builder/types";
-import { Entity } from "@webiny/db-dynamodb/toolbox";
+import type { Entity } from "@webiny/db-dynamodb/toolbox";
 import omit from "lodash/omit";
 import WebinyError from "@webiny/error";
 import { cleanupItem } from "@webiny/db-dynamodb/utils/cleanup";
-import { Client } from "@elastic/elasticsearch";
-import {
+import type { Client } from "@elastic/elasticsearch";
+import type {
     ElasticsearchBoolQueryConfig,
     ElasticsearchSearchResponse
 } from "@webiny/api-elasticsearch/types";
@@ -28,11 +28,18 @@ import { createLimit, encodeCursor } from "@webiny/api-elasticsearch";
 import { createElasticsearchQueryBody } from "./elasticsearchQueryBody";
 import { SearchLatestPagesPlugin } from "~/plugins/definitions/SearchLatestPagesPlugin";
 import { SearchPublishedPagesPlugin } from "~/plugins/definitions/SearchPublishedPagesPlugin";
-import { DbItem, queryAll, QueryAllParams, queryOne } from "@webiny/db-dynamodb/utils/query";
+import {
+    createEntityWriteBatch,
+    getClean,
+    put,
+    queryAll,
+    QueryAllParams,
+    queryOne,
+    sortItems
+} from "@webiny/db-dynamodb";
 import { SearchPagesPlugin } from "~/plugins/definitions/SearchPagesPlugin";
-import { batchWriteAll } from "@webiny/db-dynamodb/utils/batchWrite";
 import { getESLatestPageData, getESPublishedPageData } from "./helpers";
-import { PluginsContainer } from "@webiny/plugins";
+import type { PluginsContainer } from "@webiny/plugins";
 import {
     createBasicType,
     createLatestSortKey,
@@ -45,9 +52,7 @@ import {
     createPublishedType,
     createSortKey
 } from "./keys";
-import { sortItems } from "@webiny/db-dynamodb/utils/sort";
 import { PageDynamoDbElasticsearchFieldPlugin } from "~/plugins/definitions/PageDynamoDbElasticsearchFieldPlugin";
-import { getClean, put } from "@webiny/db-dynamodb";
 import { shouldIgnoreEsResponseError } from "~/operations/pages/shouldIgnoreEsResponseError";
 import { logIgnoredEsResponseError } from "~/operations/pages/logIgnoredEsResponseError";
 
@@ -81,24 +86,26 @@ export const createPageStorageOperations = (
             SK: createLatestSortKey()
         };
 
-        const items = [
-            entity.putBatch({
-                ...page,
-                ...versionKeys,
-                TYPE: createBasicType()
-            }),
-            entity.putBatch({
-                ...page,
-                ...latestKeys,
-                TYPE: createLatestType()
-            })
-        ];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...page,
+                    ...versionKeys,
+                    TYPE: createBasicType()
+                },
+                {
+                    ...page,
+                    ...latestKeys,
+                    TYPE: createLatestType()
+                }
+            ]
+        });
+
         const esData = getESLatestPageData(plugins, page, input);
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items: items
-            });
+            await entityBatch.execute();
+
             await put({
                 entity: esEntity,
                 item: {
@@ -133,26 +140,26 @@ export const createPageStorageOperations = (
             SK: createLatestSortKey()
         };
 
-        const items = [
-            entity.putBatch({
-                ...page,
-                TYPE: createBasicType(),
-                ...versionKeys
-            }),
-            entity.putBatch({
-                ...page,
-                TYPE: createLatestType(),
-                ...latestKeys
-            })
-        ];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...page,
+                    TYPE: createBasicType(),
+                    ...versionKeys
+                },
+                {
+                    ...page,
+                    TYPE: createLatestType(),
+                    ...latestKeys
+                }
+            ]
+        });
 
         const esData = getESLatestPageData(plugins, page);
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
 
             await put({
                 entity: esEntity,
@@ -195,13 +202,16 @@ export const createPageStorageOperations = (
             keys: latestKeys
         });
 
-        const items = [
-            entity.putBatch({
-                ...page,
-                TYPE: createBasicType(),
-                ...keys
-            })
-        ];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...page,
+                    TYPE: createBasicType(),
+                    ...keys
+                }
+            ]
+        });
 
         const esData = getESLatestPageData(plugins, page, input);
 
@@ -209,22 +219,17 @@ export const createPageStorageOperations = (
             /**
              * We also update the regular record.
              */
-            items.push(
-                entity.putBatch({
-                    ...page,
-                    TYPE: createLatestType(),
-                    ...latestKeys
-                })
-            );
+            entityBatch.put({
+                ...page,
+                TYPE: createLatestType(),
+                ...latestKeys
+            });
         }
         /**
          * Unfortunately we cannot push regular and es record in the batch write because they are two separate tables.
          */
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
 
             await put({
                 entity: esEntity,
@@ -265,32 +270,35 @@ export const createPageStorageOperations = (
 
         const partitionKey = createPartitionKey(page);
 
-        const items = [
-            entity.deleteBatch({
-                PK: partitionKey,
-                SK: createSortKey(page)
-            })
-        ];
-        const esItems = [];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            delete: [
+                {
+                    PK: partitionKey,
+                    SK: createSortKey(page)
+                }
+            ]
+        });
+
+        const elasticsearchEntityBatch = createEntityWriteBatch({
+            entity: esEntity
+        });
+
         if (publishedPage && publishedPage.id === page.id) {
-            items.push(
-                entity.deleteBatch({
-                    PK: partitionKey,
-                    SK: createPublishedSortKey()
-                })
-            );
-            items.push(
-                entity.deleteBatch({
-                    PK: createPathPartitionKey(page),
-                    SK: createPathSortKey(page)
-                })
-            );
-            esItems.push(
-                esEntity.deleteBatch({
-                    PK: partitionKey,
-                    SK: createPublishedSortKey()
-                })
-            );
+            entityBatch.delete({
+                PK: partitionKey,
+                SK: createPublishedSortKey()
+            });
+
+            entityBatch.delete({
+                PK: createPathPartitionKey(page),
+                SK: createPathSortKey(page)
+            });
+
+            elasticsearchEntityBatch.delete({
+                PK: partitionKey,
+                SK: createPublishedSortKey()
+            });
         }
         let previousLatestPage: Page | null = null;
         if (latestPage && latestPage.id === page.id) {
@@ -303,44 +311,34 @@ export const createPageStorageOperations = (
                 }
             });
             if (previousLatestRecord) {
-                items.push(
-                    entity.putBatch({
-                        ...previousLatestRecord,
-                        TYPE: createLatestType(),
-                        PK: partitionKey,
-                        SK: createLatestSortKey()
-                    })
-                );
-                esItems.push(
-                    esEntity.putBatch({
-                        PK: partitionKey,
-                        SK: createLatestSortKey(),
-                        index: configurations.es(page).index,
-                        data: getESLatestPageData(plugins, previousLatestRecord)
-                    })
-                );
+                entityBatch.put({
+                    ...previousLatestRecord,
+                    TYPE: createLatestType(),
+                    PK: partitionKey,
+                    SK: createLatestSortKey()
+                });
+
+                elasticsearchEntityBatch.put({
+                    PK: partitionKey,
+                    SK: createLatestSortKey(),
+                    index: configurations.es(page).index,
+                    data: getESLatestPageData(plugins, previousLatestRecord)
+                });
+
                 previousLatestPage = cleanupItem(entity, previousLatestRecord);
             }
         }
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not batch write all the page records.",
                 ex.code || "BATCH_WRITE_RECORDS_ERROR"
             );
         }
-        if (esItems.length === 0) {
-            return [page, previousLatestPage];
-        }
+
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items: esItems
-            });
+            await elasticsearchEntityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not batch write all the page Elasticsearch records.",
@@ -370,7 +368,7 @@ export const createPageStorageOperations = (
                 gte: " "
             }
         };
-        let revisions: DbItem<Page>[];
+        let revisions: Awaited<ReturnType<typeof queryAll<Page>>>;
         try {
             revisions = await queryAll<Page>(queryAllParams);
         } catch (ex) {
@@ -387,48 +385,45 @@ export const createPageStorageOperations = (
          * We need to go through all possible entries and delete them.
          * Also, delete the published entry path record.
          */
-        const items = [];
+
+        const entityBatch = createEntityWriteBatch({
+            entity
+        });
+        const elasticsearchEntityBatch = createEntityWriteBatch({
+            entity: esEntity
+        });
+
         let publishedPathEntryDeleted = false;
         for (const revision of revisions) {
             if (revision.status === "published" && !publishedPathEntryDeleted) {
                 publishedPathEntryDeleted = true;
-                items.push(
-                    entity.deleteBatch({
-                        PK: createPathPartitionKey(page),
-                        SK: revision.path
-                    })
-                );
+                entityBatch.delete({
+                    PK: createPathPartitionKey(page),
+                    SK: revision.path
+                });
             }
-            items.push(
-                entity.deleteBatch({
-                    PK: revision.PK,
-                    SK: revision.SK
-                })
-            );
+            entityBatch.delete({
+                PK: revision.PK,
+                SK: revision.SK
+            });
         }
-        const esItems = [
-            esEntity.deleteBatch({
-                PK: partitionKey,
-                SK: createLatestSortKey()
-            })
-        ];
+        elasticsearchEntityBatch.delete({
+            PK: partitionKey,
+            SK: createLatestSortKey()
+        });
+
         /**
          * Delete published record if it is published.
          */
         if (publishedPathEntryDeleted) {
-            esItems.push(
-                esEntity.deleteBatch({
-                    PK: partitionKey,
-                    SK: createPublishedSortKey()
-                })
-            );
+            elasticsearchEntityBatch.delete({
+                PK: partitionKey,
+                SK: createPublishedSortKey()
+            });
         }
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not delete all the page records.",
@@ -436,10 +431,7 @@ export const createPageStorageOperations = (
             );
         }
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items: esItems
-            });
+            await elasticsearchEntityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not delete all the page Elasticsearch records.",
@@ -457,118 +449,100 @@ export const createPageStorageOperations = (
         /**
          * Update the given revision of the page.
          */
-        const items = [
-            entity.putBatch({
-                ...page,
-                TYPE: createBasicType(),
-                PK: createPartitionKey(page),
-                SK: createSortKey(page)
-            })
-        ];
-        const esItems = [];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...page,
+                    TYPE: createBasicType(),
+                    PK: createPartitionKey(page),
+                    SK: createSortKey(page)
+                }
+            ]
+        });
+        const elasticsearchEntityBatch = createEntityWriteBatch({
+            entity: esEntity
+        });
         /**
          * If we are publishing the latest revision, update the latest revision
          * status in ES. We also need to update the latest page revision entry in ES.
          */
         if (latestPage.id === page.id) {
-            items.push(
-                entity.putBatch({
-                    ...page,
-                    TYPE: createLatestType(),
-                    PK: createPartitionKey(page),
-                    SK: createLatestSortKey()
-                })
-            );
+            entityBatch.put({
+                ...page,
+                TYPE: createLatestType(),
+                PK: createPartitionKey(page),
+                SK: createLatestSortKey()
+            });
 
-            esItems.push(
-                esEntity.putBatch({
-                    PK: createPartitionKey(page),
-                    SK: createLatestSortKey(),
-                    index: configurations.es(page).index,
-                    data: getESLatestPageData(plugins, page)
-                })
-            );
+            elasticsearchEntityBatch.put({
+                PK: createPartitionKey(page),
+                SK: createLatestSortKey(),
+                index: configurations.es(page).index,
+                data: getESLatestPageData(plugins, page)
+            });
         }
         /**
          * If we already have a published revision, and it's not the revision being published:
          *  - set the existing published revision to "unpublished"
          */
         if (publishedPage && publishedPage.id !== page.id) {
-            items.push(
-                entity.putBatch({
-                    ...publishedPage,
-                    status: "unpublished",
-                    PK: createPartitionKey(publishedPage),
-                    SK: createSortKey(publishedPage)
-                })
-            );
+            entityBatch.put({
+                ...publishedPage,
+                status: "unpublished",
+                PK: createPartitionKey(publishedPage),
+                SK: createSortKey(publishedPage)
+            });
+
             /**
              * Remove old published path if required.
              */
             if (publishedPage.path !== page.path) {
-                items.push(
-                    entity.deleteBatch({
-                        PK: createPathPartitionKey(page),
-                        SK: publishedPage.path
-                    })
-                );
+                entityBatch.delete({
+                    PK: createPathPartitionKey(page),
+                    SK: publishedPage.path
+                });
             }
         }
 
-        esItems.push(
-            esEntity.putBatch({
-                PK: createPartitionKey(page),
-                SK: createPublishedSortKey(),
-                index: configurations.es(page).index,
-                data: getESPublishedPageData(plugins, page)
-            })
-        );
+        elasticsearchEntityBatch.put({
+            PK: createPartitionKey(page),
+            SK: createPublishedSortKey(),
+            index: configurations.es(page).index,
+            data: getESPublishedPageData(plugins, page)
+        });
 
         /**
          * Update or insert published path.
          */
-        items.push(
-            entity.putBatch({
-                ...page,
-                TYPE: createPublishedPathType(),
-                PK: createPathPartitionKey(page),
-                SK: createPathSortKey(page)
-            })
-        );
+        entityBatch.put({
+            ...page,
+            TYPE: createPublishedPathType(),
+            PK: createPathPartitionKey(page),
+            SK: createPathSortKey(page)
+        });
+
         /**
          * Update or insert published page.
          */
-        items.push(
-            entity.putBatch({
-                ...page,
-                TYPE: createPublishedType(),
-                PK: createPartitionKey(page),
-                SK: createPublishedSortKey()
-            })
-        );
+        entityBatch.put({
+            ...page,
+            TYPE: createPublishedType(),
+            PK: createPartitionKey(page),
+            SK: createPublishedSortKey()
+        });
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not update all the page records when publishing.",
                 ex.code || "UPDATE_RECORDS_ERROR"
             );
         }
-        /**
-         * No point in continuing if there are no items in Elasticsearch data
-         */
-        if (esItems.length === 0) {
-            return page;
-        }
+
         try {
-            await batchWriteAll({
-                table: esEntity.table,
-                items: esItems
-            });
+            await elasticsearchEntityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message ||
@@ -584,74 +558,67 @@ export const createPageStorageOperations = (
 
         page.status = "unpublished";
 
-        const items = [
-            entity.deleteBatch({
-                PK: createPartitionKey(page),
-                SK: createPublishedSortKey()
-            }),
-            entity.deleteBatch({
-                PK: createPathPartitionKey(page),
-                SK: createPathSortKey(page)
-            }),
-            entity.putBatch({
-                ...page,
-                TYPE: createBasicType(),
-                PK: createPartitionKey(page),
-                SK: createSortKey(page)
-            })
-        ];
-        const esItems = [];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            delete: [
+                {
+                    PK: createPartitionKey(page),
+                    SK: createPublishedSortKey()
+                },
+                {
+                    PK: createPathPartitionKey(page),
+                    SK: createPathSortKey(page)
+                }
+            ],
+            put: [
+                {
+                    ...page,
+                    TYPE: createBasicType(),
+                    PK: createPartitionKey(page),
+                    SK: createSortKey(page)
+                }
+            ]
+        });
+
+        const elasticsearchEntityBatch = createEntityWriteBatch({
+            entity: esEntity,
+            delete: [
+                {
+                    PK: createPartitionKey(page),
+                    SK: createPublishedSortKey()
+                }
+            ]
+        });
         /*
          * If we are unpublishing the latest revision, let's also update the latest revision entry's status in ES.
          */
         if (latestPage.id === page.id) {
-            items.push(
-                entity.putBatch({
-                    ...page,
-                    TYPE: createLatestType(),
-                    PK: createPartitionKey(page),
-                    SK: createLatestSortKey()
-                })
-            );
-            esItems.push(
-                esEntity.putBatch({
-                    PK: createPartitionKey(page),
-                    SK: createLatestSortKey(),
-                    index: configurations.es(page).index,
-                    data: getESLatestPageData(plugins, page)
-                })
-            );
+            entityBatch.put({
+                ...page,
+                TYPE: createLatestType(),
+                PK: createPartitionKey(page),
+                SK: createLatestSortKey()
+            });
+
+            elasticsearchEntityBatch.put({
+                PK: createPartitionKey(page),
+                SK: createLatestSortKey(),
+                index: configurations.es(page).index,
+                data: getESLatestPageData(plugins, page)
+            });
         }
 
-        esItems.push(
-            esEntity.deleteBatch({
-                PK: createPartitionKey(page),
-                SK: createPublishedSortKey()
-            })
-        );
-
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not update all the page records when unpublishing.",
                 ex.code || "UPDATE_RECORDS_ERROR"
             );
         }
-        /**
-         * No need to go further if no Elasticsearch items to be applied.
-         */
-        if (esItems.length === 0) {
-            return page;
-        }
+
         try {
-            await batchWriteAll({
-                table: esEntity.table,
-                items: esItems
-            });
+            await elasticsearchEntityBatch.execute();
         } catch (ex) {
             throw new WebinyError(
                 ex.message ||

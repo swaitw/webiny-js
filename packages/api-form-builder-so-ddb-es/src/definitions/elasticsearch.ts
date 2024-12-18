@@ -28,7 +28,6 @@ export const createElasticsearchEntity = (params: Params) => {
             TYPE: {
                 type: "string"
             },
-
             ...(attributes || {})
         }
     });

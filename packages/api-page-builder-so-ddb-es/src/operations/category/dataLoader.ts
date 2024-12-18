@@ -1,5 +1,5 @@
 import DataLoader from "dataloader";
-import { batchReadAll } from "@webiny/db-dynamodb/utils/batchRead";
+import { batchReadAll } from "@webiny/db-dynamodb";
 import { Category } from "@webiny/api-page-builder/types";
 import { cleanupItem } from "@webiny/db-dynamodb/utils/cleanup";
 import { Entity } from "@webiny/db-dynamodb/toolbox";

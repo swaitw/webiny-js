@@ -25,6 +25,9 @@ export const createPageElasticsearchEntity = (params: Params): Entity<any> => {
             data: {
                 type: "map"
             },
+            TYPE: {
+                type: "string"
+            },
             ...(attributes || {})
         }
     });
