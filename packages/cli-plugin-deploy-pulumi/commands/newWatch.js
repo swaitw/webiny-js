@@ -121,8 +121,10 @@ module.exports = async (inputs, context) => {
     const learnMoreLink = "https://webiny.link/local-aws-lambda-development";
 
     context.info(`Local AWS Lambda development session started.`);
-    context.info(
-        `Note that you should deploy your changes once you're done. To do so, run: %s. Learn more: %s.`,
+    context.warning(
+        `Note that once the session is terminated, the %s application will no longer work. To fix this, you %s redeploy it via the %s command. Learn more: %s.`,
+        projectApplication.name,
+        "MUST",
         deployCommand,
         learnMoreLink
     );
@@ -141,9 +143,11 @@ module.exports = async (inputs, context) => {
         console.log();
         console.log();
 
-        context.info(`Stopping local AWS Lambda development session.`);
-        context.info(
-            `Note that you should deploy your changes. To do so, run: %s. Learn more: %s.`,
+        context.info(`Terminating local AWS Lambda development session.`);
+        context.warning(
+            `Note that once the session is terminated, the %s application will no longer work. To fix this, you %s redeploy it via the %s command. Learn more: %s.`,
+            projectApplication.name,
+            "MUST",
             deployCommand,
             learnMoreLink
         );

@@ -37,7 +37,7 @@ export class PbElementExtension extends AbstractExtension {
 
         return [
             [
-                `run the following commands to start local development sessions:`,
+                `run the following commands to start local development:`,
                 `  ∙ ${chalk.green(watchCommandAdmin)}`,
                 `  ∙ ${chalk.green(watchCommandWebsite)}`
             ].join("\n"),

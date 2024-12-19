@@ -56,6 +56,12 @@ const listPackages = async ({ inputs }) => {
                 ? path.join(root, "webiny.config.ts")
                 : path.join(root, "webiny.config.js");
 
+            // We need this because newly introduced extension
+            // packages do not have a Webiny config file.
+            if (!fs.existsSync(configPath)) {
+                continue;
+            }
+
             packages.push({
                 name: packageName,
                 config: require(configPath).default || require(configPath),

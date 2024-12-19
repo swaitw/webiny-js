@@ -159,6 +159,14 @@ export const downloadAndLinkExtension = async ({
                 console.log(`  ‣ ${context.success.hl(p)}`);
             });
         }
+
+        console.log();
+        console.log(chalk.bold("Additional Notes"));
+        console.log(
+            `‣ note that if you already have the ${context.success.hl(
+                "webiny watch"
+            )} command running, you'll need to restart it`
+        );
     } catch (e) {
         switch (e.code) {
             case "NO_OBJECTS_FOUND":
