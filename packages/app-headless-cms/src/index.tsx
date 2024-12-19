@@ -36,3 +36,5 @@ export const ContentEntriesViewConfig = Object.assign(LegacyContentEntriesViewCo
 });
 
 export { ContentEntryEditorConfig } from "./ContentEntryEditorConfig";
+
+export * from "./plugins";
