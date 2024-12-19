@@ -513,7 +513,8 @@ export const createFormStorageOperations = (
         }
         let latestPublishedKeys: Keys | undefined;
         const entityBatch = createEntityWriteBatch({
-            entity
+            entity,
+            delete: [createLatestKeys(form)]
         });
 
         for (const item of items) {

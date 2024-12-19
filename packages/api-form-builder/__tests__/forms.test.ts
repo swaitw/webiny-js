@@ -40,7 +40,7 @@ describe('Form Builder "Form" Test', () => {
         }
     });
 
-    test("should create a form and return it in the list of latest forms", async () => {
+    it("should create a form and return it in the list of latest forms", async () => {
         const [create] = await createForm({ data: { name: "contact-us" } });
         const { id } = create.data.formBuilder.createForm.data;
 
@@ -70,7 +70,7 @@ describe('Form Builder "Form" Test', () => {
         expect(data[0].id).toEqual(id);
     });
 
-    test("should update form and return new data from storage", async () => {
+    it("should update form and return new data from storage", async () => {
         const [create] = await createForm({ data: { name: "contact-us" } });
         const { id } = create.data.formBuilder.createForm.data;
 
@@ -219,7 +219,7 @@ describe('Form Builder "Form" Test', () => {
         expect(revisions[0].version).toEqual(2);
     });
 
-    test("should delete a form and all of its revisions", async () => {
+    it("should delete a form and all of its revisions", async () => {
         const [create] = await createForm({ data: { name: "contact-us" } });
         const { id } = create.data.formBuilder.createForm.data;
 
@@ -246,7 +246,7 @@ describe('Form Builder "Form" Test', () => {
         expect(list.data.formBuilder.listForms.data.length).toBe(0);
     });
 
-    test("should publish, add views and unpublish", async () => {
+    it("should publish, add views and unpublish", async () => {
         const [create] = await createForm({ data: { name: "contact-us" } });
         const { id } = create.data.formBuilder.createForm.data;
 
