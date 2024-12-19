@@ -20,14 +20,24 @@ import {
     UnderlineAction,
     ListPlugin,
     LexicalEditorConfig,
-    LinkPlugin
+    LinkPlugin,
+    useRichTextEditor
 } from "@webiny/lexical-editor";
 
 const { ToolbarElement, Plugin } = LexicalEditorConfig;
+
+const FontSizeActionWithTheme = () => {
+    const { theme } = useRichTextEditor();
+
+    const fontSizes = theme?.styles?.fontSizes?.paragraph ?? FontSizeAction.FONT_SIZES_FALLBACK;
+
+    return <FontSizeAction fontSizes={fontSizes} />;
+};
+
 export const ParagraphEditorPreset = () => {
     return (
         <LexicalEditorConfig>
-            <ToolbarElement name="fontSize" element={<FontSizeAction />} />
+            <ToolbarElement name="fontSize" element={<FontSizeActionWithTheme />} />
             <ToolbarElement name="fontColor" element={<FontColorAction />} />
             <ToolbarElement name="typography" element={<TypographyAction />} />
             <ToolbarElement name="textAlignment" element={<TextAlignmentAction />} />

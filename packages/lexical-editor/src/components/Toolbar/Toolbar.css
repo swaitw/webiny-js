@@ -326,10 +326,6 @@ i.font-color,
   margin: 0 4px;
 }
 
-.toolbar-item.font-size {
-  width: 70px;
-}
-
 .lexical-dropdown-container {
   position: absolute;
   bottom: -5px;

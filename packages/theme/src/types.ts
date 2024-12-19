@@ -27,8 +27,10 @@ export type ThemeBreakpoints = {
 
 /*
  * Typography section
+ * We want to allow custom strings as well, thus the (string & {}).
  */
-export type TypographyType = "headings" | "paragraphs" | "quotes" | "lists" | string;
+// eslint-disable-next-line @typescript-eslint/ban-types
+export type TypographyType = "headings" | "paragraphs" | "quotes" | "lists" | (string & {});
 export type TypographyStyle = {
     id: string;
     name: string;
@@ -39,8 +41,18 @@ export type TypographyStyle = {
 export type Typography = Record<TypographyType, Readonly<TypographyStyle[]>>;
 export type ThemeTypographyStyleItems = TypographyStyle[];
 
+export interface FontSize {
+    id: string;
+    name: string;
+    value: string;
+}
+
 export interface ThemeStyles {
     colors: Record<string, any>;
+    fontSizes?: {
+        heading?: FontSize[];
+        paragraph?: FontSize[];
+    };
     borderRadius?: number;
     typography: Typography;
     elements: Record<string, Record<string, any> | StylesObject>;

@@ -6,7 +6,13 @@ import { DropDown, DropDownItem } from "~/ui/DropDown";
 import { useDeriveValueFromSelection } from "~/hooks/useCurrentSelection";
 import { useRichTextEditor } from "~/hooks";
 
-const FONT_SIZE_OPTIONS: string[] = [
+export interface FontSize {
+    id: string;
+    name: string;
+    value: string;
+}
+
+export const FONT_SIZES_FALLBACK: FontSize[] = [
     "8px",
     "9px",
     "10px",
@@ -24,7 +30,18 @@ const FONT_SIZE_OPTIONS: string[] = [
     "60px",
     "72px",
     "96px"
-];
+].map(size => ({
+    id: size,
+    name: size,
+    value: size,
+    default: size === "15px"
+}));
+
+const emptyOption: FontSize = {
+    value: "",
+    name: "Font Size",
+    id: "empty"
+};
 
 function dropDownActiveClass(active: boolean) {
     if (active) {
@@ -34,21 +51,22 @@ function dropDownActiveClass(active: boolean) {
 }
 
 interface FontSizeDropDownProps {
+    fontSizes: FontSize[];
     editor: LexicalEditor;
-    value: string;
+    value: string | undefined;
     disabled?: boolean;
 }
 
 function FontSizeDropDown(props: FontSizeDropDownProps): JSX.Element {
-    const { editor, value, disabled = false } = props;
+    const { editor, value, fontSizes, disabled = false } = props;
 
     const handleClick = useCallback(
-        (option: string) => {
+        (option: FontSize) => {
             editor.update(() => {
                 const selection = $getSelection();
                 if ($isRangeSelection(selection)) {
                     $patchStyleText(selection, {
-                        ["font-size"]: option
+                        ["font-size"]: option.value
                     });
                 }
             });
@@ -56,39 +74,43 @@ function FontSizeDropDown(props: FontSizeDropDownProps): JSX.Element {
         [editor]
     );
 
+    const selectedOption = fontSizes.find(opt => opt.value === value) ?? emptyOption;
+
     return (
         <DropDown
             disabled={disabled}
             buttonClassName="toolbar-item font-size"
-            buttonLabel={value}
+            buttonLabel={selectedOption.name}
             buttonAriaLabel={"Formatting options for font size"}
         >
-            {FONT_SIZE_OPTIONS.map(option => (
+            {fontSizes.map(option => (
                 <DropDownItem
-                    className={`item fontsize-item ${dropDownActiveClass(value === option)}`}
+                    className={`item fontsize-item ${dropDownActiveClass(value === option.id)}`}
                     onClick={() => handleClick(option)}
-                    key={option}
+                    key={option.id}
                 >
-                    <span className="text">{option}</span>
+                    <span className="text">{option.name}</span>
                 </DropDownItem>
             ))}
         </DropDown>
     );
 }
 
-const defaultSize = "15px";
+interface FontSizeActionProps {
+    fontSizes?: FontSize[];
+}
 
-export const FontSizeAction = () => {
+const FontSize = ({ fontSizes = FONT_SIZES_FALLBACK }: FontSizeActionProps) => {
     const { editor } = useRichTextEditor();
     const [isEditable, setIsEditable] = useState(() => editor.isEditable());
     const fontSize = useDeriveValueFromSelection(({ rangeSelection }) => {
         if (!rangeSelection) {
-            return defaultSize;
+            return undefined;
         }
         try {
-            return $getSelectionStyleValueForProperty(rangeSelection, "font-size", "15px");
+            return $getSelectionStyleValueForProperty(rangeSelection, "font-size");
         } catch {
-            return defaultSize;
+            return undefined;
         }
     });
 
@@ -102,7 +124,14 @@ export const FontSizeAction = () => {
 
     return (
         <>
-            <FontSizeDropDown disabled={!isEditable} value={fontSize} editor={editor} />
+            <FontSizeDropDown
+                disabled={!isEditable}
+                value={fontSize}
+                editor={editor}
+                fontSizes={fontSizes}
+            />
         </>
     );
 };
+
+export const FontSizeAction = Object.assign(FontSize, { FONT_SIZES_FALLBACK });
