@@ -13,3 +13,19 @@ export const CREATE_LOCALE = /* GraphQL */ `
         }
     }
 `;
+
+export const DELETE_LOCALE = /* GraphQL */ `
+    mutation DeleteI18NLocale($code: String!) {
+        i18n {
+            deleteI18NLocale(code: $code) {
+                data {
+                    code
+                }
+                error {
+                    message
+                    code
+                }
+            }
+        }
+    }
+`;

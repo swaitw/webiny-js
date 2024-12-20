@@ -122,6 +122,13 @@ export default (params: CreateFormBuilderCrudParams) => {
                     return context.formBuilder.createSettings({});
                 });
             });
+
+            context.i18n.locales.onLocaleAfterDelete.subscribe(async params => {
+                const { locale } = params;
+                await context.i18n.withLocale(locale, async () => {
+                    return context.formBuilder.deleteSettings();
+                });
+            });
         })
     ];
 };

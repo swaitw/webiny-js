@@ -12,7 +12,7 @@ import { createI18NGraphQL } from "@webiny/api-i18n/graphql";
 
 // Graphql
 import { INSTALL as INSTALL_FILE_MANAGER } from "./graphql/fileManagerSettings";
-import { CREATE_LOCALE } from "./graphql/i18n";
+import { DELETE_LOCALE, CREATE_LOCALE } from "./graphql/i18n";
 
 import {
     GET_SETTINGS,
@@ -228,6 +228,9 @@ export default (params: UseGqlHandlerParams = {}) => {
         // Locales.
         async createI18NLocale(variables: Record<string, any>) {
             return invoke({ body: { query: CREATE_LOCALE, variables } });
+        },
+        async deleteI18NLocale(variables: Record<string, any>) {
+            return invoke({ body: { query: DELETE_LOCALE, variables } });
         }
     };
 };
