@@ -17,3 +17,5 @@ export { useRootElement } from "./useRootElement";
 export { useUI } from "./useUI";
 export { useUpdateElement } from "./useUpdateElement";
 export { useUpdateHandlers } from "./useUpdateHandlers";
+export { useDeleteElement } from "./useDeleteElement";
+export { useFindElementBlock } from "./useFindElementBlock";
