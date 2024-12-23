@@ -70,15 +70,12 @@ const Actions = ({ setHighlightIndex, bind, index }: ActionsProps) => {
         [moveValueUp, index]
     );
 
-    const onDelete = useCallback(
-        (ev: React.BaseSyntheticEvent) => {
-            ev.stopPropagation();
-            showConfirmation(() => {
-                bind.field.removeValue(index);
-            });
-        },
-        [index]
-    );
+    const onDelete = (ev: React.BaseSyntheticEvent) => {
+        ev.stopPropagation();
+        showConfirmation(() => {
+            bind.field.removeValue(index);
+        });
+    };
 
     return (
         <>

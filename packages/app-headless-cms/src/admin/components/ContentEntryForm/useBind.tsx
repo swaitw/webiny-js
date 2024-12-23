@@ -101,8 +101,11 @@ export function useBind({ Bind, field }: UseBindProps) {
                                     if (index < 0) {
                                         return;
                                     }
-                                    let value = bind.value;
-                                    value = [...value.slice(0, index), ...value.slice(index + 1)];
+
+                                    const value = [
+                                        ...bind.value.slice(0, index),
+                                        ...bind.value.slice(index + 1)
+                                    ];
 
                                     bind.onChange(value.length === 0 ? null : value);
 
