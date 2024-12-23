@@ -1,3 +1,6 @@
+// Suppress punycode warnings. This is a known issue which we can't fix.
+import "./suppressPunycodeWarnings";
+
 export * from "~/fastify";
 export * from "~/Context";
 export * from "~/ResponseHeaders";
