@@ -11115,13 +11115,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/shortid@npm:^0.0.29":
-  version: 0.0.29
-  resolution: "@types/shortid@npm:0.0.29"
-  checksum: 10/f0ba8dcc3ba0da60a16fe11edb745b0cc6b1d1acbe26f33d4193ad23a5a86a05220b4637619673dee0009f7e6ba80bd5bb72e6346bb49e1e4477d52a9653630d
-  languageName: node
-  linkType: hard
-
 "@types/sinon@npm:^17.0.3":
   version: 17.0.3
   resolution: "@types/sinon@npm:17.0.3"
@@ -13014,7 +13007,6 @@ __metadata:
     prettier: "npm:^2.8.8"
     puppeteer-core: "npm:^23.9.0"
     rimraf: "npm:^6.0.1"
-    shortid: "npm:^2.1.6"
     srcset: "npm:^4.0.0"
     ttypescript: "npm:^1.5.15"
     typescript: "npm:4.9.5"
@@ -13866,7 +13858,6 @@ __metadata:
     react-google-recaptcha: "npm:^1.1.0"
     react-hotkeyz: "npm:^1.0.4"
     rimraf: "npm:^6.0.1"
-    shortid: "npm:^2.1.6"
     ttypescript: "npm:^1.5.15"
     typescript: "npm:4.9.5"
   languageName: unknown
@@ -15996,10 +15987,10 @@ __metadata:
     "@types/react-color": "npm:^2.17.11"
     "@types/react-custom-scrollbars": "npm:^4.0.10"
     "@types/react-transition-group": "npm:^4.4.4"
-    "@types/shortid": "npm:^0.0.29"
     "@webiny/cli": "npm:0.0.0"
     "@webiny/form": "npm:0.0.0"
     "@webiny/project-utils": "npm:0.0.0"
+    "@webiny/utils": "npm:0.0.0"
     "@webiny/validation": "npm:0.0.0"
     babel-loader: "npm:^9.2.1"
     brace: "npm:^0.11.1"
@@ -16027,7 +16018,6 @@ __metadata:
     react-spinner-material: "npm:1.1.4"
     react-transition-group: "npm:^4.4.5"
     rimraf: "npm:^6.0.1"
-    shortid: "npm:^2.1.6"
     timeago-react: "npm:^3.0.6"
     ttypescript: "npm:^1.5.15"
     typescript: "npm:4.9.5"
@@ -29550,13 +29540,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nanoid@npm:^2.1.0":
-  version: 2.1.11
-  resolution: "nanoid@npm:2.1.11"
-  checksum: 10/cf2a2eedcf9d8893a4687f11743ccf8381f047bc2b3d3887a23721bbef8fe64c5759b9cba6eb945e40efeb4a7e7379b3417e4dc5f6cc03050322d2c24a7ff69b
-  languageName: node
-  linkType: hard
-
 "nanoid@npm:^3.1.22, nanoid@npm:^3.3.7, nanoid@npm:^3.3.8":
   version: 3.3.8
   resolution: "nanoid@npm:3.3.8"
@@ -35463,15 +35446,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"shortid@npm:^2.1.6":
-  version: 2.2.16
-  resolution: "shortid@npm:2.2.16"
-  dependencies:
-    nanoid: "npm:^2.1.0"
-  checksum: 10/0a00ce19fd319d9f3a2e646adf985a99f246475624f2e5d0d1811354b77d342e84c590ef5a7b22ea3e866f5c5821eac4905308f295fa95de74afccc8fed6ea2e
-  languageName: node
-  linkType: hard
-
 "side-channel@npm:^1.0.4":
   version: 1.0.4
   resolution: "side-channel@npm:1.0.4"
@@ -36688,9 +36662,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"systeminformation@npm:^5.7":
-  version: 5.22.6
-  resolution: "systeminformation@npm:5.22.6"
+"systeminformation@npm:^5.23.18":
+  version: 5.23.18
+  resolution: "systeminformation@npm:5.23.18"
   bin:
     systeminformation: lib/cli.js
   conditions: (os=darwin | os=linux | os=win32 | os=freebsd | os=openbsd | os=netbsd | os=sunos | os=android)
@@ -39135,8 +39109,8 @@ __metadata:
   linkType: hard
 
 "ws@npm:^7.0.0":
-  version: 7.5.9
-  resolution: "ws@npm:7.5.9"
+  version: 7.5.10
+  resolution: "ws@npm:7.5.10"
   peerDependencies:
     bufferutil: ^4.0.1
     utf-8-validate: ^5.0.2
@@ -39145,7 +39119,7 @@ __metadata:
       optional: true
     utf-8-validate:
       optional: true
-  checksum: 10/171e35012934bd8788150a7f46f963e50bac43a4dc524ee714c20f258693ac4d3ba2abadb00838fdac42a47af9e958c7ae7e6f4bc56db047ba897b8a2268cf7c
+  checksum: 10/9c796b84ba80ffc2c2adcdfc9c8e9a219ba99caa435c9a8d45f9ac593bba325563b3f83edc5eb067cc6d21b9a6bf2c930adf76dd40af5f58a5ca6859e81858f0
   languageName: node
   linkType: hard
 

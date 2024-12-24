@@ -14,7 +14,7 @@ import injectRenderTs from "./injectRenderTs";
 import injectTenantLocale from "./injectTenantLocale";
 import injectNotFoundPageFlag from "./injectNotFoundPageFlag";
 import getPsTags from "./getPsTags";
-import shortid from "shortid";
+import { generateAlphaNumericId } from "@webiny/utils/generateId";
 import {
     RenderResult,
     RenderUrlCallableParams,
@@ -51,7 +51,7 @@ export interface File {
 }
 
 export default async (url: string, args: RenderUrlParams): Promise<[File[], Meta]> => {
-    const id = shortid.generate();
+    const id = generateAlphaNumericId();
     const ts = new Date().getTime();
 
     console.log(`Rendering "${url}" (render ID: ${id})...`);

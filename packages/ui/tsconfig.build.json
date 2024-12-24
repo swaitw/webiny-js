@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.build.json",
   "include": ["src"],
   "references": [
+    { "path": "../utils/tsconfig.build.json" },
     { "path": "../form/tsconfig.build.json" },
     { "path": "../validation/tsconfig.build.json" }
   ],

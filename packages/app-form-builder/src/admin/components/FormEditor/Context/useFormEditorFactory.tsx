@@ -1,5 +1,5 @@
 import React from "react";
-import shortid from "shortid";
+import { generateAlphaNumericId } from "@webiny/utils/generateId";
 import cloneDeep from "lodash/cloneDeep";
 import pick from "lodash/pick";
 import {
@@ -390,7 +390,7 @@ export const useFormEditorFactory = (
              */
             insertField: ({ data, destination, target }) => {
                 const field = cloneDeep(data);
-                field._id = shortid.generate();
+                field._id = generateAlphaNumericId();
 
                 if (!data.name) {
                     throw new Error(`Field "name" missing.`);

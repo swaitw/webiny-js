@@ -1,5 +1,4 @@
 import React, { Fragment, useEffect, useRef } from "react";
-import shortid from "shortid";
 import EditorJS, {
     LogLevels,
     OutputBlockData,
@@ -11,6 +10,7 @@ import { FormElementMessage } from "~/FormElementMessage";
 import { css } from "emotion";
 import classNames from "classnames";
 import { FormComponentProps } from "@webiny/form";
+import { generateAlphaNumericId } from "@webiny/utils/generateId";
 
 const classes = {
     wrapper: css({
@@ -83,7 +83,7 @@ const waitForDom = (id: string, callback: () => void) => {
 };
 
 export const RichTextEditor = (props: RichTextEditorProps) => {
-    const elementId = useRef("rte-" + shortid.generate());
+    const elementId = useRef("rte-" + generateAlphaNumericId());
     const editorRef = useRef<EditorJSType>();
 
     useEffect(() => {
