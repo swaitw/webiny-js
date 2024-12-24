@@ -18,7 +18,9 @@ const createUserDataValidation = zod.object({
 
 const updateUserDataValidation = zod.object({
     displayName: zod.string().min(1).optional(),
-    avatar: zod.object({}).passthrough().optional(),
+
+    // Allow null. This is important because we want to allow users to remove their e-mail.
+    avatar: zod.object({}).passthrough().optional().nullable(),
     firstName: zod.string().min(1).optional(),
     lastName: zod.string().min(1).optional(),
     group: zod.string().optional(),
@@ -43,6 +45,8 @@ export const attachUserValidation = (
         if (validation.success) {
             return;
         }
+
+        console.log(validation.error)
         throw createZodError(validation.error);
     });
 };
