@@ -188,7 +188,8 @@ function createRenderer(
             environment: {
                 variables: getCommonLambdaEnvVariables().apply(value => ({
                     ...value,
-                    DB_TABLE: params.dbTableName
+                    DB_TABLE: params.dbTableName,
+                    DB_TABLE_LOG: params.logDbTableName
                 }))
             },
             description: "Renders pages and stores output in an S3 bucket of choice.",
@@ -241,7 +242,8 @@ function createFlushService(
             environment: {
                 variables: getCommonLambdaEnvVariables().apply(value => ({
                     ...value,
-                    DB_TABLE: params.dbTableName
+                    DB_TABLE: params.dbTableName,
+                    DB_TABLE_LOG: params.logDbTableName
                 }))
             },
             description: "Subscribes to flush events on event bus",
