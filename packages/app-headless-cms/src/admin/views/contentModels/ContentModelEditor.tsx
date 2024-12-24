@@ -5,16 +5,13 @@ import { ContentModelEditor } from "~/admin/components/ContentModelEditor/Conten
 import { useRouter } from "@webiny/react-router";
 import { useCms } from "~/admin/hooks";
 import { ContentModelEditorProvider } from "~/admin/components/ContentModelEditor";
-import { CmsModel } from "~/types";
-
-type QueryMatch = Pick<Partial<CmsModel>, "modelId">;
 
 const ContentModelEditorView = () => {
     const { params } = useRouter();
     const { apolloClient } = useCms();
 
-    const { modelId } = (params ? params : {}) as QueryMatch;
-    if (!apolloClient) {
+    const modelId = params?.modelId as string | undefined;
+    if (!apolloClient || !modelId) {
         return null;
     }
     return (

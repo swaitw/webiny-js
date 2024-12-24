@@ -4,12 +4,12 @@ import { ContextPlugin } from "@webiny/handler";
 import { TenantManagerContext } from "@webiny/api-tenant-manager/types";
 
 export const extendTenancy = () => {
-    return new ContextPlugin<TenantManagerContext>(context => {
+    return new ContextPlugin<TenantManagerContext>(ctx => {
         // This is only applicable to multi-tenant environments.
-        context.waitFor("tenantManager", () => {
+        ctx.waitFor("tenantManager", () => {
             // We can have different "appClientId" for each tenant.
             // This plugin adds the GraphQL fields to allow per-tenant appClientId storage.
-            context.plugins.register(
+            ctx.plugins.register(
                 new GraphQLSchemaPlugin<TenancyContext>({
                     typeDefs: /* GraphQL */ `
                         extend input TenantSettingsInput {

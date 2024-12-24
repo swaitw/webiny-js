@@ -9,6 +9,7 @@ import {
     CmsModelManager,
     CmsModelUpdateInput,
     HeadlessCmsStorageOperations,
+    ICmsModelListParams,
     OnModelAfterCreateFromTopicParams,
     OnModelAfterCreateTopicParams,
     OnModelAfterDeleteTopicParams,
@@ -99,7 +100,7 @@ export const createModelsCrud = (params: CreateModelsCrudParams): CmsModelContex
             models: modelPlugins
                 .map(({ contentModel: model }) => {
                     return `${model.modelId}#${model.pluralApiName}#${model.singularApiName}#${
-                        model.savedOn || "unknown"
+                        model.savedOn || "savedOn:plugin"
                     }`;
                 })
                 .join("/"),
@@ -157,7 +158,7 @@ export const createModelsCrud = (params: CreateModelsCrudParams): CmsModelContex
      * We always fetch the plugins and database models separately.
      * Then we combine them and run access filtering on them
      */
-    const listModels = async () => {
+    const listModels = async (input?: ICmsModelListParams) => {
         return context.benchmark.measure("headlessCms.crud.models.listModels", async () => {
             /**
              * Maybe we can cache based on permissions, not the identity id?
@@ -166,7 +167,7 @@ export const createModelsCrud = (params: CreateModelsCrudParams): CmsModelContex
              */
             const tenant = getTenant().id;
             const locale = getLocale().code;
-            const pluginModels = await listPluginModels(tenant, locale);
+            let pluginModels = await listPluginModels(tenant, locale);
             const dbCacheKey = createCacheKey({
                 tenant,
                 locale
@@ -180,7 +181,7 @@ export const createModelsCrud = (params: CreateModelsCrudParams): CmsModelContex
                 identity: context.security.isAuthorizationEnabled() ? getIdentity()?.id : undefined
             });
 
-            const filteredModels = await listFilteredModelsCache.getOrSet(
+            let filteredModels = await listFilteredModelsCache.getOrSet(
                 filteredCacheKey,
                 async () => {
                     return filterAsync(databaseModels, async model => {
@@ -188,6 +189,19 @@ export const createModelsCrud = (params: CreateModelsCrudParams): CmsModelContex
                     });
                 }
             );
+            /**
+             * Do we need to hide private models?
+             */
+            if (input?.includePrivate === false) {
+                filteredModels = filteredModels.filter(model => !model.isPrivate);
+                pluginModels = pluginModels.filter(model => !model.isPrivate);
+            }
+            /**
+             * Do we need to hide plugin models?
+             */
+            if (input?.includePlugins === false) {
+                return filteredModels;
+            }
 
             return filteredModels.concat(pluginModels);
         });

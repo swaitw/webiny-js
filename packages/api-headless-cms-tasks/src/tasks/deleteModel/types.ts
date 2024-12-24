@@ -1,5 +1,7 @@
 import { CmsIdentity } from "@webiny/api-headless-cms/types";
 import { ITaskResponseDoneResultOutput } from "@webiny/tasks";
+import type { ListValuesResult } from "@webiny/db";
+import type { GenericRecord } from "@webiny/api/types";
 
 export interface IDeleteModelTaskInput {
     modelId: string;
@@ -15,7 +17,7 @@ export enum DeleteCmsModelTaskStatus {
     RUNNING = "running",
     DONE = "done",
     ERROR = "error",
-    ABORTED = "aborted"
+    CANCELED = "canceled"
 }
 
 export interface IDeleteCmsModelTask {
@@ -28,6 +30,10 @@ export interface IDeleteCmsModelTask {
 
 export interface IStoreValue {
     modelId: string;
-    task: string;
+    tenant: string;
+    locale: string;
     identity: CmsIdentity;
+    task: string;
 }
+
+export type ListStoreKeysResult = Promise<ListValuesResult<GenericRecord<string, IStoreValue>>>;

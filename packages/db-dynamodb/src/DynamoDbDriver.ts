@@ -199,12 +199,14 @@ class DynamoDbDriver implements DbDriver<DynamoDBDocument> {
         params?: IListValuesParams
     ): Promise<ListValuesResult<V>> {
         try {
+            const partitionKey = createPartitionKey();
+            const options = {
+                ...params
+            };
             const results = await queryAll<IStoreItem>({
                 entity: this.entity(),
-                partitionKey: createPartitionKey(),
-                options: {
-                    ...params
-                }
+                partitionKey,
+                options
             });
 
             const data = results.reduce((collection, item) => {

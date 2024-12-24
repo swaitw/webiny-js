@@ -34,8 +34,9 @@ export const getSchema = async (params: GetSchemaParams): Promise<GraphQLSchema>
      * Private models are hidden in the GraphQL, so filter them out.
      */
     const models = await context.security.withoutAuthorization(async () => {
-        return (await context.cms.listModels()).filter(model => {
-            return model.isPrivate !== true;
+        return await context.cms.listModels({
+            includePrivate: false,
+            includePlugins: true
         });
     });
 

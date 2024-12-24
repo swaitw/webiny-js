@@ -1,25 +1,33 @@
-import { ExecutionResult, graphql, GraphQLSchema } from "graphql";
+import type { ExecutionResult, GraphQLSchema } from "graphql";
+import { graphql } from "graphql";
 import { GraphQLAfterQueryPlugin, GraphQLBeforeQueryPlugin, GraphQLRequestBody } from "~/types";
-import { Context } from "@webiny/api/types";
+import type { Context } from "@webiny/api/types";
 
-const executeGraphQl = async (
+const executeGraphQl = async <TData = Record<string, any>, TExtensions = Record<string, any>>(
     body: GraphQLRequestBody,
     schema: GraphQLSchema,
     context: Context
-) => {
+): Promise<ExecutionResult<TData, TExtensions>> => {
     const { query, variables, operationName } = body;
 
     context.plugins
         .byType<GraphQLBeforeQueryPlugin>("graphql-before-query")
         .forEach(pl => pl.apply({ body, schema, context }));
 
-    const result = await graphql(schema, query, {}, context, variables, operationName);
+    const result = await graphql({
+        schema,
+        source: query,
+        rootValue: {},
+        contextValue: context,
+        variableValues: variables,
+        operationName
+    });
 
     context.plugins.byType<GraphQLAfterQueryPlugin>("graphql-after-query").forEach(pl => {
         pl.apply({ result, body, schema, context });
     });
 
-    return result;
+    return result as ExecutionResult<TData, TExtensions>;
 };
 
 export const processRequestBody = async <
@@ -33,13 +41,10 @@ export const processRequestBody = async <
     if (Array.isArray(requestBody)) {
         const results: ExecutionResult<TData, TExtensions>[] = [];
         for (const body of requestBody) {
-            const result = await executeGraphQl(body, schema, context);
-            results.push(result as ExecutionResult<TData, TExtensions>);
+            const result = await executeGraphQl<TData, TExtensions>(body, schema, context);
+            results.push(result);
         }
         return results;
     }
-    return (await executeGraphQl(requestBody, schema, context)) as ExecutionResult<
-        TData,
-        TExtensions
-    >;
+    return await executeGraphQl<TData, TExtensions>(requestBody, schema, context);
 };

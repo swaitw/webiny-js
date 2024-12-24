@@ -1,15 +1,15 @@
-import {
+import type {
     IDeleteCmsModelTask,
     IDeleteModelTaskInput,
     IDeleteModelTaskOutput,
     IStoreValue
 } from "~/tasks/deleteModel/types";
-import { HcmsTasksContext } from "~/types";
+import type { HcmsTasksContext } from "~/types";
 import { DELETE_MODEL_TASK } from "~/tasks/deleteModel/constants";
 import { WebinyError } from "@webiny/error";
 import { getStatus } from "~/tasks/deleteModel/graphql/status";
 import { NotFoundError } from "@webiny/handler-graphql";
-import { CmsModel } from "@webiny/api-headless-cms/types";
+import type { CmsModel } from "@webiny/api-headless-cms/types";
 import { createStoreKey } from "../helpers/store";
 
 export interface IGetDeleteModelProgress {

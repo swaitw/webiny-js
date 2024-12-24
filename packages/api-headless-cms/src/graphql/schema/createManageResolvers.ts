@@ -1,4 +1,4 @@
-import { CmsContext, CmsEntry, CmsFieldTypePlugins, CmsModel } from "~/types";
+import type { CmsContext, CmsEntry, CmsFieldTypePlugins, CmsModel } from "~/types";
 import { resolveGet } from "./resolvers/manage/resolveGet";
 import { resolveList } from "./resolvers/manage/resolveList";
 import { resolveListDeleted } from "./resolvers/manage/resolveListDeleted";
@@ -24,7 +24,6 @@ import { entryFieldFromStorageTransform } from "~/utils/entryStorage";
 interface CreateManageResolversParams {
     models: CmsModel[];
     model: CmsModel;
-    context: CmsContext;
     fieldTypePlugins: CmsFieldTypePlugins;
 }
 

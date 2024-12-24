@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import styled from "@emotion/styled";
 import * as GQL from "~/admin/viewsGraphql";
-import { ListCmsModelsQueryResponse } from "~/admin/viewsGraphql";
+import { ListCmsModelsQueryResponse, withoutBeingDeletedModels } from "~/admin/viewsGraphql";
 import {
     BindComponentRenderProp,
     CmsContentEntry,
@@ -124,7 +124,7 @@ export const AdvancedMultipleReferenceField = (props: AdvancedMultipleReferenceF
             showSnackbar(data.listContentModels.error.message);
             return;
         }
-        setLoadedModels(data.listContentModels.data);
+        setLoadedModels(withoutBeingDeletedModels(data.listContentModels.data));
     }, [data]);
 
     const onNewRecord = useCallback(

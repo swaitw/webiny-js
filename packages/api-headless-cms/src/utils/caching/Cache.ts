@@ -1,14 +1,15 @@
 import { ICache, ICacheKey } from "./types";
 
+export interface ICacheParams {
+    id?: string;
+}
+
 class Cache<T> implements ICache {
-    private _cache: Map<string, T> = new Map();
+    public readonly id: string | undefined;
+    private readonly _cache: Map<string, T> = new Map();
 
-    protected constructor() {
-        // Prevent direct instantiation.
-    }
-
-    public static create<R>() {
-        return new this<R>();
+    public constructor(params?: ICacheParams) {
+        this.id = params?.id;
     }
 
     public get(cacheKey: ICacheKey): T | null {
@@ -47,6 +48,6 @@ class Cache<T> implements ICache {
     }
 }
 
-export const createMemoryCache = <T>(): ICache<T> => {
-    return Cache.create<T>();
+export const createMemoryCache = <T>(params?: ICacheParams): ICache<T> => {
+    return new Cache<T>(params);
 };

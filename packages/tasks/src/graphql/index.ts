@@ -49,18 +49,18 @@ const createWebinyBackgroundTaskDefinitionEnum = (items: ITaskDefinition[]): str
 };
 
 const createGraphQL = () => {
-    const plugin = new ContextPlugin<Context>(async context => {
-        if (!context.tenancy.getCurrentTenant()) {
+    const plugin = new ContextPlugin<Context>(async ctx => {
+        if (!ctx.tenancy.getCurrentTenant()) {
             return;
-        } else if (!context.i18n.getDefaultLocale()) {
+        } else if (!ctx.i18n.getDefaultLocale()) {
             return;
         }
 
-        const taskModel = await context.tasks.getTaskModel();
-        const logModel = await context.tasks.getLogModel();
+        const taskModel = await ctx.tasks.getTaskModel();
+        const logModel = await ctx.tasks.getLogModel();
 
-        const models = await context.security.withoutAuthorization(async () => {
-            return (await context.cms.listModels()).filter(model => {
+        const models = await ctx.security.withoutAuthorization(async () => {
+            return (await ctx.cms.listModels()).filter(model => {
                 if (model.fields.length === 0) {
                     return false;
                 } else if (model.isPrivate) {
@@ -69,7 +69,7 @@ const createGraphQL = () => {
                 return true;
             });
         });
-        const fieldTypePlugins = createFieldTypePluginRecords(context.plugins);
+        const fieldTypePlugins = createFieldTypePluginRecords(ctx.plugins);
 
         const taskFields = renderFields({
             models,
@@ -117,7 +117,7 @@ const createGraphQL = () => {
             sorterPlugins: []
         });
 
-        const taskDefinitions = context.tasks.listDefinitions();
+        const taskDefinitions = ctx.tasks.listDefinitions();
 
         const plugin = new GraphQLSchemaPlugin<Context>({
             typeDefs: /* GraphQL */ `
@@ -374,7 +374,7 @@ const createGraphQL = () => {
                 }
             }
         });
-        context.plugins.register(plugin);
+        ctx.plugins.register(plugin);
     });
 
     plugin.name = "tasks.graphql";

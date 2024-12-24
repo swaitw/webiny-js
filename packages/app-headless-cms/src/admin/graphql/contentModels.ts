@@ -63,6 +63,7 @@ export const MODEL_FIELDS = `
         ${FIELDS_FIELDS}
     }
     plugin
+    isBeingDeleted
 `;
 /**
  * ############################

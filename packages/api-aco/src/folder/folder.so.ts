@@ -151,7 +151,10 @@ export const createFolderOperations = (
         },
         deleteFolder({ id }) {
             return withModel(async model => {
-                await cms.deleteEntry(model, id);
+                await cms.deleteEntry(model, id, {
+                    permanently: true,
+                    force: true
+                });
                 return true;
             });
         }

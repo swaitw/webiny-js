@@ -3,8 +3,8 @@ import { Page } from "@webiny/api-page-builder/types";
 import { GraphQLSchemaPlugin } from "@webiny/handler-graphql";
 import { ROOT_FOLDER } from "~/contants";
 
-export const createPbPageWbyAcoLocationGqlField = (context: PbAcoContext) => {
-    context.plugins.register(
+export const createPbPageWbyAcoLocationGqlField = (ctx: PbAcoContext) => {
+    ctx.plugins.register(
         new GraphQLSchemaPlugin<PbAcoContext>({
             typeDefs: /* GraphQL */ `
                 type WbyPbAcoLocation {
@@ -17,7 +17,7 @@ export const createPbPageWbyAcoLocationGqlField = (context: PbAcoContext) => {
             `,
             resolvers: {
                 PbPage: {
-                    wbyAco_location: async (page: Page, args, context: PbAcoContext) => {
+                    wbyAco_location: async (page: Page, _: unknown, context) => {
                         const pageSearchRecord = await context.pageBuilderAco.app.search.get(
                             page.pid
                         );

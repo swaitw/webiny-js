@@ -5,21 +5,19 @@
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 
-A plugin for @webiny/cli that provides scaffolding capabilities by means of scaffold plugins.
+A plugin for @webiny/cli that provides dependency check capabilities.
+Package is internal, do not use it in user projects.
 
-## Install
 
+## Usage
+
+A command used to sync all dependencies across all packages and store the data in `@webiny/cli/files/` directory.
+It should be run after each dependency update.
+```bash
+yarn webiny sync-dependencies
 ```
-yarn add @webiny/cli-plugin-dependencies
-```
 
-Add plugin to your project by editing `webiny.project.js`:
-
-```js
-module.exports = {
-  projectName: "my-project",
-  cli: {
-    plugins: ["@webiny/cli-plugin-dependencies"]
-  }
-};
+A command used to verify that all generated files are in sync with the current dependencies. This command is used in the CI/CI pipeline.
+```bash
+yarn webiny verify-dependencies
 ```

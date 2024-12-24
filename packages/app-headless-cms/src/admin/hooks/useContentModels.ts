@@ -1,6 +1,6 @@
 import * as GQL from "~/admin/viewsGraphql";
+import { ListCmsModelsQueryResponse, ListCmsModelsQueryVariables } from "~/admin/viewsGraphql";
 import { useQuery } from "~/admin/hooks/index";
-import { ListCmsModelsQueryResponse } from "~/admin/viewsGraphql";
 import { useMemo } from "react";
 import { CmsModel } from "~/types";
 
@@ -13,7 +13,12 @@ export const useContentModels = () => {
         loading,
         error: apolloError,
         refetch
-    } = useQuery<ListCmsModelsQueryResponse>(GQL.LIST_CONTENT_MODELS);
+    } = useQuery<ListCmsModelsQueryResponse, ListCmsModelsQueryVariables>(GQL.LIST_CONTENT_MODELS, {
+        variables: {
+            includeBeingDeleted: true,
+            includePlugins: true
+        }
+    });
 
     const models = useMemo<CmsModel[]>(() => {
         return data?.listContentModels?.data || [];

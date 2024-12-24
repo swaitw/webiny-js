@@ -20,7 +20,7 @@ export const createFilesSchema = (params: CreateFilesTypeDefsParams) => {
                 fileManager: emptyResolver
             },
             FmFile: {
-                async src(file, _, context: FileManagerContext) {
+                async src(file, _, context) {
                     const settings = await context.fileManager.getSettings();
                     return (settings?.srcPrefix || "") + file.key;
                 }

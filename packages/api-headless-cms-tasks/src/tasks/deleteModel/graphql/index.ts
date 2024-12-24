@@ -1,14 +1,12 @@
 import zod from "zod";
 import { ContextPlugin } from "@webiny/api";
-import { CmsGraphQLSchemaPlugin } from "@webiny/api-headless-cms";
+import { CmsGraphQLSchemaPlugin, isHeadlessCmsReady } from "@webiny/api-headless-cms";
 import { validateConfirmation } from "../helpers/confirmation";
-import { HcmsTasksContext } from "~/types";
-import { resolve } from "@webiny/handler-graphql";
-import { fullyDeleteModel } from "~/tasks/deleteModel/graphql/fullyDeleteModel";
+import type { HcmsTasksContext } from "~/types";
+import { createResolverDecorator, ErrorResponse, resolve, Response } from "@webiny/handler-graphql";
 import { createZodError } from "@webiny/utils";
-import { IDeleteCmsModelTask } from "~/tasks/deleteModel/types";
-import { abortDeleteModel } from "~/tasks/deleteModel/graphql/abortDeleteModel";
-import { getDeleteModelProgress } from "~/tasks/deleteModel/graphql/getDeleteModelProgress";
+import type { IDeleteCmsModelTask } from "~/tasks/deleteModel/types";
+import type { CmsModel } from "@webiny/api-headless-cms/types";
 
 const deleteValidation = zod
     .object({
@@ -28,7 +26,7 @@ const deleteValidation = zod
     })
     .readonly();
 
-const abortValidation = zod
+const cancelValidation = zod
     .object({
         modelId: zod.string()
     })
@@ -41,14 +39,20 @@ const getValidation = zod
     .readonly();
 
 export const createDeleteModelGraphQl = <T extends HcmsTasksContext = HcmsTasksContext>() => {
-    const contextPlugin = new ContextPlugin<T>(async context => {
+    const contextPlugin = new ContextPlugin<T>(async inputContext => {
+        const ready = await isHeadlessCmsReady(inputContext);
+
+        if (!ready || !inputContext.cms.MANAGE) {
+            return;
+        }
+
         const plugin = new CmsGraphQLSchemaPlugin<T>({
             typeDefs: /* GraphQL */ `
                 enum DeleteCmsModelTaskStatus {
                     running
                     done
                     error
-                    aborted
+                    canceled
                 }
                 type DeleteCmsModelTask {
                     id: ID!
@@ -67,13 +71,20 @@ export const createDeleteModelGraphQl = <T extends HcmsTasksContext = HcmsTasksC
                     error: CmsError
                 }
 
-                type AbortDeleteCmsModelResponse {
+                type CancelDeleteCmsModelResponse {
                     data: DeleteCmsModelTask
                     error: CmsError
                 }
 
+                extend type CmsContentModel {
+                    isBeingDeleted: Boolean!
+                }
+
                 extend type Query {
                     getDeleteModelProgress(modelId: ID!): GetDeleteCmsModelProgressResponse!
+                    listContentModels(
+                        includeBeingDeleted: Boolean = false
+                    ): CmsContentModelListResponse
                 }
 
                 extend type Mutation {
@@ -81,54 +92,94 @@ export const createDeleteModelGraphQl = <T extends HcmsTasksContext = HcmsTasksC
                         modelId: ID!
                         confirmation: String!
                     ): FullyDeleteCmsModelResponse!
-                    abortDeleteModel(modelId: ID!): AbortDeleteCmsModelResponse!
+                    cancelFullyDeleteModel(modelId: ID!): CancelDeleteCmsModelResponse!
                 }
             `,
             resolvers: {
+                CmsContentModel: {
+                    isBeingDeleted: async (model: CmsModel, _: unknown, context) => {
+                        try {
+                            return await context.cms.isModelBeingDeleted(model.modelId);
+                        } catch (ex) {
+                            console.error(ex);
+                        }
+                        return true;
+                    }
+                },
                 Query: {
-                    getDeleteModelProgress: async (_, args, ctx) => {
+                    getDeleteModelProgress: async (_: unknown, args: unknown, context) => {
                         return resolve<IDeleteCmsModelTask>(async () => {
                             const input = getValidation.safeParse(args);
                             if (input.error) {
                                 throw createZodError(input.error);
                             }
-                            return await getDeleteModelProgress({
-                                context: ctx,
-                                modelId: input.data.modelId
-                            });
+                            return await context.cms.getDeleteModelProgress(input.data.modelId);
                         });
                     }
                 },
                 Mutation: {
-                    fullyDeleteModel: async (_, args, ctx) => {
+                    fullyDeleteModel: async (_: unknown, args: unknown, context) => {
                         return resolve<IDeleteCmsModelTask>(async () => {
                             const input = deleteValidation.safeParse(args);
                             if (input.error) {
                                 throw createZodError(input.error);
                             }
-                            return await fullyDeleteModel({
-                                context: ctx,
-                                modelId: input.data.modelId
-                            });
+                            return await context.cms.fullyDeleteModel(input.data.modelId);
                         });
                     },
-                    abortDeleteModel: async (_, args, ctx) => {
+                    cancelFullyDeleteModel: async (_: unknown, args: unknown, context) => {
                         return resolve<IDeleteCmsModelTask>(async () => {
-                            const input = abortValidation.safeParse(args);
+                            const input = cancelValidation.safeParse(args);
                             if (input.error) {
                                 throw createZodError(input.error);
                             }
-                            return await abortDeleteModel({
-                                context: ctx,
-                                modelId: input.data.modelId
-                            });
+                            return await context.cms.cancelFullyDeleteModel(input.data.modelId);
                         });
                     }
                 }
+            },
+            resolverDecorators: {
+                ["Query.listContentModels"]: [
+                    createResolverDecorator<any, any, HcmsTasksContext>(
+                        resolver => async (parent, args, context, info) => {
+                            const result = await resolver(parent, args, context, info);
+                            if (result.error || !Array.isArray(result.data)) {
+                                return result;
+                            }
+
+                            if (args?.includeBeingDeleted !== false) {
+                                return result;
+                            }
+
+                            const listed = result.data as CmsModel[];
+
+                            try {
+                                const beingDeletedList = await context.cms.listModelsBeingDeleted();
+
+                                return new Response(
+                                    listed.filter(model => {
+                                        if (!model?.modelId) {
+                                            return false;
+                                        } else if (
+                                            beingDeletedList.some(
+                                                item => item.modelId === model.modelId
+                                            )
+                                        ) {
+                                            return false;
+                                        }
+                                        return true;
+                                    })
+                                );
+                            } catch (ex) {
+                                return new ErrorResponse(ex);
+                            }
+                        }
+                    )
+                ]
             }
         });
         plugin.name = "headless-cms.graphql.fullyDeleteModel";
-        context.plugins.register(plugin);
+        inputContext.plugins.register(plugin);
     });
     contextPlugin.name = "headless-cms.context.createDeleteModelGraphQl";
     return contextPlugin;

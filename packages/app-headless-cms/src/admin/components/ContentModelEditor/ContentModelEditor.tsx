@@ -16,10 +16,11 @@ import { PreviewTab } from "./PreviewTab";
 import Header from "./Header";
 import DragPreview from "../DragPreview";
 import { useModelEditor } from "./useModelEditor";
-import { CmsModelField, CmsEditorFieldsLayout } from "~/types";
+import { CmsEditorFieldsLayout, CmsModelField } from "~/types";
 import { ContentEntryEditorWithConfig } from "~/admin/config/contentEntries";
 import { ContentEntryProvider } from "~/admin/views/contentEntries/ContentEntry/ContentEntryContext";
 import { ContentEntriesProvider } from "~/admin/views/contentEntries/ContentEntriesContext";
+import { ModelIsBeingDeletedError } from "~/admin/components/ContentModelEditor/ModelIsBeingDeletedError";
 
 const t = i18n.ns("app-headless-cms/admin/editor");
 
@@ -78,6 +79,8 @@ export const ContentModelEditor = makeDecoratable("ContentModelEditor", () => {
 
     if (!data) {
         return <CircularProgress label={"Loading content model..."} />;
+    } else if (data.isBeingDeleted) {
+        return <ModelIsBeingDeletedError model={data} />;
     }
 
     return (

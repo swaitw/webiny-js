@@ -8,6 +8,7 @@ export interface ICacheKey {
 }
 
 export interface ICache<T = any> {
+    id: string | undefined;
     get(cacheKey: ICacheKey): T | null;
     set(cacheKey: ICacheKey, value: T): T;
     getOrSet(cacheKey: ICacheKey, cb: () => T): T;

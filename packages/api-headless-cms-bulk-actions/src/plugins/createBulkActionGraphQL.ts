@@ -10,16 +10,16 @@ export interface CreateBulkActionGraphQL {
 }
 
 export const createBulkActionGraphQL = (config: CreateBulkActionGraphQL) => {
-    return new ContextPlugin<HcmsBulkActionsContext>(async context => {
-        const tenant = context.tenancy.getCurrentTenant();
-        const locale = context.i18n.getContentLocale();
+    return new ContextPlugin<HcmsBulkActionsContext>(async ctx => {
+        const tenant = ctx.tenancy.getCurrentTenant();
+        const locale = ctx.i18n.getContentLocale();
 
-        if (!locale || !(await isHeadlessCmsReady(context))) {
+        if (!locale || !(await isHeadlessCmsReady(ctx))) {
             return;
         }
 
-        const models = await context.security.withoutAuthorization(async () => {
-            const allModels = await context.cms.listModels();
+        const models = await ctx.security.withoutAuthorization(async () => {
+            const allModels = await ctx.cms.listModels();
             return allModels.filter(model => {
                 if (model.isPrivate) {
                     return false;
@@ -38,7 +38,7 @@ export const createBulkActionGraphQL = (config: CreateBulkActionGraphQL) => {
         const plugins: CmsGraphQLSchemaPlugin<HcmsBulkActionsContext>[] = [];
 
         models.forEach(model => {
-            const plugin = new CmsGraphQLSchemaPlugin({
+            const plugin = new CmsGraphQLSchemaPlugin<HcmsBulkActionsContext>({
                 typeDefs: /* GraphQL */ `
                      extend enum BulkAction${model.singularApiName}Name {
                         ${config.name}
@@ -46,7 +46,7 @@ export const createBulkActionGraphQL = (config: CreateBulkActionGraphQL) => {
                 `,
                 resolvers: {
                     Mutation: {
-                        [`bulkAction${model.singularApiName}`]: async (_, args) => {
+                        [`bulkAction${model.singularApiName}`]: async (_, args, context) => {
                             const identity = context.security.getIdentity();
 
                             const response = await context.tasks.trigger({
@@ -75,6 +75,6 @@ export const createBulkActionGraphQL = (config: CreateBulkActionGraphQL) => {
             plugins.push(plugin);
         });
 
-        context.plugins.register([...plugins]);
+        ctx.plugins.register([...plugins]);
     });
 };

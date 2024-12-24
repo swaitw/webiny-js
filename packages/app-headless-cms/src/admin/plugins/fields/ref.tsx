@@ -1,6 +1,9 @@
 import React, { useCallback, useMemo } from "react";
-import get from "lodash/get";
-import { LIST_CONTENT_MODELS, ListCmsModelsQueryResponse } from "../../viewsGraphql";
+import {
+    LIST_CONTENT_MODELS,
+    ListCmsModelsQueryResponse,
+    withoutBeingDeletedModels
+} from "../../viewsGraphql";
 import { validation, ValidationError } from "@webiny/validation";
 import { Cell, Grid } from "@webiny/ui/Grid";
 import { MultiAutoComplete } from "@webiny/ui/AutoComplete";
@@ -34,7 +37,10 @@ const RefFieldSettings = () => {
 
     // Format options for the Autocomplete component.
     const options = useMemo(() => {
-        const models = get(data, "listContentModels.data", []) as CmsModel[];
+        if (!data?.listContentModels?.data) {
+            return [];
+        }
+        const models = withoutBeingDeletedModels(data.listContentModels.data);
         return (
             models
                 /**

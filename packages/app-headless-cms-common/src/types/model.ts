@@ -105,4 +105,8 @@ export interface CmsModel {
      * If model is a plugin one (it cannot be changed/deleted)
      */
     plugin?: boolean;
+    /**
+     * Is model currently being deleted?
+     */
+    isBeingDeleted?: boolean;
 }

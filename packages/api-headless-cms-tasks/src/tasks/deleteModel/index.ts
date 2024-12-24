@@ -1,9 +1,10 @@
 import { createTaskDefinition } from "@webiny/tasks";
 import { HcmsTasksContext } from "~/types";
 import { IDeleteModelTaskInput, IDeleteModelTaskOutput } from "./types";
-import { createDeleteModelRunner } from "~/tasks/deleteModel/DeleteModelRunner";
+import { createDeleteModelRunner } from "./DeleteModelRunner";
 import { DELETE_MODEL_TASK } from "./constants";
-import { createDeleteModelGraphQl } from "~/tasks/deleteModel/graphql";
+import { createDeleteModelGraphQl } from "./graphql";
+import { createDeleteModelCrud } from "./graphql/crud";
 
 const createDefinition = () => {
     return createTaskDefinition<HcmsTasksContext, IDeleteModelTaskInput, IDeleteModelTaskOutput>({
@@ -38,5 +39,5 @@ const createDefinition = () => {
 };
 
 export const createDeleteModelTask = () => {
-    return [createDefinition(), createDeleteModelGraphQl()];
+    return [createDefinition(), createDeleteModelCrud(), createDeleteModelGraphQl()];
 };

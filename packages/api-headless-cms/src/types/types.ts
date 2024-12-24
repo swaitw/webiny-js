@@ -833,6 +833,14 @@ export interface CmsModelUpdateDirectParams {
     original: CmsModel;
 }
 
+export interface ICmsModelListParams {
+    /**
+     * Defaults to true.
+     */
+    includePrivate?: boolean;
+    includePlugins?: boolean;
+}
+
 /**
  * Cms Model in the context.
  *
@@ -853,7 +861,7 @@ export interface CmsModelContext {
     /**
      * Get all content models.
      */
-    listModels(): Promise<CmsModel[]>;
+    listModels(params?: ICmsModelListParams): Promise<CmsModel[]>;
     /**
      * Create a content model.
      */

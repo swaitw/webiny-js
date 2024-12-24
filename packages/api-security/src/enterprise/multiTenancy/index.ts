@@ -23,7 +23,7 @@ export interface MultiTenancyGraphQLConfig {
 
 export const applyMultiTenancyGraphQLPlugins = (
     config: MultiTenancyGraphQLConfig,
-    context: Context
+    ctx: Context
 ) => {
     const getDefaultTenant = async (context: Context) => {
         const defaultTenant = await baseGetDefaultTenant(context);
@@ -36,7 +36,7 @@ export const applyMultiTenancyGraphQLPlugins = (
             : context.tenancy.getRootTenant();
     };
 
-    context.plugins.register(
+    ctx.plugins.register(
         new GraphQLSchemaPlugin<Context>({
             typeDefs: /* GraphQL */ `
                 extend interface SecurityIdentity {

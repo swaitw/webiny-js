@@ -9,7 +9,7 @@ export const getStatus = (status: TaskDataStatus): DeleteCmsModelTaskStatus => {
         case TaskDataStatus.FAILED:
             return DeleteCmsModelTaskStatus.ERROR;
         case TaskDataStatus.ABORTED:
-            return DeleteCmsModelTaskStatus.ABORTED;
+            return DeleteCmsModelTaskStatus.CANCELED;
         case TaskDataStatus.SUCCESS:
             return DeleteCmsModelTaskStatus.DONE;
     }

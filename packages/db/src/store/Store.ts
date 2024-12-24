@@ -1,6 +1,7 @@
 import {
     GetValueResult,
     GetValuesResult,
+    IListValuesParams,
     IStore,
     ListValuesResult,
     RemoveValueResult,
@@ -43,8 +44,10 @@ export class Store<T> implements IStore {
         return this.driver.getValues<V>(keys);
     }
 
-    public async listValues<V extends GenericRecord<StorageKey>>(): Promise<ListValuesResult<V>> {
-        return this.driver.listValues<V>();
+    public async listValues<V extends GenericRecord<StorageKey>>(
+        params?: IListValuesParams
+    ): Promise<ListValuesResult<V>> {
+        return this.driver.listValues<V>(params);
     }
 
     public async removeValue<V>(key: StorageKey): Promise<RemoveValueResult<V>> {

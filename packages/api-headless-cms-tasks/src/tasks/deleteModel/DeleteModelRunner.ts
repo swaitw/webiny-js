@@ -1,8 +1,8 @@
 import { ITaskResponse, ITaskResponseResult, ITaskRunParams } from "@webiny/tasks";
 import { HcmsTasksContext } from "~/types";
-import { IDeleteModelTaskInput, IDeleteModelTaskOutput, IStoreValue } from "./types";
+import { IDeleteModelTaskInput, IDeleteModelTaskOutput } from "./types";
 import { CmsEntryListWhere, CmsModel } from "@webiny/api-headless-cms/types";
-import { createStoreKey, createStoreValue } from "~/tasks/deleteModel/helpers/store";
+import { createStoreKey } from "~/tasks/deleteModel/helpers/store";
 
 export interface IDeleteModelRunnerParams<
     C extends HcmsTasksContext,
@@ -39,14 +39,6 @@ export class DeleteModelRunner<
         const { input, isCloseToTimeout, isAborted } = params;
 
         const model = await this.getModel(input.modelId);
-        /**
-         * We need to mark model as getting deleted, so that we can prevent any further operations on it.
-         */
-        const gettingDeleted = await this.getDeletingTag(model);
-
-        if (!gettingDeleted) {
-            await this.addDeletingTag(model);
-        }
 
         let hasMoreItems = false;
         let lastDeletedId: string | undefined = input.lastDeletedId;
@@ -55,7 +47,7 @@ export class DeleteModelRunner<
                 /**
                  * If the task was aborted, we need to remove the task tag from the model.
                  */
-                await this.removeDeletingTag(model);
+                await this.removeBeingDeleted(model);
                 return this.response.aborted();
             } else if (isCloseToTimeout()) {
                 return this.response.continue({
@@ -63,17 +55,18 @@ export class DeleteModelRunner<
                     lastDeletedId
                 });
             }
-            let where: CmsEntryListWhere | undefined = undefined;
+            const where: CmsEntryListWhere = {
+                latest: true
+            };
             if (lastDeletedId) {
-                where = {
-                    entryId_gte: lastDeletedId
-                };
+                where.entryId_gte = lastDeletedId;
             }
-            const [items, meta] = await this.context.cms.listLatestEntries(model, {
-                limit: 1000,
-                where,
-                sort: ["id_ASC"]
-            });
+            const { items, hasMoreItems: metaHasMoreItems } =
+                await this.context.cms.storageOperations.entries.list(model, {
+                    limit: 1000,
+                    where,
+                    sort: ["entryId_ASC"]
+                });
             for (const item of items) {
                 try {
                     await this.context.cms.deleteEntry(model, item.id, {
@@ -92,13 +85,16 @@ export class DeleteModelRunner<
                 lastDeletedId = item.entryId;
             }
 
-            hasMoreItems = meta.hasMoreItems;
+            hasMoreItems = metaHasMoreItems;
         } while (hasMoreItems);
         /**
          * Let's do one more check. If there are items, continue the task with 5 seconds delay.
          */
-        const [items] = await this.context.cms.listLatestEntries(model, {
-            limit: 1
+        const { items } = await this.context.cms.storageOperations.entries.list(model, {
+            limit: 1,
+            where: {
+                latest: true
+            }
         });
         if (items.length > 0) {
             console.log("There are still items to be deleted. Continuing the task.");
@@ -135,13 +131,13 @@ export class DeleteModelRunner<
         /**
          * When there is no more records to be deleted, let's delete the model, if it's not a plugin.
          */
+        await this.removeBeingDeleted(model);
         if (model.isPlugin) {
             return this.response.done();
         }
         try {
             await this.context.cms.deleteModel(model.modelId);
         } catch (ex) {
-            await this.removeDeletingTag(model);
             const message = `Failed to delete model "${model.modelId}".`;
             console.error(message);
             return this.response.error(ex);
@@ -158,24 +154,9 @@ export class DeleteModelRunner<
         return model;
     }
 
-    private async getDeletingTag(model: Pick<CmsModel, "modelId">): Promise<IStoreValue | null> {
-        const key = createStoreKey(model);
-        const value = await this.context.db.store.getValue<IStoreValue>(key);
-
-        return value.data || null;
-    }
-
-    private async addDeletingTag(model: Pick<CmsModel, "modelId">): Promise<void> {
-        const key = createStoreKey(model);
-        const value = createStoreValue({
-            model,
-            identity: this.context.security.getIdentity(),
-            task: this.taskId
-        });
-        await this.context.db.store.storeValue(key, value);
-    }
-
-    private async removeDeletingTag(model: Pick<CmsModel, "modelId">): Promise<void> {
+    private async removeBeingDeleted(
+        model: Pick<CmsModel, "modelId" | "tenant" | "locale">
+    ): Promise<void> {
         const key = createStoreKey(model);
         await this.context.db.store.removeValue(key);
     }

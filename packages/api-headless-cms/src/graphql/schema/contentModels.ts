@@ -4,15 +4,18 @@ import { Resolvers } from "@webiny/handler-graphql/types";
 import { CmsModelPlugin } from "~/plugins/CmsModelPlugin";
 import { createCmsGraphQLSchemaPlugin, ICmsGraphQLSchemaPlugin } from "~/plugins";
 import { toSlug } from "~/utils/toSlug";
+import { GenericRecord } from "@webiny/api/types";
 
-interface Params {
+export interface CreateModelsSchemaParams {
     context: CmsContext;
 }
 
-export const createModelsSchema = ({ context }: Params): ICmsGraphQLSchemaPlugin => {
+export const createModelsSchema = ({
+    context
+}: CreateModelsSchemaParams): ICmsGraphQLSchemaPlugin => {
     const resolvers: Resolvers<CmsContext> = {
         Query: {
-            getContentModel: async (_: unknown, args: any, context) => {
+            getContentModel: async (_: unknown, args: GenericRecord, context) => {
                 try {
                     const model = await context.cms.getModel(args.modelId);
 
@@ -25,10 +28,13 @@ export const createModelsSchema = ({ context }: Params): ICmsGraphQLSchemaPlugin
                     return new ErrorResponse(e);
                 }
             },
-            listContentModels: async (_: unknown, __: unknown, context: CmsContext) => {
+            listContentModels: async (_: unknown, args: GenericRecord, context: CmsContext) => {
                 try {
-                    const models = await context.cms.listModels();
-                    return new Response(models.filter(model => model.isPrivate !== true));
+                    const models = await context.cms.listModels({
+                        includePrivate: false,
+                        includePlugins: args?.includePlugins === false ? false : true
+                    });
+                    return new Response(models);
                 } catch (e) {
                     return new ErrorResponse(e);
                 }
@@ -314,7 +320,7 @@ export const createModelsSchema = ({ context }: Params): ICmsGraphQLSchemaPlugin
             extend type Query {
                 getContentModel(modelId: ID!, where: JSON, sort: String): CmsContentModelResponse
 
-                listContentModels: CmsContentModelListResponse
+                listContentModels(includePlugins: Boolean = true): CmsContentModelListResponse
             }
 
             ${manageSchema}

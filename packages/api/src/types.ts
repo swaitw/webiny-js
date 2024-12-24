@@ -51,7 +51,6 @@ export interface Benchmark {
  */
 export interface Context {
     plugins: PluginsContainer;
-    args: any;
     readonly WEBINY_VERSION: string;
     /**
      * Not to be used outside of Webiny internal code.
@@ -64,12 +63,12 @@ export interface Context {
      *
      * @private
      */
-    _result?: any;
+    _result?: unknown;
     /**
      * Not to be used outside of Webiny internal code.
      * @internal
      */
-    setResult: (value: any) => void;
+    setResult: (value: unknown) => void;
     /**
      * Not to be used outside of Webiny internal code.
      * @internal

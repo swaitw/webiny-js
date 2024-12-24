@@ -68,6 +68,10 @@ export const ContentEntryForm = makeDecoratable(
             }, 20);
         }, [entry.id, formElementRef.current]);
 
+        if (model.isBeingDeleted) {
+            return <>Model is being deleted.</>;
+        }
+
         return (
             <ContentEntryFormProvider
                 model={model}

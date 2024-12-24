@@ -7,7 +7,7 @@ import {
     ListCmsModelsQueryResponse,
     ListMenuCmsGroupsQueryResponse
 } from "../../viewsGraphql";
-import { CmsEditorContentModel } from "~/types";
+import { CmsEditorContentModel, CmsModel } from "~/types";
 
 export const addModelToListCache = (cache: DataProxy, model: CmsEditorContentModel): void => {
     const response = cache.readQuery<ListCmsModelsQueryResponse>({
@@ -25,6 +25,28 @@ export const addModelToListCache = (cache: DataProxy, model: CmsEditorContentMod
             listContentModels: dotProp.set(listContentModels, `data.${newModelIndex}`, model)
         }
     });
+};
+
+export const updateModelInCache = (cache: DataProxy, model: CmsModel): void => {
+    const response = cache.readQuery<ListCmsModelsQueryResponse>({
+        query: LIST_CONTENT_MODELS
+    });
+    if (!response || !response.listContentModels?.data) {
+        return;
+    }
+
+    const index = response.listContentModels.data.findIndex(m => m.modelId === model.modelId);
+    if (index < 0) {
+        return;
+    }
+    cache.writeQuery({
+        query: LIST_CONTENT_MODELS,
+        data: {
+            listContentModels: dotProp.set(response.listContentModels, `data.${index}`, model)
+        }
+    });
+
+    return updateModelInGroupCache(cache, model);
 };
 
 export const addModelToGroupCache = (cache: DataProxy, model: CmsEditorContentModel): void => {
@@ -52,10 +74,46 @@ export const addModelToGroupCache = (cache: DataProxy, model: CmsEditorContentMo
     });
 };
 
+export const updateModelInGroupCache = (cache: DataProxy, model: CmsModel): void => {
+    const response = cache.readQuery<ListMenuCmsGroupsQueryResponse>({
+        query: LIST_MENU_CONTENT_GROUPS_MODELS
+    });
+    if (!response || !response.listContentModelGroups) {
+        return;
+    }
+
+    const { listContentModelGroups: groupsList } = response;
+
+    const groupIndex = groupsList.data.findIndex(g => g.id === model.group.id);
+    if (groupIndex < 0) {
+        return;
+    }
+    const modelIndex = groupsList.data[groupIndex].contentModels.findIndex(
+        m => m.modelId === model.modelId
+    );
+    if (modelIndex < 0) {
+        return;
+    }
+
+    cache.writeQuery({
+        query: LIST_MENU_CONTENT_GROUPS_MODELS,
+        data: {
+            listContentModelGroups: dotProp.set(
+                groupsList,
+                `data.${groupIndex}.contentModels.${modelIndex}`,
+                model
+            )
+        }
+    });
+};
+
 /**
  * This function is an ugly hack, but I don't know a better way to remove items from cache in Apollo Client v2.
  * When a Content Model is deleted, we need to remove it from cache, because a model can be recreated with the same
  * modelId, and it will cause problems, because Apollo will think that the data in cache belongs to this new model.
+ */
+/**
+ * TODO remove when we can confirm that new deletion works property
  */
 export const removeModelFromCache = (
     client: ApolloClient<any>,
@@ -74,7 +132,9 @@ export const removeModelFromCache = (
         }
     });
 };
-
+/**
+ * TODO remove when we can confirm that new deletion works property
+ */
 export const removeModelFromListCache = (cache: DataProxy, model: CmsEditorContentModel): void => {
     const response = cache.readQuery<ListCmsModelsQueryResponse>({
         query: LIST_CONTENT_MODELS
@@ -92,7 +152,9 @@ export const removeModelFromListCache = (cache: DataProxy, model: CmsEditorConte
         }
     });
 };
-
+/**
+ * TODO remove when we can confirm that new deletion works property
+ */
 export const removeModelFromGroupCache = (cache: DataProxy, model: CmsEditorContentModel): void => {
     const response = cache.readQuery<ListMenuCmsGroupsQueryResponse>({
         query: LIST_MENU_CONTENT_GROUPS_MODELS

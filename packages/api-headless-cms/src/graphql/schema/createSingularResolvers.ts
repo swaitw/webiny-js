@@ -1,4 +1,4 @@
-import { ApiEndpoint, CmsContext, CmsFieldTypePlugins, CmsModel } from "~/types";
+import type { ApiEndpoint, CmsFieldTypePlugins, CmsModel } from "~/types";
 import { resolveGet } from "./resolvers/singular/resolveGet";
 import { resolveUpdate } from "./resolvers/singular/resolveUpdate";
 import { normalizeGraphQlInput } from "./resolvers/manage/normalizeGraphQlInput";
@@ -7,7 +7,6 @@ import { createFieldResolversFactory } from "./createFieldResolvers";
 interface CreateSingularResolversParams {
     models: CmsModel[];
     model: CmsModel;
-    context: CmsContext;
     fieldTypePlugins: CmsFieldTypePlugins;
     type: ApiEndpoint;
 }

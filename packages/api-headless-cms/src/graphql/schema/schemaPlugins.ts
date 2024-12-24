@@ -1,4 +1,4 @@
-import { CmsContext, CmsModel, ApiEndpoint } from "~/types";
+import type { ApiEndpoint, CmsContext, CmsModel } from "~/types";
 import { createManageSDL } from "./createManageSDL";
 import { createReadSDL } from "./createReadSDL";
 import { createManageResolvers } from "./createManageResolvers";
@@ -62,7 +62,6 @@ export const generateSchemaPlugins = async (
                     type: singularType
                 }),
                 resolvers: createSingularResolvers({
-                    context,
                     models,
                     model,
                     fieldTypePlugins,
@@ -86,8 +85,7 @@ export const generateSchemaPlugins = async (
                         resolvers: createManageResolvers({
                             models,
                             model,
-                            fieldTypePlugins,
-                            context
+                            fieldTypePlugins
                         })
                     });
                     plugin.name = `headless-cms.graphql.schema.manage.${model.modelId}`;
@@ -109,14 +107,12 @@ export const generateSchemaPlugins = async (
                             ? createReadResolvers({
                                   models,
                                   model,
-                                  fieldTypePlugins,
-                                  context
+                                  fieldTypePlugins
                               })
                             : createPreviewResolvers({
                                   models,
                                   model,
-                                  fieldTypePlugins,
-                                  context
+                                  fieldTypePlugins
                               })
                     });
                     plugin.name = `headless-cms.graphql.schema.${type}.${model.modelId}`;
