@@ -44,13 +44,13 @@ export const FormSettingsModel = zod.object({
         .default({
             renderer: "default"
         }),
-    submitButtonLabel: zod.string().optional().default(""),
+    submitButtonLabel: zod.string().optional().default("").nullable(),
     fullWidthSubmitButton: zod.boolean().optional().default(false),
-    successMessage: zod.object({}).passthrough().optional(),
+    successMessage: zod.object({}).passthrough().optional().nullable(),
     termsOfServiceMessage: zod
         .object({
             message: zod.object({}).optional().default({}),
-            errorMessage: zod.string().optional().default(""),
+            errorMessage: zod.string().optional().default("").nullable(),
             enabled: zod.boolean().optional().nullish().default(null)
         })
         .default({
@@ -68,8 +68,8 @@ export const FormSettingsModel = zod.object({
                 .string()
                 .optional()
                 .default("Please verify that you are not a robot."),
-            secretKey: zod.string().optional().nullish().default(""),
-            siteKey: zod.string().optional().nullish().default("")
+            secretKey: zod.string().optional().nullish().default("").nullable(),
+            siteKey: zod.string().optional().nullish().default("").nullable()
         })
         .passthrough()
         .optional()
@@ -87,7 +87,7 @@ export const FormUpdateDataModel = zod.object({
     fields: zod.array(FormFieldsModel).optional(),
     steps: zod.array(FormStepsModel).optional(),
     settings: FormSettingsModel.optional(),
-    triggers: zod.object({}).passthrough().optional()
+    triggers: zod.object({}).passthrough().optional().nullable()
 });
 
 export const FormSubmissionCreateDataModel = zod.object({
