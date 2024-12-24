@@ -46,7 +46,6 @@ export const attachUserValidation = (
             return;
         }
 
-        console.log(validation.error)
         throw createZodError(validation.error);
     });
 };
