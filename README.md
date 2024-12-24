@@ -57,7 +57,7 @@ All Webiny apps can be customized easily to fully fit an enterprise publishing w
 **Prerequisites**
 
 - Node.js ^20
-- yarn ^1.22.21 || ^3 || ^4
+- yarn ^1.22.21
 - AWS account
 
 For the detailed install guide, please see 👉 https://www.webiny.com/docs/get-started/install-webiny

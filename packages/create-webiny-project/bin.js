@@ -14,11 +14,11 @@ const verifyConfig = require("./utils/verifyConfig");
      * Node
      */
     const nodeVersion = process.versions.node;
-    if (!semver.satisfies(nodeVersion, `^22`)) {
+    if (!semver.satisfies(nodeVersion, `>=20`)) {
         console.error(
             chalk.red(
                 [
-                    `You are running Node.js ${nodeVersion}, but Webiny requires version ^22.`,
+                    `You are running Node.js ${nodeVersion}, but Webiny requires version >=20.`,
                     `Please switch to one of the required versions and try again.`,
                     "For more information, please visit https://www.webiny.com/docs/get-started/install-webiny#prerequisites."
                 ].join(" ")

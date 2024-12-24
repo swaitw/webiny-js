@@ -15,7 +15,7 @@
   "author": "Webiny Ltd",
   "license": "MIT",
   "dependencies": {
-    "@sparticuz/chromium": "123.0.1",
+    "@sparticuz/chromium": "131.0.1",
     "@webiny/api": "0.0.0",
     "@webiny/api-log": "0.0.0",
     "@webiny/aws-sdk": "0.0.0",
@@ -30,12 +30,12 @@
     "posthtml": "^0.15.0",
     "posthtml-noopener": "^1.0.5",
     "posthtml-plugin-link-preload": "^1.0.0",
-    "puppeteer-core": "^23.9.0",
+    "puppeteer-core": "^23.11.1",
     "srcset": "^4.0.0"
   },
   "devDependencies": {
     "@types/object-hash": "^2.2.1",
-    "@types/puppeteer-core": "^7.0.4",
+    "@types/puppeteer-core": "7.0.4",
     "@webiny/cli": "0.0.0",
     "@webiny/handler-aws": "0.0.0",
     "@webiny/project-utils": "0.0.0",
