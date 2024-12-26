@@ -261,6 +261,9 @@ jobs:
       - name: Print CLI version
         working-directory: new-webiny-project
         run: yarn webiny --version
+      - name: '[TEMPORARY] Build API'
+        working-directory: new-webiny-project
+        run: yarn webiny build apps/api --env dev
       - name: Create project-files artifact
         uses: actions/upload-artifact@v4
         with:
