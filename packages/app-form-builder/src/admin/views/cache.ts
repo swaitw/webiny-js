@@ -29,6 +29,9 @@ export const updateLatestRevisionInListCache = (
     }
 
     const index = formBuilder.listForms.data.findIndex(item => item.id.startsWith(uniqueId));
+    if (index < 0) {
+        return;
+    }
 
     cache.writeQuery({
         ...gqlParams,
@@ -99,6 +102,9 @@ export const removeFormFromListCache = (cache: DataProxy, form: FbRevisionModel)
     }
 
     const index = formBuilder.listForms.data.findIndex(item => item.id === form.id);
+    if (index < 0) {
+        return;
+    }
 
     cache.writeQuery({
         ...gqlParams,
