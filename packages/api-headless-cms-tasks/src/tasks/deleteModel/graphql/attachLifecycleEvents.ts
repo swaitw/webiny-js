@@ -45,7 +45,5 @@ export const attachLifecycleEvents = ({ context }: IAttachLifecycleEventsParams)
      */
     context.cms.onModelBeforeUpdate.subscribe(blockActionOnEvent);
 
-    context.cms.onModelBeforeDelete.subscribe(blockActionOnEvent);
-
     context.cms.onModelBeforeCreateFrom.subscribe(blockActionOnEvent);
 };

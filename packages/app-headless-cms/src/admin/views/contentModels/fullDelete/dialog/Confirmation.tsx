@@ -47,7 +47,12 @@ export const Confirmation = (props: IConfirmationProps) => {
                 <br />
             </p>
             <div>
-                <Input onChange={onChange} placeholder={placeholder} value={confirmation} />
+                <Input
+                    data-testid="cms-delete-content-model-input"
+                    onChange={onChange}
+                    placeholder={placeholder}
+                    value={confirmation}
+                />
                 {error && <p className={errorClassName}>{error.message}</p>}
             </div>
         </>

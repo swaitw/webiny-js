@@ -104,7 +104,12 @@ export const FullyDeleteModelDialog = ({
     }, [setStatusUnderstood, startProcessing, status]);
 
     return (
-        <Dialog open={!!model} onClose={onClose} preventOutsideDismiss={true}>
+        <Dialog
+            open={!!model}
+            onClose={onClose}
+            preventOutsideDismiss={true}
+            data-testid="cms-delete-content-model-dialog"
+        >
             <DialogTitle>{title}</DialogTitle>
             <DialogContent>
                 <Content
@@ -116,7 +121,7 @@ export const FullyDeleteModelDialog = ({
                 />
             </DialogContent>
             <DialogActions>
-                <DialogCancel>
+                <DialogCancel data-testid="cms-delete-content-model-close-button">
                     {status === FullyDeleteModelStateStatus.PROCESSED ||
                     status === FullyDeleteModelStateStatus.ERROR
                         ? "OK"
@@ -124,7 +129,12 @@ export const FullyDeleteModelDialog = ({
                 </DialogCancel>
                 {(status === FullyDeleteModelStateStatus.NONE ||
                     status === FullyDeleteModelStateStatus.UNDERSTOOD) && (
-                    <ButtonPrimary onClick={onYesClick}>{primaryButtonText}</ButtonPrimary>
+                    <ButtonPrimary
+                        data-testid="cms-delete-content-model-confirm-button"
+                        onClick={onYesClick}
+                    >
+                        {primaryButtonText}
+                    </ButtonPrimary>
                 )}
             </DialogActions>
         </Dialog>

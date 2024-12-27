@@ -173,12 +173,54 @@ context("Headless CMS - Content Models CRUD", () => {
                     cy.wait(1000);
                 });
         });
-        // b. Confirm delete model
-        cy.findByTestId("cms-delete-content-model-dialog").within(() => {
-            cy.findAllByTestId("dialog-accept").next().click();
+
+        const dialog = cy.findByTestId("cms-delete-content-model-dialog");
+
+        // b. Confirm understand the consequences
+        dialog.within(() => {
+            cy.findByTestId("cms-delete-content-model-confirm-button").click();
         });
-        // c. Check success message
-        cy.findByText(`Content model ${`Book - ${uniqueId}`} deleted successfully!.`);
+        // c. Confirm delete model - error because no model name typed into input
+        dialog.within(() => {
+            const button = cy.findByTestId("cms-delete-content-model-confirm-button");
+            button.contains("Yes, delete the model");
+            button.click();
+        });
+
+        // d. Should be an error message
+        dialog.within(() => {
+            cy.findByText("Confirmation value is not correct.");
+        });
+
+        // e. Write the model name into the input
+        dialog.within(() => {
+            cy.findByTestId("cms-delete-content-model-input")
+                .focus()
+                .wait(500)
+                .type(`delete ${lodashCamelCase(`Book - ${uniqueId}`)}`)
+                .wait(1000);
+        });
+
+        // f. Confirm delete model
+        dialog.within(() => {
+            const button = cy.findByTestId("cms-delete-content-model-confirm-button");
+            button.contains("Yes, delete the model");
+            button.click();
+        });
+
+        cy.wait(3000);
+
+        // g. Check success message
+        cy.findByTestId("cms-delete-content-model-dialog").within(() => {
+            cy.findByText(
+                `If the model has a large amount of entries, it will take some time to delete everything.`
+            );
+        });
+
+        // we will not go further for now because it gets complicated
+        /**
+         * TODO update the test to check model actually being deleted...
+         */
     });
 
     it("should create, edit, and delete content model - with fields", () => {
@@ -255,11 +297,52 @@ context("Headless CMS - Content Models CRUD", () => {
                     cy.wait(1000);
                 });
         });
-        // b. Confirm delete model
-        cy.findByTestId("cms-delete-content-model-dialog").within(() => {
-            cy.findAllByTestId("dialog-accept").next().click();
+        const dialog = cy.findByTestId("cms-delete-content-model-dialog");
+
+        // b. Confirm understand the consequences
+        dialog.within(() => {
+            cy.findByTestId("cms-delete-content-model-confirm-button").click();
         });
-        // c. Check success message
-        cy.findByText(`Content model ${`Book - ${uniqueId}`} deleted successfully!.`);
+        // c. Confirm delete model - error because no model name typed into input
+        dialog.within(() => {
+            const button = cy.findByTestId("cms-delete-content-model-confirm-button");
+            button.contains("Yes, delete the model");
+            button.click();
+        });
+
+        // d. Should be an error message
+        dialog.within(() => {
+            cy.findByText("Confirmation value is not correct.");
+        });
+
+        // e. Write the model name into the input
+        dialog.within(() => {
+            cy.findByTestId("cms-delete-content-model-input")
+                .focus()
+                .wait(500)
+                .type(`delete ${lodashCamelCase(`Book - ${uniqueId}`)}`)
+                .wait(1000);
+        });
+
+        // f. Confirm delete model
+        dialog.within(() => {
+            const button = cy.findByTestId("cms-delete-content-model-confirm-button");
+            button.contains("Yes, delete the model");
+            button.click();
+        });
+
+        cy.wait(3000);
+
+        // g. Check success message
+        cy.findByTestId("cms-delete-content-model-dialog").within(() => {
+            cy.findByText(
+                `If the model has a large amount of entries, it will take some time to delete everything.`
+            );
+        });
+
+        // we will not go further for now because it gets complicated
+        /**
+         * TODO update the test to check model actually being deleted...
+         */
     });
 });
