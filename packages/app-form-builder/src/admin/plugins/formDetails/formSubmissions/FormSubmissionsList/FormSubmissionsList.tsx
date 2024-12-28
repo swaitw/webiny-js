@@ -107,10 +107,10 @@ export const FormSubmissionsList = ({ form }: FormSubmissionsListProps) => {
                         pagination: true
                     }}
                 >
-                    {({ data = [] }: { data: FbFormSubmissionData[] }) => (
+                    {({ data }: { data: FbFormSubmissionData[] }) => (
                         <>
                             <Scrollbar onScrollFrame={scrollFrame => loadMoreOnScroll(scrollFrame)}>
-                                {data.map(submission => {
+                                {(data || []).map(submission => {
                                     const submittedOn = submission.meta
                                         ? new Date(submission.meta.submittedOn)
                                         : new Date();

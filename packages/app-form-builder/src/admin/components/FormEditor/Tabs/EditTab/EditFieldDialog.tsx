@@ -1,25 +1,26 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import cloneDeep from "lodash/cloneDeep";
 import { css } from "emotion";
 import styled from "@emotion/styled";
 import {
     Dialog,
-    DialogContent,
-    DialogTitle,
-    DialogCancel,
     DialogActions,
-    DialogButton
+    DialogButton,
+    DialogCancel,
+    DialogContent,
+    DialogTitle
 } from "@webiny/ui/Dialog";
 import { Form, FormOnSubmit } from "@webiny/form";
 import { plugins } from "@webiny/plugins";
-import { Tabs, Tab } from "@webiny/ui/Tabs";
+import { Tab, Tabs } from "@webiny/ui/Tabs";
 import GeneralTab from "./EditFieldDialog/GeneralTab";
 import ValidatorsTab from "./EditFieldDialog/ValidatorsTab";
 import FieldTypeSelector from "./EditFieldDialog/FieldTypeSelector";
 import { i18n } from "@webiny/app/i18n";
-const t = i18n.namespace("FormEditor.EditFieldDialog");
 import { useFormEditor } from "../../Context";
 import { FbBuilderFieldPlugin, FbFormModelField } from "~/types";
+
+const t = i18n.namespace("FormEditor.EditFieldDialog");
 
 const dialogBody = css({
     "&.webiny-ui-dialog__content": {

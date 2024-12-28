@@ -21,7 +21,7 @@ export const EditTab = () => {
     return (
         <EditContainer>
             <FieldErrors errors={errors} />
-            {data.steps.map((formStep: FbFormStep, index: number) => (
+            {(data.steps || []).map((formStep: FbFormStep, index: number) => (
                 <EditTabStep
                     key={`edit-tab-step${index}`}
                     formStep={formStep}

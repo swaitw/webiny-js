@@ -283,9 +283,9 @@ const FormsDataList = (props: FormsDataListProps) => {
             modalOverlay={formsDataListModalOverlay}
             modalOverlayAction={<DataListModalOverlayAction icon={<FilterIcon />} />}
         >
-            {({ data = [] }: { data: FbFormModel[] }) => (
+            {({ data }: { data: FbFormModel[] | null }) => (
                 <List data-testid="default-data-list">
-                    {data.map(form => {
+                    {(data || []).map(form => {
                         const name = form.createdBy.displayName;
                         return (
                             <ListItem

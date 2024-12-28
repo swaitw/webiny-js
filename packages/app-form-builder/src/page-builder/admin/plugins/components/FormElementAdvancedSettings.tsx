@@ -1,6 +1,5 @@
 import React, { useMemo } from "react";
 import { useLazyQuery, useQuery } from "@apollo/react-hooks";
-import get from "lodash/get";
 import { Cell, Grid } from "@webiny/ui/Grid";
 import { Alert } from "@webiny/ui/Alert";
 import { AutoComplete } from "@webiny/ui/AutoComplete";
@@ -20,7 +19,6 @@ import {
     ListFormsQueryResponse
 } from "./graphql";
 import { BindComponent, FormOnSubmit } from "@webiny/form";
-import { FbRevisionModel } from "~/types";
 
 const FormOptionsWrapper = styled("div")({
     minHeight: 250
@@ -96,10 +94,10 @@ const FormElementAdvancedSettings = ({ Bind, submit, data }: FormElementAdvanced
             value: null
         };
 
-        if (getQuery.data) {
-            const publishedRevisions = (
-                get(getQuery, "data.formBuilder.getFormRevisions.data") as FbRevisionModel[]
-            ).filter(revision => revision.published);
+        if (getQuery.data?.formBuilder?.getFormRevisions?.data) {
+            const publishedRevisions = getQuery.data.formBuilder.getFormRevisions.data.filter(
+                revision => revision.published
+            );
             output.options = publishedRevisions.map(item => ({
                 id: item.id,
                 name: `${item.name} (version ${item.version})`

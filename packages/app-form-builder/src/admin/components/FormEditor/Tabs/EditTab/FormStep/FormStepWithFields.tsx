@@ -10,7 +10,7 @@ export interface FormStepWithFieldsProps {
 export const FormStepWithFields = ({ fields, formStep }: FormStepWithFieldsProps) => {
     return (
         <React.Fragment>
-            {fields.map((row, rowIndex) => (
+            {(fields || []).map((row, rowIndex) => (
                 <FormStepRow
                     key={`row-${rowIndex}`}
                     row={row}
