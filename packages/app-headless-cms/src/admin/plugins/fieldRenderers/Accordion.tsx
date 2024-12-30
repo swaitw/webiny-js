@@ -1,5 +1,6 @@
 import React, { ReactElement, useCallback, useState } from "react";
 import { css } from "emotion";
+import styled from "@emotion/styled";
 import classNames from "classnames";
 import { Typography } from "@webiny/ui/Typography";
 
@@ -69,22 +70,33 @@ const classes = {
                 transform: "translateY(3px) rotate(90deg)"
             }
         }
-    }),
-    accordionItem: css({
-        overflow: "hidden",
-        transition: "max-height 0.3s cubic-bezier(1, 0, 1, 0)",
-        height: "auto",
-        maxHeight: "9999px",
-
-        "&.collapsed": {
-            maxHeight: 0,
-            transition: "max-height 0.35s cubic-bezier(0, 1, 0, 1)"
-        },
-        ".accordion-content": {
-            paddingBottom: 10
-        }
     })
 };
+
+const AccordionItem = styled.div`
+    @keyframes show-overflow {
+        to {
+            overflow: visible;
+        }
+    }
+    overflow: hidden;
+    transition: max-height 0.35s cubic-bezier(0, 1, 0, 1);
+    height: auto;
+    max-height: 0;
+
+    &.expanded {
+        max-height: 9999px;
+        transition: max-height 0.3s cubic-bezier(1, 0, 1, 0);
+        animation-name: show-overflow;
+        animation-fill-mode: forwards;
+        animation-duration: 20ms;
+        animation-delay: 0.3s;
+    }
+`;
+
+const AccordionContent = styled.div`
+    padding-bottom: 10;
+`;
 
 interface AccordionProps {
     title: string;
@@ -116,9 +128,9 @@ const Accordion = ({ title, children, action, icon, defaultValue = false }: Acco
                     <div className={"icon-container"}>{icon}</div>
                 </div>
             </div>
-            <div className={classNames(classes.accordionItem, { collapsed: !isOpen })}>
-                <div className="accordion-content">{children}</div>
-            </div>
+            <AccordionItem className={classNames({ expanded: isOpen })}>
+                <AccordionContent>{children}</AccordionContent>
+            </AccordionItem>
         </div>
     );
 };
