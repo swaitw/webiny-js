@@ -37,7 +37,7 @@ const style = {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            borderBottom: "2px solid #fa5723",
+            borderBottom: "2px solid var(--mdc-theme-primary, #fa5723)",
             padding: "6px 0"
         }),
         pages: css({
@@ -128,7 +128,14 @@ interface MultiAutoCompleteState {
 }
 
 const Spinner = () => {
-    return <MaterialSpinner size={24} spinnerColor={"#fa5723"} spinnerWidth={2} visible />;
+    return (
+        <MaterialSpinner
+            size={24}
+            spinnerColor={"var(--mdc-theme-primary, #fa5723)"}
+            spinnerWidth={2}
+            visible
+        />
+    );
 };
 
 interface RenderOptionsParams
