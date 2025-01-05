@@ -23,6 +23,7 @@ import { createEntityReadBatch } from "./EntityReadBatch";
 import { createEntityWriteBatch } from "./EntityWriteBatch";
 import { createTableWriteBatch } from "~/utils/table/TableWriteBatch";
 import { queryAllClean, queryOneClean } from "../query";
+import { GenericRecord } from "@webiny/api/types";
 
 export type EntityConstructor<
     T extends Readonly<AttributeDefinitions> = Readonly<AttributeDefinitions>
@@ -64,7 +65,9 @@ export class Entity implements IEntity {
         });
     }
 
-    public async put(item: IPutParamsItem): ReturnType<typeof put> {
+    public async put<T extends GenericRecord = GenericRecord>(
+        item: IPutParamsItem<T>
+    ): ReturnType<typeof put> {
         return put({
             entity: this.entity,
             item

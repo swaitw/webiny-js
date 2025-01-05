@@ -23,7 +23,7 @@ export interface IEntity {
     createEntityReader(): IEntityReadBatch;
     createEntityWriter(): IEntityWriteBatch;
     createTableWriter(): ITableWriteBatch;
-    put(item: IPutParamsItem): ReturnType<typeof put>;
+    put<T extends GenericRecord = GenericRecord>(item: IPutParamsItem<T>): ReturnType<typeof put>;
     get<T>(keys: GetRecordParamsKeys): ReturnType<typeof get<T>>;
     getClean<T>(keys: GetRecordParamsKeys): ReturnType<typeof getClean<T>>;
     delete(keys: IDeleteItemKeys): ReturnType<typeof deleteItem>;
