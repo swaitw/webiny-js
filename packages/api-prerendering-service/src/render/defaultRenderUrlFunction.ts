@@ -35,7 +35,7 @@ export const defaultRenderUrlFunction = async (
             defaultViewport: chromium.defaultViewport,
             executablePath: await chromium.executablePath(),
             headless: chromium.headless,
-            ignoreHTTPSErrors: true
+            acceptInsecureCerts: true
         });
 
         const browserPage = await browser.newPage();

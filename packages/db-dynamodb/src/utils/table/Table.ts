@@ -11,7 +11,7 @@ import { createTableWriteBatch } from "./TableWriteBatch";
 import { createTableReadBatch } from "./TableReadBatch";
 import { scan } from "../scan";
 
-export class Table<
+export class TableDefinition<
     Name extends string = string,
     PartitionKey extends string = string,
     SortKey extends string = string
@@ -42,3 +42,13 @@ export class Table<
         });
     }
 }
+
+export const defineTable = <
+    Name extends string = string,
+    PartitionKey extends string = string,
+    SortKey extends string = string
+>(
+    params: TableConstructor<Name, PartitionKey, SortKey>
+) => {
+    return new TableDefinition<Name, PartitionKey, SortKey>(params);
+};
