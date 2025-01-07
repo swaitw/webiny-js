@@ -5,23 +5,26 @@ export interface IGetUserInputParams {
     presets: IPreset[];
 }
 
-export interface IUserInputParams {
-    dryRun: boolean;
+export interface IUserInputResponse {
+    shouldUpdate: () => Promise<boolean>;
     skipResolutions: boolean;
     matching: RegExp;
 }
 
 export const getUserInput = async ({
     presets
-}: IGetUserInputParams): Promise<IUserInputParams | null> => {
+}: IGetUserInputParams): Promise<IUserInputResponse | null> => {
     const prompt = inquirer.createPromptModule();
 
-    const { dryRun } = await prompt({
-        name: "dryRun",
-        type: "confirm",
-        default: true,
-        message: "First, is this a dry run?"
-    });
+    const shouldUpdate = async () => {
+        const { shouldUpdate } = await prompt({
+            name: "shouldUpdate",
+            type: "confirm",
+            default: false,
+            message: "Do you want to update the packages?"
+        });
+        return !!shouldUpdate;
+    };
 
     const { preset } = await prompt({
         name: "preset",
@@ -46,7 +49,7 @@ export const getUserInput = async ({
         }
         return {
             ...matching,
-            dryRun
+            shouldUpdate
         };
     }
 
@@ -78,25 +81,9 @@ export const getUserInput = async ({
         ]
     });
 
-    const { confirm } = await prompt({
-        name: "confirm",
-        default: false,
-        type: "list",
-        message: `Confirm settings: matching - ${matching}, dry run - ${
-            dryRun ? "yes" : "no"
-        }, skip resolutions - ${skipResolutions ? "yes" : "no"})`,
-        choices: [
-            { name: "Not correct, exit.", value: false },
-            { name: "Correct, continue.", value: true }
-        ]
-    });
-    if (!confirm) {
-        return null;
-    }
-
     return {
         matching,
-        dryRun,
+        shouldUpdate,
         skipResolutions
     };
 };

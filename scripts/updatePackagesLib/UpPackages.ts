@@ -17,9 +17,7 @@ export class UpPackages {
     }
 
     public async process(): Promise<void> {
-        for (const pkg of this.packages) {
-            await execa("yarn", ["up", `${pkg.name}@^${pkg.latestVersion.raw}`]);
-            console.log(`${pkg.name}: ${pkg.version.raw} -> ${pkg.latestVersion.raw}`);
-        }
+        const packages = this.packages.map(pkg => `${pkg.name}@^${pkg.latestVersion.raw}`);
+        await execa("yarn", ["up", ...packages]);
     }
 }

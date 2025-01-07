@@ -4,6 +4,7 @@ import { BasicPackages } from "./BasicPackages";
 import { LatestVersionPackages } from "./LatestVersionPackages";
 import { ResolutionPackages } from "./ResolutionPackages";
 import { UpPackages } from "./UpPackages";
+import { IUserInputResponse } from "./getUserInput";
 
 const getAllPackages = (): string[] => {
     const workspaces = allWorkspaces() as string[];
@@ -16,14 +17,12 @@ const getAllPackages = (): string[] => {
     return packages;
 };
 
-interface IUpdatePackagesParams {
-    dryRun: boolean;
-    skipResolutions: boolean;
-    matching: RegExp;
+export interface IUpdatePackagesParams {
+    input: IUserInputResponse;
 }
 
 export const updatePackages = async (params: IUpdatePackagesParams) => {
-    const { matching, skipResolutions, dryRun } = params;
+    const { matching, skipResolutions, shouldUpdate } = params.input;
     /**
      * Basic packages container with all packages that match the regex and their versions in the package.json files.
      */
@@ -44,11 +43,13 @@ export const updatePackages = async (params: IUpdatePackagesParams) => {
         console.log("All packages are up-to-date. Exiting...");
         return;
     }
-    if (dryRun !== false) {
-        console.log("Dry run mode enabled. Packages which will get updated:");
-        for (const pkg of updatable) {
-            console.log(`${pkg.name}: ${pkg.version.raw} -> ${pkg.latestVersion.raw}`);
-        }
+    console.log("Packages which have newer versions:");
+    for (const pkg of updatable) {
+        console.log(`${pkg.name}: ${pkg.version.raw} -> ${pkg.latestVersion.raw}`);
+    }
+
+    const isUpdating = await shouldUpdate();
+    if (!isUpdating) {
         return;
     }
 

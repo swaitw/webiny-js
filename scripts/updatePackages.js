@@ -8,5 +8,7 @@ const { updatePackages, presets, getUserInput } = require("./updatePackagesLib/i
         return;
     }
 
-    return updatePackages(input);
+    return updatePackages({
+        input
+    });
 })();
