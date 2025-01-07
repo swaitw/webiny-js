@@ -1,4 +1,5 @@
 import zod from "zod";
+import { dynamicData } from "~/graphql/crud/dynamicData.validation";
 
 const refineValidation = (value?: string) => {
     if (!value) {
@@ -23,7 +24,8 @@ const refineValidationMessage = (value?: string) => {
 
 const baseValidation = zod.object({
     name: zod.string().min(1).max(100),
-    content: zod.union([zod.object({}).passthrough(), zod.array(zod.object({}).passthrough())])
+    content: zod.union([zod.object({}).passthrough(), zod.array(zod.object({}).passthrough())]),
+    ...dynamicData
 });
 
 export const createPageBlocksCreateValidation = () => {

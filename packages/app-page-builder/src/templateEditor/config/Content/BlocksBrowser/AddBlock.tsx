@@ -7,7 +7,7 @@ import { useBlocksBrowser } from "./useBlocksBrowser";
 const SIDEBAR_WIDTH = 300;
 const BottomRight = styled("div")({
     position: "fixed",
-    zIndex: 25,
+    zIndex: 101,
     bottom: 20,
     right: 20 + SIDEBAR_WIDTH
 });

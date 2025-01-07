@@ -14,6 +14,7 @@ export * from "./contexts/Renderer";
 export * from "./contexts/ElementRendererInputs";
 
 export * from "./components/Page";
+export * from "./components/Content";
 export * from "./components/Element";
 export * from "./components/Elements";
 export * from "./components/ErrorBoundary";

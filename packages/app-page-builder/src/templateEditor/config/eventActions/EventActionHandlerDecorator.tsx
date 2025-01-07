@@ -6,9 +6,8 @@ import {
     GetCallableState
 } from "~/editor/contexts/EventActionHandlerProvider";
 import { TemplateEditorEventActionCallableState } from "~/templateEditor/types";
-import { PageTemplate } from "~/templateEditor/state";
 import { useTemplate } from "~/templateEditor/hooks/useTemplate";
-import { PbElement, PbEditorElement } from "~/types";
+import { PbPageTemplate, PbEditorElementTree } from "~/types";
 
 type ProviderProps = EventActionHandlerProviderProps<TemplateEditorEventActionCallableState>;
 
@@ -16,7 +15,7 @@ export const EventActionHandlerDecorator = createDecorator(
     EventActionHandlerProvider as unknown as DecoratableComponent<GenericComponent<ProviderProps>>,
     Component => {
         return function PbEventActionHandlerProvider(props) {
-            const templateAtomValueRef = useRef<PageTemplate>();
+            const templateAtomValueRef = useRef<PbPageTemplate>();
             const [templateAtomValue, setTemplateAtomValue] = useTemplate();
 
             useEffect(() => {
@@ -29,11 +28,11 @@ export const EventActionHandlerDecorator = createDecorator(
                     next => {
                         return async props => {
                             const element = props?.element;
-                            const res = (await next({ element })) as PbElement;
+                            const res = await next({ element });
 
                             const cleanUpReferenceBlocks = (
-                                element: PbElement
-                            ): PbEditorElement => {
+                                element: PbEditorElementTree
+                            ): PbEditorElementTree => {
                                 if (element.data.blockId) {
                                     return {
                                         ...element,
@@ -42,7 +41,7 @@ export const EventActionHandlerDecorator = createDecorator(
                                 } else {
                                     return {
                                         ...element,
-                                        elements: element.elements.map((child: PbElement) =>
+                                        elements: element.elements.map(child =>
                                             cleanUpReferenceBlocks(child)
                                         )
                                     };
@@ -77,7 +76,7 @@ export const EventActionHandlerDecorator = createDecorator(
                 const callableState = next(state);
 
                 return {
-                    template: templateAtomValueRef.current as PageTemplate,
+                    template: templateAtomValueRef.current as PbPageTemplate,
                     ...callableState
                 };
             };

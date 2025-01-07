@@ -4,7 +4,7 @@ import { Element } from "@webiny/app-page-builder-elements/types";
 import { useRecoilValue } from "recoil";
 import { elementWithChildrenByIdSelector } from "~/editor/recoil/modules";
 
-const PeGrid = createRenderer(
+export const PeGrid = createRenderer(
     () => {
         const { getElement } = useRenderer();
         const element = getElement();
@@ -30,5 +30,3 @@ const PeGrid = createRenderer(
         }
     }
 );
-
-export default PeGrid;

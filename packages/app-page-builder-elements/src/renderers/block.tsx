@@ -2,15 +2,22 @@ import React from "react";
 import { Elements } from "~/components/Elements";
 import { createRenderer } from "~/createRenderer";
 import { useRenderer } from "~/hooks/useRenderer";
-import { makeDecoratable } from "@webiny/react-composition";
 import { BlockProvider } from "./block/BlockProvider";
 export * from "./block/BlockProvider";
 
-const BaseBlockRenderer = createRenderer(
-    () => {
+interface BlockRendererProps {
+    ifEmpty?: JSX.Element;
+}
+
+export const BlockRenderer = createRenderer<BlockRendererProps>(
+    ({ ifEmpty = null }) => {
         const { getElement } = useRenderer();
 
         const element = getElement();
+
+        if (element.elements.length === 0) {
+            return ifEmpty;
+        }
 
         return (
             <BlockProvider block={element}>
@@ -31,5 +38,3 @@ const BaseBlockRenderer = createRenderer(
         }
     }
 );
-
-export const BlockRenderer = makeDecoratable("BlockRenderer", BaseBlockRenderer);

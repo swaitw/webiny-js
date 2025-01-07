@@ -1,12 +1,12 @@
-import { PbEditorElement, PbElement } from "~/types";
+import { PbEditorElementTree } from "~/types";
 import { InjectVariableValuesIntoElement } from "~/pageEditor/config/Toolbar/InjectVariableValuesIntoElement";
 
 export class UnlinkPageFromTemplate {
-    execute(content: PbEditorElement) {
+    execute(content: PbEditorElementTree) {
         const newContent = structuredClone(content);
         const injectVariableValues = new InjectVariableValuesIntoElement();
 
-        const unlinkedBlocks = (newContent.elements as PbElement[]).map(block => {
+        const unlinkedBlocks = newContent.elements.map(block => {
             delete block.data["templateBlockId"];
 
             if (block.data.blockId) {

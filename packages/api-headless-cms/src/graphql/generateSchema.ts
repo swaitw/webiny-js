@@ -21,9 +21,15 @@ export const generateSchema = async (params: GenerateSchemaParams): Promise<Grap
 
     context.plugins.register(generatedSchemaPlugins);
 
-    const schemaPlugins = context.plugins.byType<ICmsGraphQLSchemaPlugin>(
-        CmsGraphQLSchemaPlugin.type
-    );
+    const schemaPlugins = context.plugins
+        .byType<ICmsGraphQLSchemaPlugin>(CmsGraphQLSchemaPlugin.type)
+        .filter(pl => {
+            if (typeof pl.isApplicable === "function") {
+                return pl.isApplicable(context);
+            }
+            return true;
+        });
+
     return createExecutableSchema({
         plugins: schemaPlugins
     });

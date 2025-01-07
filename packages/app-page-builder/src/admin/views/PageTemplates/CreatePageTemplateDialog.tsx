@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { css } from "emotion";
+import { makeDecoratable } from "@webiny/app";
 import { Form } from "@webiny/form";
 import { ButtonPrimary } from "@webiny/ui/Button";
 import { Grid, Cell } from "@webiny/ui/Grid";
@@ -37,67 +38,69 @@ type CreatePageTemplateDialogProps = {
     onSubmit: (formData: Pick<PbPageTemplate, "title" | "slug" | "description">) => Promise<void>;
 };
 
-const CreatePageTemplateDialog = ({ open, onClose, onSubmit }: CreatePageTemplateDialogProps) => {
-    const [loading, setLoading] = useState(false);
-    const submitForm = useCallback(
-        async (formData: PbPageTemplate) => {
-            setLoading(true);
-            await onSubmit(formData);
-            setLoading(false);
-        },
-        [onSubmit]
-    );
+export const CreatePageTemplateDialog = makeDecoratable(
+    "CreatePageTemplateDialog",
+    ({ open, onClose, onSubmit }: CreatePageTemplateDialogProps) => {
+        const [loading, setLoading] = useState(false);
+        const submitForm = useCallback(
+            async (formData: PbPageTemplate) => {
+                setLoading(true);
+                await onSubmit(formData);
+                setLoading(false);
+                onClose();
+            },
+            [onSubmit]
+        );
 
-    return (
-        <Dialog open={open} onClose={onClose} className={narrowDialog}>
-            <Form onSubmit={submitForm}>
-                {({ form, Bind }) => (
-                    <>
-                        <DialogTitle>Create Page Template</DialogTitle>
-                        <DialogContent>
-                            <SimpleFormContent>
-                                <Grid>
-                                    <Cell span={6}>
-                                        <Bind
-                                            name="title"
-                                            validators={[validation.create("required")]}
-                                        >
-                                            <Input label="Title" />
-                                        </Bind>
-                                    </Cell>
-                                    <Cell span={6}>
-                                        <Bind
-                                            name="slug"
-                                            validators={[
-                                                validation.create("required"),
-                                                slugValidator
-                                            ]}
-                                        >
-                                            <Input label="Slug" />
-                                        </Bind>
-                                    </Cell>
-                                    <Cell span={12}>
-                                        <Bind
-                                            name="description"
-                                            validators={[validation.create("required")]}
-                                        >
-                                            <Input rows={2} label="Description" />
-                                        </Bind>
-                                    </Cell>
-                                </Grid>
-                            </SimpleFormContent>
-                        </DialogContent>
-                        <DialogActions>
-                            <DialogCancel disabled={loading}>Cancel</DialogCancel>
-                            <ButtonPrimary disabled={loading} onClick={form.submit}>
-                                Create
-                            </ButtonPrimary>
-                        </DialogActions>
-                    </>
-                )}
-            </Form>
-        </Dialog>
-    );
-};
-
-export default CreatePageTemplateDialog;
+        return (
+            <Dialog open={open} onClose={onClose} className={narrowDialog}>
+                <Form onSubmit={submitForm}>
+                    {({ form, Bind }) => (
+                        <>
+                            <DialogTitle>Create Page Template</DialogTitle>
+                            <DialogContent>
+                                <SimpleFormContent>
+                                    <Grid>
+                                        <Cell span={6}>
+                                            <Bind
+                                                name="title"
+                                                validators={[validation.create("required")]}
+                                            >
+                                                <Input label="Title" />
+                                            </Bind>
+                                        </Cell>
+                                        <Cell span={6}>
+                                            <Bind
+                                                name="slug"
+                                                validators={[
+                                                    validation.create("required"),
+                                                    slugValidator
+                                                ]}
+                                            >
+                                                <Input label="Slug" />
+                                            </Bind>
+                                        </Cell>
+                                        <Cell span={12}>
+                                            <Bind
+                                                name="description"
+                                                validators={[validation.create("required")]}
+                                            >
+                                                <Input rows={2} label="Description" />
+                                            </Bind>
+                                        </Cell>
+                                    </Grid>
+                                </SimpleFormContent>
+                            </DialogContent>
+                            <DialogActions>
+                                <DialogCancel disabled={loading}>Cancel</DialogCancel>
+                                <ButtonPrimary disabled={loading} onClick={form.submit}>
+                                    Create
+                                </ButtonPrimary>
+                            </DialogActions>
+                        </>
+                    )}
+                </Form>
+            </Dialog>
+        );
+    }
+);

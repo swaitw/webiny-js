@@ -26,7 +26,7 @@ const getSourceElement = async (
 ): Promise<PbEditorElement | DragObjectWithTypeWithTarget> => {
     if (source.id) {
         const element = await state.getElementById(source.id);
-        return await state.getElementTree({ element });
+        return (await state.getElementTree({ element })) as PbEditorElement;
     }
 
     return source;

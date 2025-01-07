@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { PbEditorElement } from "~/types";
+import { PbEditorElement, PbEditorElementTree } from "~/types";
 import { useEventActionHandler } from "~/editor/hooks/useEventActionHandler";
 import { UpdateElementActionEvent } from "~/editor/recoil/actions";
 
@@ -13,7 +13,10 @@ export const useUpdateElement = () => {
     const handler = useEventActionHandler();
 
     return useCallback(
-        (element: PbEditorElement, options: UpdateOptions = { history: true }) => {
+        (
+            element: PbEditorElement | PbEditorElementTree,
+            options: UpdateOptions = { history: true }
+        ) => {
             handler.trigger(
                 new UpdateElementActionEvent({
                     element,

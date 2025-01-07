@@ -1,9 +1,6 @@
 import React from "react";
 import styled from "@emotion/styled";
-import { useQuery } from "@apollo/react-hooks";
-
 import { useRouter } from "@webiny/react-router";
-import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
 import { ButtonDefault, ButtonIcon, IconButton } from "@webiny/ui/Button";
 import { Elevation } from "@webiny/ui/Elevation";
 import { CircularProgress } from "@webiny/ui/Progress";
@@ -14,10 +11,10 @@ import { ReactComponent as AddIcon } from "@material-design-icons/svg/filled/add
 import { ReactComponent as EditIcon } from "@material-design-icons/svg/round/edit.svg";
 import { ReactComponent as DeleteIcon } from "@material-design-icons/svg/round/delete.svg";
 
-import { GET_PAGE_TEMPLATE } from "./graphql";
 import { CreatableItem } from "./PageTemplates";
-import { PagePreview } from "~/admin/plugins/pageDetails/previewContent/PagePreview";
 import { PbPageTemplate } from "~/types";
+import { useListPageTemplates } from "~/features";
+import { PageTemplateContentPreview } from "~/admin/views/PageTemplates/PageTemplateContentPreview";
 
 const t = i18n.ns("app-page-builder/admin/views/page-templates/page-template-details");
 
@@ -25,10 +22,6 @@ const DetailsContainer = styled.div`
     height: calc(100% - 10px);
     overflow: hidden;
     position: relative;
-
-    .mdc-tab-bar {
-        background-color: var(--mdc-theme-surface);
-    }
 `;
 
 const RenderBlock = styled.div`
@@ -47,10 +40,7 @@ const HeaderTitle = styled.div`
     border-bottom: 1px solid var(--mdc-theme-on-background);
     color: var(--mdc-theme-text-primary-on-background);
     background: var(--mdc-theme-surface);
-    padding-top: 10px;
-    padding-bottom: 9px;
-    padding-left: 24px;
-    padding-right: 24px;
+    padding: 10px 24px 9px;
 `;
 
 const PageTemplateTitle = styled.div`
@@ -102,7 +92,7 @@ type PageBuilderPageTemplateDetailsProps = {
     onDelete: (item: PbPageTemplate) => void;
 };
 
-const PageTemplatesDetails = ({
+export const PageTemplateDetails = ({
     canCreate,
     canEdit,
     canDelete,
@@ -110,35 +100,22 @@ const PageTemplatesDetails = ({
     onDelete
 }: PageBuilderPageTemplateDetailsProps) => {
     const { history, location } = useRouter();
-    const { showSnackbar } = useSnackbar();
+    const { pageTemplates, loading } = useListPageTemplates();
 
     const query = new URLSearchParams(location.search);
     const templateId = query.get("id");
+    const template = pageTemplates.find(template => template.id === templateId);
 
-    const getPageTemplateQuery = useQuery(GET_PAGE_TEMPLATE, {
-        variables: { id: templateId },
-        skip: !templateId,
-        onCompleted: data => {
-            const error = data?.pageBuilder?.getPageTemplate?.error;
-            if (error) {
-                history.push("/page-builder/page-templates");
-                showSnackbar(error.message);
-            }
-        }
-    });
-
-    if (!templateId) {
+    if (!templateId || !template) {
         return <EmptyTemplateDetails canCreate={canCreate} onCreate={onCreate} />;
     }
-
-    const template = getPageTemplateQuery.data?.pageBuilder?.getPageTemplate?.data || {};
 
     return (
         <DetailsContainer>
             <RenderBlock>
                 <Elevation z={2}>
                     <div style={{ position: "relative" }} data-testid={"pb-page-templates-form"}>
-                        {getPageTemplateQuery.loading && <CircularProgress />}
+                        {loading && <CircularProgress />}
                         <HeaderTitle>
                             <PageTemplateTitle>
                                 <Typography use="headline5">{template.title}</Typography>
@@ -162,12 +139,10 @@ const PageTemplatesDetails = ({
                                 )}
                             </HeaderActions>
                         </HeaderTitle>
-                        <PagePreview page={template} />
+                        <PageTemplateContentPreview template={template} />
                     </div>
                 </Elevation>
             </RenderBlock>
         </DetailsContainer>
     );
 };
-
-export default PageTemplatesDetails;

@@ -65,7 +65,7 @@ export const createEmbedPlugin = (config: EmbedPluginConfig): PbEditorPageElemen
                 : defaultSettings,
         target: config.target || ["cell", "block", "list-item"],
         // eslint-disable-next-line
-        create({ content = {}, ...options }) {
+        create(options) {
             const defaultValue: Partial<PbEditorElement> = {
                 type: config.type,
                 elements: [],

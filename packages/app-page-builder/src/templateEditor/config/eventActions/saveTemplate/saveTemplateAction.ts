@@ -2,9 +2,8 @@ import lodashDebounce from "lodash/debounce";
 import { plugins } from "@webiny/plugins";
 import { SaveTemplateActionArgsType } from "./types";
 import { TemplateEventActionCallable } from "~/templateEditor/types";
-import { PageTemplateWithContent } from "~/templateEditor/state";
-import { UPDATE_PAGE_TEMPLATE } from "~/admin/views/PageTemplates/graphql";
 import { PbElement, PbBlockVariable, PbBlockEditorCreateVariablePlugin } from "~/types";
+import { useUpdatePageTemplate } from "~/features";
 
 export const findElementByVariableId = (elements: PbElement[], variableId: string): any => {
     for (const element of elements) {
@@ -73,61 +72,57 @@ const triggerOnFinish = (args?: SaveTemplateActionArgsType): void => {
 // Setting to `any` as this is not at all important.
 let debouncedSave: any = null;
 
-export const saveTemplateAction: TemplateEventActionCallable<SaveTemplateActionArgsType> = async (
-    state,
-    meta,
-    args = {}
-) => {
-    const content = (await state.getElementTree()) as PbElement;
+type UpdatePageTemplate = ReturnType<typeof useUpdatePageTemplate>["updatePageTemplate"];
 
-    const elements = content.elements.map((element: PbElement) => {
-        if (element.type === "block") {
-            return syncTemplateBlockVariables(element);
-        }
-        return element;
-    });
+export const createSaveAction = (
+    updatePageTemplate: UpdatePageTemplate
+): TemplateEventActionCallable<SaveTemplateActionArgsType> => {
+    return async (state, meta, args = {}) => {
+        const content = (await state.getElementTree()) as PbElement;
 
-    const data: Omit<PageTemplateWithContent, "id" | "createdBy"> = {
-        title: state.template.title,
-        slug: state.template.slug,
-        tags: state.template.tags || [],
-        description: state.template?.description || "",
-        layout: state.template?.layout || "",
-        pageCategory: state.template?.pageCategory || "",
-        content: syncTemplateVariables({ ...content, elements })
-    };
-
-    if (debouncedSave) {
-        debouncedSave.cancel();
-    }
-
-    const runSave = async () => {
-        await meta.client.mutate({
-            mutation: UPDATE_PAGE_TEMPLATE,
-            variables: {
-                id: state.template.id,
-                data
+        const elements = content.elements.map((element: PbElement) => {
+            if (element.type === "block") {
+                return syncTemplateBlockVariables(element);
             }
+            return element;
         });
 
-        await new Promise(resolve => {
-            setTimeout(resolve, 500);
-        });
+        if (debouncedSave) {
+            debouncedSave.cancel();
+        }
 
-        triggerOnFinish(args);
-    };
+        const runSave = async () => {
+            await updatePageTemplate({
+                id: state.template.id,
+                title: state.template.title || "",
+                slug: state.template.slug || "",
+                tags: state.template.tags || [],
+                description: state.template?.description || "",
+                layout: state.template?.layout || "",
+                content: syncTemplateVariables({ ...content, elements }),
+                dataSources: state.template.dataSources || [],
+                dataBindings: state.template.dataBindings || []
+            });
 
-    if (args && args.debounce === false) {
-        runSave();
+            await new Promise(resolve => {
+                setTimeout(resolve, 500);
+            });
+
+            triggerOnFinish(args);
+        };
+
+        if (args && args.debounce === false) {
+            runSave();
+            return {
+                actions: []
+            };
+        }
+
+        debouncedSave = lodashDebounce(runSave, 2000);
+        debouncedSave();
+
         return {
             actions: []
         };
-    }
-
-    debouncedSave = lodashDebounce(runSave, 2000);
-    debouncedSave();
-
-    return {
-        actions: []
     };
 };

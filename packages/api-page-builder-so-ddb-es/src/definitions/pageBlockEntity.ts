@@ -55,6 +55,14 @@ export const createPageBlockEntity = (params: Params): Entity<any> => {
             locale: {
                 type: "string"
             },
+            dataSources: {
+                type: "list",
+                default: []
+            },
+            dataBindings: {
+                type: "list",
+                default: []
+            },
             ...(attributes || {})
         }
     });

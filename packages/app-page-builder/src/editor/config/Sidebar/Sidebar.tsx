@@ -10,6 +10,7 @@ import { Tab } from "./Tab";
 import { useActiveGroup } from "~/editor/config/Sidebar/useActiveGroup";
 import { createGetId } from "~/editor/config/createGetId";
 import { CurrentBlockProvider } from "~/editor/contexts/CurrentBlockProvider";
+import { ScrollableContainer } from "~/editor/config/Sidebar/ScrollableContainer";
 
 const SCOPE = "sidebar";
 
@@ -67,5 +68,6 @@ export const Sidebar = Object.assign(BaseSidebar, {
     Element: BaseElement,
     Elements,
     Group: Object.assign(BaseGroup, { Tab }),
+    ScrollableContainer,
     useActiveGroup
 });

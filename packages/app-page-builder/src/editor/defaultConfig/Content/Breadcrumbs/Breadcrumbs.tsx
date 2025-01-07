@@ -111,7 +111,7 @@ export const Breadcrumbs = () => {
                         className={"element"}
                         style={{ "--element-count": index } as React.CSSProperties}
                     >
-                        {type}
+                        {type.replace(/-/g, " ")}
                     </span>
                 </li>
             ))}

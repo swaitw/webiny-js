@@ -57,6 +57,7 @@ export default {
     featureFlags: {
         experimentalAdminOmniSearch: true,
         newWatchCommand: true,
-        allowCmsFullScreenEditor: true
+        allowCmsFullScreenEditor: false,
+        experimentalDynamicPages: false
     }
 };

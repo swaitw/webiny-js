@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import debounce from "lodash/debounce";
-import { PbEditorElement } from "~/types";
+import { PbEditorElementTree } from "~/types";
 import { useEventActionHandler } from "~/editor";
 import { PageEditorEventActionCallableState } from "~/pageEditor/types";
 import { useSaveTranslatableCollection } from "~/translations";
@@ -10,14 +10,9 @@ import {
     useTranslations
 } from "~/translations/ExtractTranslatableValues/TranslationContext";
 
-const extractElementIds = (elements: PbEditorElement[]): string[] => {
+const extractElementIds = (elements: PbEditorElementTree[]): string[] => {
     return [
-        ...elements
-            .map(element => [
-                element.id,
-                ...extractElementIds(element.elements as PbEditorElement[])
-            ])
-            .flat()
+        ...elements.map(element => [element.id, ...extractElementIds(element.elements)]).flat()
     ];
 };
 

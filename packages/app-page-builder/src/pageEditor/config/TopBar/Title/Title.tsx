@@ -26,18 +26,14 @@ interface PageInfo {
     pageTitle: string;
     pageVersion: number;
     pageLocked: boolean;
-    pageCategory?: string;
-    pageCategoryUrl?: string;
 }
 
 const extractPageInfo = (page: PageAtomType): PageInfo => {
-    const { title, version, locked, category } = page;
+    const { title, version, locked } = page;
     return {
         pageTitle: title as string,
         pageVersion: version,
-        pageLocked: locked,
-        pageCategory: category?.name,
-        pageCategoryUrl: category?.url
+        pageLocked: locked
     };
 };
 
@@ -45,7 +41,7 @@ export const Title = () => {
     const handler = useEventActionHandler();
     const [page] = usePage();
     const { showSnackbar } = useSnackbar();
-    const { pageTitle, pageVersion, pageLocked, pageCategory } = extractPageInfo(page);
+    const { pageTitle, pageVersion, pageLocked } = extractPageInfo(page);
     const [editTitle, setEdit] = useState<boolean>(false);
     const [stateTitle, setTitle] = useState<string | null>(null);
     let title = stateTitle === null ? pageTitle : stateTitle;
@@ -120,7 +116,7 @@ export const Title = () => {
         <TitleWrapper>
             <PageMeta>
                 <Typography use={"overline"}>
-                    {`${pageCategory} (status: ${pageLocked ? "published" : "draft"})`}
+                    {`(status: ${pageLocked ? "published" : "draft"})`}
                 </Typography>
             </PageMeta>
             <div style={{ width: "100%", display: "flex" }}>

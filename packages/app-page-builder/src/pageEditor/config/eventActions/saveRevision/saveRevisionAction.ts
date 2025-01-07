@@ -8,7 +8,11 @@ import { PageAtomType } from "~/pageEditor/state";
 import { PageEventActionCallable } from "~/pageEditor/types";
 import { PbElement } from "~/types";
 
-interface PageRevisionType extends Pick<PageAtomType, "title" | "snippet" | "path" | "settings"> {
+interface PageRevisionType
+    extends Pick<
+        PageAtomType,
+        "title" | "snippet" | "path" | "settings" | "dataBindings" | "dataSources"
+    > {
     category: string;
     content: any;
 }
@@ -73,6 +77,7 @@ export const saveRevisionAction: PageEventActionCallable<SaveRevisionActionArgsT
     meta,
     args = {}
 ) => {
+    console.log("saveRevisionAction", state);
     if (state.page.locked) {
         return {
             actions: []
@@ -93,7 +98,9 @@ export const saveRevisionAction: PageEventActionCallable<SaveRevisionActionArgsT
         path: state.page.path,
         settings: state.page.settings,
         content: updatedContent,
-        category: state.page.category ? state.page.category.slug : ""
+        category: state.page.category ? state.page.category.slug : "",
+        dataBindings: state.page.dataBindings || [],
+        dataSources: state.page.dataSources || []
     };
 
     if (isDataEqualToLastSavedData(data)) {
@@ -116,6 +123,16 @@ export const saveRevisionAction: PageEventActionCallable<SaveRevisionActionArgsT
                         path
                         status
                         savedOn
+                        dataBindings {
+                            dataSource
+                            bindTo
+                            bindFrom
+                        }
+                        dataSources {
+                            name
+                            type
+                            config
+                        }
                     }
                     error {
                         code

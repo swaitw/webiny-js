@@ -1,7 +1,7 @@
 import React from "react";
 import { Sidebar } from "~/editor/config/Sidebar/Sidebar";
 import { useActiveElement } from "~/editor/hooks/useActiveElement";
-import { ScrollableContainer } from "~/editor/defaultConfig/Sidebar/ScrollableContainer";
+import { ScrollableContainer } from "~/editor/config/Sidebar/ScrollableContainer";
 
 export const ElementSettingsGroup = () => {
     const [element] = useActiveElement();

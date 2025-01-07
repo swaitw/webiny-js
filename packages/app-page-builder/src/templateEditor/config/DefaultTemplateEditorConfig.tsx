@@ -13,6 +13,7 @@ import { RefreshBlockAction } from "./Sidebar/RefreshBlockAction";
 import { EditBlockAction } from "./Sidebar/EditBlockAction";
 import { HideSaveAction } from "./Sidebar/HideSaveAction";
 import { EditorConfig } from "~/editor/config";
+import { SetupDynamicDocument } from "./SetupDynamicDocument";
 
 const { Ui, ElementAction } = EditorConfig;
 
@@ -21,6 +22,7 @@ export const DefaultTemplateEditorConfig = React.memo(() => {
         <>
             <EventActionHandlerDecorator />
             <EditorConfig>
+                <SetupDynamicDocument />
                 <EventActionHandlers />
                 <Ui.TopBar.Element name={"buttonBack"} group={"left"} element={<BackButton />} />
                 <Ui.TopBar.Element name={"title"} group={"left"} element={<Title />} />

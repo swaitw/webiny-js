@@ -77,9 +77,10 @@ export const templatesHandler = async (
             slug: template.slug,
             tags: template.tags,
             layout: template.layout,
-            pageCategory: template.pageCategory,
             description: template.description,
-            content: template.content
+            content: template.content,
+            dataBindings: template.dataBindings,
+            dataSources: template.dataSources
         });
 
         // Update task record in DB

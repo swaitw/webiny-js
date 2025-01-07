@@ -83,14 +83,14 @@ const getCurrentFolderList = (
 };
 
 export interface FileManagerViewProviderProps {
-    onChange?: (value: FileItem[] | FileItem) => void;
+    onChange?: (value: FileItem[] | FileItem, context: FileManagerViewContext) => void;
     onClose?: () => void;
     multiple?: boolean;
     accept: string[];
     maxSize?: number | string;
     multipleMaxCount?: number;
     multipleMaxSize?: number | string;
-    onUploadCompletion?: (files: FileItem[]) => void;
+    onUploadCompletion?: (files: FileItem[], context: FileManagerViewContext) => void;
     tags?: string[];
     scope?: string;
     own?: boolean;
@@ -381,10 +381,8 @@ export const FileManagerViewProvider = ({ children, ...props }: FileManagerViewP
         multiple: Boolean(props.multiple),
         onChange(value: FileItem[] | FileItem) {
             if (typeof props.onChange === "function") {
-                props.onChange(value);
+                props.onChange(value, context);
             }
-
-            context.onClose();
         },
         onClose() {
             if (typeof props.onClose === "function") {
@@ -398,8 +396,7 @@ export const FileManagerViewProvider = ({ children, ...props }: FileManagerViewP
             }));
 
             if (typeof props.onUploadCompletion === "function") {
-                props.onUploadCompletion(files);
-                context.onClose();
+                props.onUploadCompletion(files, context);
             }
         },
         own: Boolean(props.own),

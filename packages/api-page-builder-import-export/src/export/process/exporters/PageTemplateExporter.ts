@@ -6,7 +6,14 @@ import { extractFilesFromData } from "~/export/utils";
 export interface ExportedTemplateData {
     template: Pick<
         PageTemplate,
-        "title" | "slug" | "tags" | "description" | "content" | "layout" | "pageCategory"
+        | "title"
+        | "slug"
+        | "tags"
+        | "description"
+        | "content"
+        | "layout"
+        | "dataBindings"
+        | "dataSources"
     >;
     files: File[];
 }
@@ -38,7 +45,8 @@ export class PageTemplateExporter {
                 description: template.description,
                 content: template.content,
                 layout: template.layout,
-                pageCategory: template.pageCategory
+                dataBindings: template.dataBindings,
+                dataSources: template.dataSources
             },
             files: imageFilesData
         };

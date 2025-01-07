@@ -7,15 +7,15 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 import { DndProvider } from "react-dnd";
 import { elementsAtom, rootElementAtom } from "~/editor/recoil/modules";
 import { flattenElements } from "~/editor/helpers";
-import { PbEditorElement } from "~/types";
 import { EditorWithConfig } from "~/editor/config";
+import { PbEditorElementTree } from "~/types";
 
 export interface EditorStateInitializerFactory {
     (): EditorStateInitializer;
 }
 
 export interface EditorStateInitializer {
-    content: PbEditorElement;
+    content: PbEditorElementTree;
     recoilInitializer: (mutableSnapshot: MutableSnapshot) => void;
 }
 

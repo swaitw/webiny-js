@@ -2,7 +2,7 @@ import React, { ComponentType, ReactElement, ReactNode } from "react";
 import { DragObjectWithTypeWithTarget } from "./editor/components/Droppable";
 import { BaseEventAction, EventAction } from "./editor/recoil/eventActions";
 import { PbState } from "./editor/recoil/modules/types";
-import { Plugin } from "@webiny/app/types";
+import { GenericRecord, Plugin } from "@webiny/app/types";
 import { BindComponent } from "@webiny/form";
 import { IconName, IconPrefix } from "@fortawesome/fontawesome-svg-core";
 import { Icon } from "@webiny/app-admin/components/IconPicker/types";
@@ -245,20 +245,17 @@ export interface PbEditorElement {
     data: PbElementDataType;
     parent?: string;
     elements: (string | PbEditorElement)[];
-    content?: PbEditorElement;
     path?: string[];
     source?: string;
 
     [key: string]: any;
 }
 
-export interface PbElement {
+export interface PbElement<TData = PbElementDataType> {
     id: string;
     type: string;
-    data: PbElementDataType;
-    elements: PbElement[];
-    content?: PbElement;
-    text?: string;
+    data: PbElementDataType & TData;
+    elements: PbElement<TData>[];
 }
 
 export interface PbBlockVariable<TValue = any> {
@@ -280,7 +277,7 @@ export type PbEditorPageElementVariableRendererPlugin = Plugin & {
     elementType: string;
     getVariableValue: (element: PbEditorElement | null) => any;
     renderVariableInput: (variableId: string) => ReactNode;
-    setElementValue: (element: PbElement, variables: PbBlockVariable[]) => PbElement;
+    setElementValue: (element: PbEditorElementTree, variables: PbBlockVariable[]) => PbElement;
 };
 
 /**
@@ -367,7 +364,7 @@ export interface PbPageDataSettings {
 
 export type PbPageDataStatus = string | "draft" | "published" | "unpublished";
 
-export interface PbPageData {
+export interface PbPageData extends DynamicDocument {
     id: string;
     pid: string;
     path: string;
@@ -596,7 +593,7 @@ export type PbEditorPageElementPlugin = Plugin & {
 export enum OnCreateActions {
     OPEN_SETTINGS = "open-settings",
     SKIP = "skip",
-    SKIP_ELEMENT_HEIGHT = "skipElementHighlight"
+    SKIP_ELEMENT_HIGHLIGHT = "skipElementHighlight"
 }
 
 export type PbPageDetailsPlugin = Plugin & {
@@ -796,11 +793,15 @@ export type GetElementTreeProps = {
     path?: string[];
 } | void;
 
+export type PbEditorElementTree = Omit<PbEditorElement, "elements"> & {
+    elements: PbEditorElementTree[];
+};
+
 // ============== EVENT ACTION HANDLER ================= //
 // TODO: at some point, convert this into an interface, and use module augmentation to add new properties.
 export type EventActionHandlerCallableState<TState = PbState> = PbState<TState> & {
     getElementById(id: string): Promise<PbEditorElement>;
-    getElementTree(props: GetElementTreeProps): Promise<PbEditorElement>;
+    getElementTree(props: GetElementTreeProps): Promise<PbEditorElementTree>;
 };
 
 export interface EventActionHandler<TCallableState = unknown> {
@@ -822,11 +823,11 @@ export interface EventActionHandler<TCallableState = unknown> {
     /**
      * Get element tree (includes processing with decorators).
      */
-    getElementTree: (props: GetElementTreeProps) => Promise<PbEditorElement>;
+    getElementTree: (props: GetElementTreeProps) => Promise<PbEditorElementTree>;
     /**
      * Get raw element tree (DOES NOT include processing with decorators).
      */
-    getRawElementTree: (props: GetElementTreeProps) => Promise<PbEditorElement>;
+    getRawElementTree: (props: GetElementTreeProps) => Promise<PbEditorElementTree>;
 }
 
 export interface EventActionHandlerTarget {
@@ -906,7 +907,7 @@ export interface PbBlockCategory {
     createdBy: PbIdentity;
 }
 
-export interface PbPageBlock {
+export interface PbPageBlock extends DynamicDocument {
     id: string;
     name: string;
     blockCategory: string;
@@ -915,17 +916,42 @@ export interface PbPageBlock {
     createdBy: PbIdentity;
 }
 
-export interface PbPageTemplate {
+export interface DynamicDocument {
+    dataSources: PbDataSource[];
+    dataBindings: PbDataBinding[];
+}
+
+export interface PbDataSource {
+    name: string;
+    type: string;
+    config: GenericRecord;
+}
+
+export type PbDataBinding =
+    | {
+          dataSource: string;
+          bindFrom: string;
+          bindTo: string;
+      }
+    | {
+          dataSource: "static";
+          bindFrom: any;
+          bindTo: string;
+      };
+
+export interface PbPageTemplate extends DynamicDocument {
     id: string;
     slug: string;
     title: string;
     description: string;
     layout: string;
-    content: any;
     createdOn: string;
     savedOn: string;
     createdBy: PbIdentity;
+    tags: string[];
 }
+
+export type PbPageTemplateWithContent = PbPageTemplate & { content: PbElement };
 
 /**
  * TODO: have types for both API and app in the same package?

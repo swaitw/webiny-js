@@ -19,6 +19,7 @@ import { StyleProperties } from "./Sidebar/StyleSettings/StyleProperties";
 import { ElementSettingsGroup } from "./Sidebar/ElementSettings/ElementSettingsGroup";
 import { ElementActionsAdapter } from "./Sidebar/BackwardsCompatibility/ElementActionsAdapter";
 import { PageOptionsDropdown } from "./TopBar/DropdownActions/PageOptionsDropdown";
+import { SetupDynamicDataInEditor } from "~/dataInjection";
 
 const { Ui } = EditorConfig;
 
@@ -104,6 +105,8 @@ export const DefaultEditorConfig = React.memo(() => {
                 <StyleSettingsAdapter />
                 {/* This will register actions from plugins using the new API. */}
                 <ElementActionsAdapter />
+                {/* Dynamic data */}
+                <SetupDynamicDataInEditor />
             </EditorConfig>
         </>
     );

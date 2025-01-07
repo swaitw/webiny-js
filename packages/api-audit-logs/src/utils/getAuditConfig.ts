@@ -141,11 +141,17 @@ export const getAuditConfig = (audit: AuditAction) => {
 
         // Check if there is delay on audit log creation for this action.
         if (delay) {
-            return await createOrMergeAuditLog({
-                app,
-                payload: auditLogPayload,
-                delay
-            });
+            try {
+                return await createOrMergeAuditLog({
+                    app,
+                    payload: auditLogPayload,
+                    delay
+                });
+            } catch {
+                // Don't care at this point!
+            } finally {
+                return JSON.stringify({});
+            }
         }
         return await createAuditLog({
             app,

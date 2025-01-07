@@ -1,8 +1,7 @@
-import { EventActionCallable, EventActionHandlerCallableArgs } from "~/types";
-import { PageTemplate } from "~/templateEditor/state";
+import { EventActionCallable, EventActionHandlerCallableArgs, PbPageTemplate } from "~/types";
 
 export interface TemplateEditorEventActionCallableState {
-    template: PageTemplate;
+    template: PbPageTemplate;
 }
 
 export type TemplateEventActionCallable<TArgs extends EventActionHandlerCallableArgs = any> =

@@ -1,5 +1,11 @@
 import { CompleteMultipartUploadOutput } from "@webiny/aws-sdk/client-s3";
-import { BlockCategory, Page, PageBlock, PageTemplate } from "@webiny/api-page-builder/types";
+import {
+    BlockCategory,
+    Page,
+    PageBlock,
+    PageTemplate,
+    PageTemplateInput
+} from "@webiny/api-page-builder/types";
 import { FileManagerContext, File } from "@webiny/api-file-manager/types";
 import get from "lodash/get";
 import Zipper from "./zipper";
@@ -114,7 +120,14 @@ export async function exportBlock(
 export interface ExportedTemplateData {
     template: Pick<
         PageTemplate,
-        "title" | "slug" | "tags" | "description" | "content" | "layout" | "pageCategory"
+        | "title"
+        | "slug"
+        | "tags"
+        | "description"
+        | "content"
+        | "layout"
+        | "dataSources"
+        | "dataBindings"
     >;
     files: File[];
 }
@@ -135,7 +148,7 @@ export async function exportTemplate(
     }
 
     // Extract the template data in a json file and upload it to S3
-    const templateData = {
+    const templateData: { template: PageTemplateInput; files: File[] } = {
         template: {
             title: template.title,
             slug: template.slug,
@@ -143,7 +156,8 @@ export async function exportTemplate(
             description: template.description,
             content: template.content,
             layout: template.layout,
-            pageCategory: template.pageCategory
+            dataSources: template.dataSources,
+            dataBindings: template.dataBindings
         },
         files: imageFilesData
     };

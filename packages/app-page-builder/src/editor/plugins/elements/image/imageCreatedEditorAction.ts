@@ -1,6 +1,6 @@
-import { CreateElementEventActionCallable } from "../../../recoil/actions/createElement/types";
-import { PbEditorPageElementPlugin, PbEditorElement } from "../../../../types";
 import { plugins } from "@webiny/plugins";
+import { CreateElementEventActionArgsType } from "~/editor/recoil/actions/createElement/types";
+import { PbEditorPageElementPlugin, PbEditorElement, EventActionCallable } from "~/types";
 
 const MAX_ELEMENT_FIND_RETRIES = 10;
 const ELEMENT_FIND_RETRY_TIMEOUT = 100;
@@ -19,7 +19,11 @@ const clickOnImageWithRetries = (element: PbEditorElement, retryNumber: number) 
     setTimeout(() => clickOnImageWithRetries(element, retryNumber + 1), ELEMENT_FIND_RETRY_TIMEOUT);
 };
 
-export const imageCreatedEditorAction: CreateElementEventActionCallable = (_, __, args) => {
+export const imageCreatedEditorAction: EventActionCallable<CreateElementEventActionArgsType> = (
+    _,
+    __,
+    args
+) => {
     if (!args) {
         return {
             actions: []

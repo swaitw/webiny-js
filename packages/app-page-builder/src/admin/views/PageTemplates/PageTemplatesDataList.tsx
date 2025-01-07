@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useState } from "react";
 import styled from "@emotion/styled";
 import { i18n } from "@webiny/app/i18n";
 import { useRouter } from "@webiny/react-router";
-import { useQuery } from "@apollo/react-hooks";
 import orderBy from "lodash/orderBy";
 import { TimeAgo } from "@webiny/ui/TimeAgo";
 
@@ -24,7 +23,6 @@ import { Cell, Grid } from "@webiny/ui/Grid";
 import { Select } from "@webiny/ui/Select";
 import SearchUI from "@webiny/app-admin/components/SearchUI";
 import { ButtonIcon, ButtonSecondary, IconButton } from "@webiny/ui/Button";
-import { CircularProgress } from "@webiny/ui/Progress";
 import { ReactComponent as AddIcon } from "@material-design-icons/svg/filled/add.svg";
 import { ReactComponent as FilterIcon } from "@material-design-icons/svg/round/filter_alt.svg";
 import { ReactComponent as EditIcon } from "@material-design-icons/svg/round/edit.svg";
@@ -37,7 +35,7 @@ import useImportTemplate from "~/admin/views/PageTemplates/hooks/useImportTempla
 import { OptionsMenu } from "~/admin/components/OptionsMenu";
 
 import { PbPageTemplate } from "~/types";
-import { LIST_PAGE_TEMPLATES } from "./graphql";
+import { useListPageTemplates } from "~/features";
 
 const t = i18n.ns("app-page-builder/admin/views/page-templates/page-templates-details");
 
@@ -77,7 +75,6 @@ type PageTemplatesDataListProps = {
     canDelete: (item: CreatableItem) => boolean;
     onCreate: () => void;
     onDelete: (item: PbPageTemplate) => void;
-    isLoading: boolean;
 };
 
 const PageTemplatesDataList = ({
@@ -85,20 +82,16 @@ const PageTemplatesDataList = ({
     canEdit,
     canDelete,
     onCreate,
-    onDelete,
-    isLoading
+    onDelete
 }: PageTemplatesDataListProps) => {
     const [filter, setFilter] = useState<string>("");
     const [sort, setSort] = useState<string>(SORTERS[0].sort);
     const { history } = useRouter();
-    const listQuery = useQuery(LIST_PAGE_TEMPLATES) || {};
+    const { loading, pageTemplates } = useListPageTemplates();
     const query = new URLSearchParams(location.search);
     const search = {
         query: query.get("search") || undefined
     };
-
-    const pageTemplatesData: PbPageTemplate[] =
-        listQuery?.data?.pageBuilder?.listPageTemplates?.data || [];
 
     const filterData = useCallback(
         ({ title }: PbPageTemplate) => {
@@ -119,7 +112,6 @@ const PageTemplatesDataList = ({
     );
 
     const selectedTemplate = new URLSearchParams(location.search).get("id");
-    const loading = [listQuery].find(item => item.loading);
 
     const templatesDataListModalOverlay = useMemo(
         () => (
@@ -177,7 +169,7 @@ const PageTemplatesDataList = ({
     }, [canCreate, showImportDialog]);
 
     const filteredTemplatesData: PbPageTemplate[] =
-        filter === "" ? pageTemplatesData : pageTemplatesData.filter(filterData);
+        filter === "" ? pageTemplates : pageTemplates.filter(filterData);
     const templatesList: PbPageTemplate[] = sortData(filteredTemplatesData);
 
     const multiSelectProps = useMultiSelect({
@@ -217,16 +209,9 @@ const PageTemplatesDataList = ({
                     inputPlaceholder={t`Search templates`}
                 />
             }
-            refresh={() => {
-                if (!listQuery.refetch) {
-                    return;
-                }
-                listQuery.refetch();
-            }}
         >
             {({ data }: { data: PbPageTemplate[] }) => (
                 <>
-                    {isLoading && <CircularProgress />}
                     <ScrollList data-testid="default-data-list">
                         {data.map(template => {
                             return (

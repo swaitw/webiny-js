@@ -12,7 +12,7 @@ import CollapsableList from "./CollapsableList";
 import DragBlockIndicator from "./DragBlockIndicator";
 import { BLOCK, useMoveBlock, useSortableList } from "./navigatorHooks";
 import { NavigatorContext } from "./NavigatorDrawer";
-import { PbEditorElement } from "~/types";
+import { PbEditorElementTree } from "~/types";
 
 const elementIdStyle = css`
     text-transform: none;
@@ -59,7 +59,7 @@ const getHighlightItemProps = ({
 };
 
 interface TreeViewItemProps {
-    element: PbEditorElement;
+    element: PbEditorElementTree;
     level: number;
     index: number;
     children: React.ReactNode;
@@ -161,7 +161,7 @@ const TreeViewItem = ({ element, level, children, index }: TreeViewItemProps) =>
                     data-handler-id={handlerId}
                 >
                     <Typography use={"body2"} className={"title"} tag="span">
-                        {element.type}
+                        {element.type.replace(/-/g, " ")}
                         {elementIdAttribute && (
                             <p className={elementIdStyle}>{`#${elementIdAttribute}`}</p>
                         )}
@@ -181,11 +181,7 @@ const TreeViewItem = ({ element, level, children, index }: TreeViewItemProps) =>
 };
 
 interface TreeViewProps {
-    element: {
-        id: string;
-        type: string;
-        elements: any[];
-    };
+    element: PbEditorElementTree;
     level: number;
 }
 

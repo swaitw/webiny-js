@@ -169,7 +169,7 @@ export const PageEditor = () => {
 
     return (
         <React.Suspense fallback={<EditorLoadingScreen />}>
-            <PageProvider page={page as Page}>
+            <PageProvider page={page as unknown as Page}>
                 <DefaultEditorConfig />
                 <DefaultPageEditorConfig />
                 <LoadData>

@@ -1,8 +1,8 @@
 import { atom } from "recoil";
-import { PbEditorElement } from "~/types";
+import { PbEditorElementTree } from "~/types";
 
 export interface BlockWithContent extends BlockAtomType {
-    content: PbEditorElement;
+    content: PbEditorElementTree;
 }
 
 export interface BlockAtomType {

@@ -4,7 +4,7 @@ import { makeDecoratable } from "@webiny/react-composition";
 
 export type LinkProps = RouterLinkProps;
 
-const Link = makeDecoratable("Link", ({ children, ...props }: LinkProps) => {
+export const Link = makeDecoratable("Link", ({ children, ...props }: LinkProps) => {
     let { to } = props;
 
     if (typeof to === "string" && to.startsWith(window.location.origin)) {
@@ -20,5 +20,3 @@ const Link = makeDecoratable("Link", ({ children, ...props }: LinkProps) => {
 
     return <LinkComponent {...componentProps}>{children}</LinkComponent>;
 });
-
-export { Link };

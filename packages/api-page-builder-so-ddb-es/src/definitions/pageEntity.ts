@@ -82,6 +82,14 @@ export const createPageEntity = (params: Params): Entity<any> => {
             webinyVersion: {
                 type: "string"
             },
+            dataSources: {
+                type: "list",
+                default: []
+            },
+            dataBindings: {
+                type: "list",
+                default: []
+            },
             ...(attributes || {})
         }
     });

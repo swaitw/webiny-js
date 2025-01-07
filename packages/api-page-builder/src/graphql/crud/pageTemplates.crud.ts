@@ -25,6 +25,7 @@ import WebinyError from "@webiny/error";
 import { createTopic } from "@webiny/pubsub";
 import { mdbid } from "@webiny/utils";
 import { PageTemplatesPermissions } from "~/graphql/crud/permissions/PageTemplatesPermissions";
+import { dynamicData } from "~/graphql/crud/dynamicData.validation";
 
 const createSchema = zod.object({
     title: zod.string().max(100),
@@ -32,8 +33,8 @@ const createSchema = zod.object({
     tags: zod.string().array(),
     description: zod.string().max(100),
     layout: zod.string().max(100).optional(),
-    pageCategory: zod.string().max(100),
-    content: zod.any()
+    content: zod.any(),
+    ...dynamicData
 });
 
 const updateSchema = zod.object({
@@ -42,8 +43,8 @@ const updateSchema = zod.object({
     tags: zod.string().array().optional(),
     description: zod.string().max(100).optional(),
     layout: zod.string().max(100).optional(),
-    pageCategory: zod.string().max(100).optional(),
-    content: zod.any()
+    content: zod.any(),
+    ...dynamicData
 });
 
 const getDefaultContent = () => {
@@ -377,7 +378,7 @@ export const createPageTemplatesCrud = (
             if (!template) {
                 throw new NotFoundError(`Page template "${id || slug}" was not found!`);
             }
-            const page = await context.pageBuilder.createPage(template.pageCategory, meta);
+            const page = await context.pageBuilder.createPage("static", meta);
             this.copyTemplateDataToPage(template, page);
 
             await context.pageBuilder.updatePage(page.id, {
@@ -422,7 +423,6 @@ export const createPageTemplatesCrud = (
                 description: data.description,
                 tags: page.settings.general?.tags || [],
                 layout: page.settings.general?.layout || "static",
-                pageCategory: page.category,
                 content: {
                     ...page.content,
                     data: {

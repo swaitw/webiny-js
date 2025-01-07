@@ -1,21 +1,24 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { plugins } from "@webiny/plugins";
 import { Prompt } from "@webiny/react-router";
 import { useEventActionHandler } from "~/editor/hooks/useEventActionHandler";
-import { saveTemplateAction, SaveTemplateActionEvent } from "./saveTemplate";
+import { createSaveAction, SaveTemplateActionEvent } from "./saveTemplate";
 import { UpdateDocumentActionEvent } from "~/editor/recoil/actions";
 import { TemplateEditorEventActionCallableState } from "~/templateEditor/types";
 import { createCloneElementPlugin } from "./cloneElement/plugin";
+import { useUpdatePageTemplate } from "~/features";
 
 export const EventActionHandlers = () => {
     plugins.register(createCloneElementPlugin());
     const eventActionHandler = useEventActionHandler<TemplateEditorEventActionCallableState>();
     const [isDirty, setDirty] = useState(false);
+    const { updatePageTemplate } = useUpdatePageTemplate();
+    const saveTemplate = useMemo(() => createSaveAction(updatePageTemplate), []);
 
     useEffect(() => {
         const offSaveTemplateAction = eventActionHandler.on(SaveTemplateActionEvent, (...args) => {
             setDirty(false);
-            return saveTemplateAction(...args);
+            return saveTemplate(...args);
         });
 
         const offUpdateTemplateAction = eventActionHandler.on(

@@ -78,6 +78,7 @@ export default (args: PbEditorElementPluginArgs = {}): PbEditorPageElementPlugin
 
             return typeof args.create === "function" ? args.create(defaultValue) : defaultValue;
         },
+        target: ["document"],
         render(props) {
             return <Block {...props} />;
         },

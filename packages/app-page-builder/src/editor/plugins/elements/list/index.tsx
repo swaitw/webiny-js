@@ -5,7 +5,8 @@ import {
     PbEditorElement,
     PbEditorPageElementPlugin,
     PbEditorPageElementPluginSettings,
-    PbEditorTextElementPluginsArgs
+    PbEditorTextElementPluginsArgs,
+    PbElement
 } from "~/types";
 import List from "./List";
 import { createInitialTextValue } from "../utils/textUtils";
@@ -38,7 +39,7 @@ export default (args: PbEditorTextElementPluginsArgs = {}): PbEditorPageElementP
         settings:
             typeof args.settings === "function" ? args.settings(defaultSettings) : defaultSettings,
         target: ["cell", "block"],
-        create({ content = {}, ...options }) {
+        create({ content = {}, ...options }: Partial<PbElement> & { content?: any }) {
             const previewText =
                 content.text ||
                 `<ul>

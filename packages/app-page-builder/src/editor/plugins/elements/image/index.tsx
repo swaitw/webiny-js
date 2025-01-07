@@ -2,7 +2,6 @@ import React from "react";
 import styled from "@emotion/styled";
 import kebabCase from "lodash/kebabCase";
 import ImageSettings from "./ImageSettings";
-import Image from "./Image";
 import { imageCreatedEditorAction } from "./imageCreatedEditorAction";
 import { CreateElementActionEvent } from "../../../recoil/actions";
 import { ReactComponent as ImageIcon } from "./round-image-24px.svg";
@@ -16,6 +15,8 @@ import {
 } from "~/types";
 import { Plugin } from "@webiny/plugins/types";
 import { createInitialPerDeviceSettingValue } from "../../elementSettings/elementSettingsUtils";
+import { Element } from "@webiny/app-page-builder-elements/types";
+import { PeImage } from "~/editor/plugins/elements/image/PeImage";
 
 const PreviewBox = styled("div")({
     textAlign: "center",
@@ -91,8 +92,8 @@ export default (args: PbEditorElementPluginArgs = {}): Plugin[] => {
 
                 return typeof args.create === "function" ? args.create(defaultValue) : defaultValue;
             },
-            render(props) {
-                return <Image {...props} />;
+            render({ element, ...rest }) {
+                return <PeImage element={element as Element} {...rest} />;
             }
         } as PbEditorPageElementPlugin,
         {

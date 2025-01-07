@@ -15,7 +15,7 @@ export type ElementInputType =
     | "number"
     | "boolean"
     | "date"
-    | "richText"
+    | "lexical"
     | "link"
     | "svgIcon"
     | "color"
@@ -39,6 +39,10 @@ export class ElementInput<TValue = unknown, TElementData = any> {
 
     static create<TValue, TElementData = any>(params: ElementInputParams<TValue, TElementData>) {
         return new ElementInput<TValue, TElementData>(params);
+    }
+
+    getName() {
+        return this.params.name;
     }
 
     getType() {

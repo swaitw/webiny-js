@@ -2,25 +2,18 @@ import React from "react";
 import { createRenderer } from "~/createRenderer";
 import { useRenderer } from "~/hooks/useRenderer";
 import { ElementInput } from "~/inputs/ElementInput";
+import { isJson } from "~/renderers/isJson";
+import { isHtml } from "~/renderers/isHtml";
 
 export const elementInputs = {
     text: ElementInput.create<string>({
         name: "text",
-        type: "richText",
+        type: "lexical",
         translatable: true,
         getDefaultValue: ({ element }) => {
             return element.data.text.data.text;
         }
     })
-};
-
-const isJson = (value: string) => {
-    try {
-        JSON.parse(value);
-        return true;
-    } catch {
-        return false;
-    }
 };
 
 /**
@@ -31,9 +24,9 @@ export const ParagraphRenderer = createRenderer<unknown, typeof elementInputs>(
     () => {
         const { getInputValues } = useRenderer();
         const inputs = getInputValues<typeof elementInputs>();
-        const __html = inputs.text || "";
+        const content = inputs.text || "";
 
-        if (isJson(__html)) {
+        if (isJson(content) || !isHtml(content)) {
             return null;
         }
 
@@ -43,12 +36,12 @@ export const ParagraphRenderer = createRenderer<unknown, typeof elementInputs>(
         // removing the wrapper `p` tags from the received text. But that wasn't enough. There
         // were cases where the received text was not just one `p` tag, but an array of `p` tags.
         // In that case, we still need a separate wrapper element. So, we're leaving this solution.
-        if (__html.startsWith("<p")) {
+        if (content.startsWith("<p")) {
             // @ts-expect-error We don't need type-checking here.
-            return <p-wrap dangerouslySetInnerHTML={{ __html }} />;
+            return <p-wrap dangerouslySetInnerHTML={{ __html: content }} />;
         }
 
-        return <p dangerouslySetInnerHTML={{ __html }} />;
+        return <p dangerouslySetInnerHTML={{ __html: content }} />;
     },
     { inputs: elementInputs }
 );

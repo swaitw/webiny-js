@@ -39,7 +39,6 @@ export default (el: PbEditorElement): void => {
 
         onCreate: OnCreateActions.SKIP,
         settings: rootPlugin ? rootPlugin.settings : [],
-        // @ts-expect-error
         create() {
             return cloneDeep(el.content);
         },

@@ -14,7 +14,7 @@ import createElementPlugin from "~/admin/utils/createElementPlugin";
 import { createStateInitializer } from "./createStateInitializer";
 import { BlockWithContent } from "~/blockEditor/state";
 import { createElement } from "~/editor/helpers";
-import { PbEditorElement } from "~/types";
+import { PbEditorElementTree } from "~/types";
 import elementVariablePlugins from "~/blockEditor/plugins/elementVariables";
 import { usePageBlocks } from "~/admin/contexts/AdminPageBuilder/PageBlocks/usePageBlocks";
 import { DefaultBlockEditorConfig } from "~/blockEditor/config/DefaultBlockEditorConfig";
@@ -47,7 +47,7 @@ export const BlockEditor = () => {
 
         const blockData = getBlockById(blockId).then(pageBlock => {
             // We need to wrap all elements into a "document" element, it's a requirement for the editor to work.
-            const content: PbEditorElement = {
+            const content: PbEditorElementTree = {
                 ...createElement("document"),
                 elements: [pageBlock.content]
             };

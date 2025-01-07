@@ -6,7 +6,8 @@ import { useElementById } from "~/editor/hooks/useElementById";
 import { PbEditorElement } from "~/types";
 import { AddElementButton } from "~/editor/plugins/elements/cell/AddElementButton";
 
-const EmptyCellStyled = styled.div<{ isActive: boolean }>`
+const EmptyCellStyled = styled.div<{ isActive: boolean; zIndex: number }>`
+    z-index: ${props => props.zIndex};
     box-sizing: border-box;
     display: flex;
     justify-content: center;
@@ -30,10 +31,10 @@ const EmptyCellStyled = styled.div<{ isActive: boolean }>`
 
 interface EmptyCellProps {
     element: PbEditorElement;
-    onClick?: (element: PbEditorElement) => void;
+    depth?: number;
 }
 
-export const EmptyCell = ({ element }: EmptyCellProps) => {
+export const EmptyCell = ({ element, depth = 1 }: EmptyCellProps) => {
     const [activeElementId] = useActiveElementId();
     const isActive = activeElementId === element.id;
 
@@ -43,9 +44,10 @@ export const EmptyCell = ({ element }: EmptyCellProps) => {
     ];
 
     const dragEntered = editorElement.dragEntered;
+    const zIndex = 10 + depth + 1;
 
     return (
-        <EmptyCellStyled isActive={isActive || dragEntered}>
+        <EmptyCellStyled isActive={isActive || dragEntered} zIndex={isActive ? zIndex : 0}>
             <AddElementButton element={element} />
         </EmptyCellStyled>
     );

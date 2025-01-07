@@ -1,12 +1,12 @@
 import React, { useMemo } from "react";
 import type { Element } from "@webiny/app-page-builder-elements/types";
 import { Editor, EditorProps } from "~/admin/components/Editor";
-import { PbEditorElement } from "~/types";
+import { PbEditorElementTree } from "~/types";
 
 export type ElementVisitor = (element: Element) => Element;
 
 const traverseContent = (
-    element: PbEditorElement,
+    element: PbEditorElementTree,
     visitor: (element: Element) => Element
 ): Element => {
     const newElement = visitor(element as Element) ?? element;
@@ -14,7 +14,7 @@ const traverseContent = (
     return {
         ...newElement,
         elements: newElement.elements.map(element => {
-            return traverseContent(element as PbEditorElement, visitor);
+            return traverseContent(element, visitor);
         })
     };
 };

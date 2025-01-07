@@ -11,12 +11,12 @@ import {
     PbEditorElement,
     PbEditorGridPresetPluginType,
     PbEditorPageElementSettingsRenderComponentProps
-} from "../../../../types";
-import { useEventActionHandler } from "../../../hooks/useEventActionHandler";
-import { createElement } from "../../../helpers";
-import { calculatePresetPluginCells, getPresetPlugins } from "../../../plugins/gridPresets";
-import { UpdateElementActionEvent } from "../../../recoil/actions";
-import { activeElementAtom, elementWithChildrenByIdSelector } from "../../../recoil/modules";
+} from "~/types";
+import { useEventActionHandler } from "~/editor";
+import { createElement } from "~/editor/helpers";
+import { calculatePresetPluginCells, getPresetPlugins } from "~/editor/plugins/gridPresets";
+import { UpdateElementActionEvent } from "~/editor/recoil/actions";
+import { activeElementAtom, elementWithChildrenByIdSelector } from "~/editor/recoil/modules";
 
 // Components
 import CounterInput from "./CounterInput";

@@ -20,6 +20,7 @@ import { BlockCategoriesPermissions } from "./crud/permissions/BlockCategoriesPe
 import { PageTemplatesPermissions } from "~/graphql/crud/permissions/PageTemplatesPermissions";
 import { PageBlocksPermissions } from "~/graphql/crud/permissions/PageBlocksPermissions";
 import { GzipContentCompressionPlugin, JsonpackContentCompressionPlugin } from "~/plugins";
+import { createDataSourcesContext } from "~/dataSources/context/createDataSourcesContext";
 
 export interface CreateCrudParams {
     storageOperations: PageBuilderStorageOperations;
@@ -234,8 +235,12 @@ export const createCrud = (params: CreateCrudParams) => {
          * Maybe figure out some other way of registering the plugins.
          */
         /**
-         * Add validation
+         * Add validation.
          */
-        createPageValidation()
+        createPageValidation(),
+        /**
+         * Add DataSources context.
+         */
+        createDataSourcesContext()
     ];
 };

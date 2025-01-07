@@ -4,9 +4,9 @@ import { Input } from "@webiny/ui/Input";
 import { Tooltip } from "@webiny/ui/Tooltip";
 import { TemplateTitle, templateTitleWrapper, TitleInputWrapper, TitleWrapper } from "./Styled";
 import { useEventActionHandler } from "~/editor/hooks/useEventActionHandler";
-import { PageTemplate } from "~/templateEditor/state";
 import { UpdateDocumentActionEvent } from "~/editor/recoil/actions";
 import { useTemplate } from "~/templateEditor/hooks/useTemplate";
+import { PbPageTemplate } from "~/types";
 
 declare global {
     interface Window {
@@ -16,19 +16,19 @@ declare global {
 
 export const Title = () => {
     const handler = useEventActionHandler();
-    const [template] = useTemplate();
+    const [pageTemplate] = useTemplate();
     const { showSnackbar } = useSnackbar();
     const [editTitle, setEdit] = useState<boolean>(false);
     const [stateTitle, setTitle] = useState<string | null>(null);
-    let title = stateTitle === null ? template.title : stateTitle;
+    let title = stateTitle === null ? pageTemplate.title : stateTitle;
 
     useEffect(() => {
-        if (template.title && template.title !== stateTitle) {
-            setTitle(template.title);
+        if (pageTemplate.title && pageTemplate.title !== stateTitle) {
+            setTitle(pageTemplate.title);
         }
-    }, [template.title]);
+    }, [pageTemplate.title]);
 
-    const updateTemplate = (data: Partial<PageTemplate>) => {
+    const updateTemplate = (data: Partial<PbPageTemplate>) => {
         handler.trigger(
             new UpdateDocumentActionEvent({
                 history: false,
@@ -58,7 +58,7 @@ export const Title = () => {
                 case "Escape":
                     e.preventDefault();
                     setEdit(false);
-                    setTitle(template.title || "");
+                    setTitle(pageTemplate.title || "");
                     break;
                 case "Enter":
                     if (title === "") {
@@ -75,7 +75,7 @@ export const Title = () => {
                     return;
             }
         },
-        [title, template.title]
+        [title, pageTemplate.title]
     );
 
     // Disable autoFocus because for some reason, blur event would automatically be triggered when clicking

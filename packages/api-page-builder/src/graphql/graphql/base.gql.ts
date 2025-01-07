@@ -36,11 +36,11 @@ export const createBaseGraphQL = (): GraphQLSchemaPlugin => {
                 }
 
                 type PbQuery {
-                    pageBuilder: PbQuery
+                    _empty: String
                 }
 
                 type PbMutation {
-                    pageBuilder: PbMutation
+                    _empty: String
                 }
 
                 extend type Query {

@@ -2,7 +2,7 @@ import React from "react";
 import { VariableSettings } from "~/editor/plugins/elementSettings/variable/VariableSettings";
 import { useTemplateMode } from "~/pageEditor/hooks/useTemplateMode";
 import { PageEditorConfig } from "~/pageEditor/editorConfig/PageEditorConfig";
-import { ScrollableContainer } from "~/editor/defaultConfig/Sidebar/ScrollableContainer";
+import { ScrollableContainer } from "~/editor/config/Sidebar/ScrollableContainer";
 
 export const TemplateMode = PageEditorConfig.Ui.Sidebar.Elements.createDecorator(Original => {
     return function TemplateMode(props) {

@@ -2,7 +2,7 @@ import gql from "graphql-tag";
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import { mergeResolvers } from "@graphql-tools/merge";
 import { GraphQLScalarType } from "graphql/type/definition";
-import { GraphQLScalarPlugin, GraphQLSchemaPlugin, Resolvers, TypeDefs } from "./types";
+import { GraphQLScalarPlugin, Resolvers, TypeDefs } from "./types";
 import { Context } from "@webiny/api/types";
 import {
     RefInputScalar,
@@ -15,9 +15,15 @@ import {
     LongScalar
 } from "./builtInTypes";
 import { ResolverDecoration } from "./ResolverDecoration";
+import { GraphQLSchemaPlugin } from "~/plugins";
 
 export const getSchemaPlugins = (context: Context) => {
-    return context.plugins.byType<GraphQLSchemaPlugin>("graphql-schema");
+    return context.plugins.byType<GraphQLSchemaPlugin>("graphql-schema").filter(pl => {
+        if (typeof pl.isApplicable === "function") {
+            return pl.isApplicable(context);
+        }
+        return true;
+    });
 };
 
 export const createGraphQLSchema = (context: Context) => {

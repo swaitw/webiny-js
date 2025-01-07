@@ -35,6 +35,16 @@ const DATA_FIELD = `
             id
         }
         content
+        dataSources {
+            name
+            type
+            config
+        }
+        dataBindings {
+            dataSource
+            bindFrom
+            bindTo
+        }
         savedOn
     }
 `;

@@ -1,8 +1,6 @@
 import React, { useCallback, useState, useEffect, useMemo } from "react";
 import styled from "@emotion/styled";
 import classNames from "classnames";
-import { useQuery } from "@apollo/react-hooks";
-
 import { OverlayLayout } from "@webiny/app-admin/components/OverlayLayout";
 import { LeftPanel, RightPanel, SplitView } from "@webiny/app-admin/components/SplitView";
 import { ScrollList, ListItem } from "@webiny/ui/List";
@@ -14,8 +12,6 @@ import { ButtonSecondary } from "@webiny/ui/Button";
 
 import { ReactComponent as SearchIcon } from "~/editor/assets/icons/search.svg";
 import { useKeyHandler } from "~/editor/hooks/useKeyHandler";
-import { LIST_PAGE_TEMPLATES } from "~/admin/views/PageTemplates/graphql";
-import { PagePreview } from "~/admin/plugins/pageDetails/previewContent/PagePreview";
 import {
     listItem,
     activeListItem,
@@ -24,7 +20,9 @@ import {
     TitleContent
 } from "./PageTemplatesDialogStyled";
 import * as Styled from "~/templateEditor/config/Content/BlocksBrowser/StyledComponents";
-import { PbPageTemplate } from "~/types";
+import { PbPageTemplate, PbPageTemplateWithContent } from "~/types";
+import { useListPageTemplates } from "~/features";
+import { PageTemplateContentPreview } from "~/admin/views/PageTemplates/PageTemplateContentPreview";
 
 const ListContainer = styled.div`
     width: 100%;
@@ -119,11 +117,8 @@ type PageTemplatesDialogProps = {
 
 const PageTemplatesDialog = ({ onClose, onSelect, isLoading }: PageTemplatesDialogProps) => {
     const [search, setSearch] = useState<string>("");
-    const [activeTemplate, setActiveTemplate] = useState<PbPageTemplate | null>();
-    const listQuery = useQuery(LIST_PAGE_TEMPLATES) || {};
-
-    const pageTemplatesData: PbPageTemplate[] =
-        listQuery?.data?.pageBuilder?.listPageTemplates?.data || [];
+    const [activeTemplate, setActiveTemplate] = useState<PbPageTemplateWithContent | null>();
+    const { pageTemplates } = useListPageTemplates();
 
     const handleCreatePageFromTemplate = useCallback((template: PbPageTemplate) => {
         onSelect(template);
@@ -142,13 +137,13 @@ const PageTemplatesDialog = ({ onClose, onSelect, isLoading }: PageTemplatesDial
 
     const filteredPageTemplates = useMemo(() => {
         if (search) {
-            return pageTemplatesData.filter(item => {
+            return pageTemplates.filter(item => {
                 return item.title.toLowerCase().includes(search.toLowerCase());
             });
         }
 
-        return pageTemplatesData;
-    }, [search, pageTemplatesData]);
+        return pageTemplates;
+    }, [search, pageTemplates]);
 
     return (
         <OverlayLayout barLeft={<ModalTitle />} onExited={onClose}>
@@ -235,7 +230,7 @@ const PageTemplatesDialog = ({ onClose, onSelect, isLoading }: PageTemplatesDial
                                                 </ButtonSecondary>
                                             </HeaderActions>
                                         </HeaderTitle>
-                                        <PagePreview page={activeTemplate} />
+                                        <PageTemplateContentPreview template={activeTemplate} />
                                     </div>
                                 </Elevation>
                             </RenderBlock>

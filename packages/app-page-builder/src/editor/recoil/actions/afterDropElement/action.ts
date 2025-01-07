@@ -1,5 +1,5 @@
 import { plugins } from "@webiny/plugins";
-import { EventActionCallable, PbEditorPageElementPlugin } from "~/types";
+import { EventActionCallable, OnCreateActions, PbEditorPageElementPlugin } from "~/types";
 import { AfterDropElementActionArgsType } from "./types";
 
 const elementPluginType = "pb-editor-page-element";
@@ -26,12 +26,12 @@ export const afterDropElementAction: EventActionCallable<AfterDropElementActionA
     const { element } = args;
 
     const plugin = getElementTypePlugin(element.type);
-    if (plugin.onCreate && plugin.onCreate === "open-settings") {
+    if (plugin.onCreate && plugin.onCreate === OnCreateActions.OPEN_SETTINGS) {
         return {
             actions: []
         };
     }
-    if (plugin.onCreate && plugin.onCreate === "skipElementHighlight") {
+    if (plugin.onCreate && plugin.onCreate === OnCreateActions.SKIP_ELEMENT_HIGHLIGHT) {
         return {
             actions: []
         };

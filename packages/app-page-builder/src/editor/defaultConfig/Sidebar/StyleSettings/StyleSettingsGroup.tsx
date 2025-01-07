@@ -1,6 +1,6 @@
 import React from "react";
 import { Sidebar } from "~/editor/config/Sidebar/Sidebar";
-import { ScrollableContainer } from "~/editor/defaultConfig/Sidebar/ScrollableContainer";
+import { ScrollableContainer } from "~/editor/config/Sidebar/ScrollableContainer";
 
 export const StyleSettingsGroup = () => {
     return (

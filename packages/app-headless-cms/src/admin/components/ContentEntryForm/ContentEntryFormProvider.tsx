@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import pick from "lodash/pick";
 import { Prompt } from "@webiny/react-router";
-import { Form, FormAPI, FormOnSubmit, FormValidation, FormInvalidFields } from "@webiny/form";
-import { CmsContentEntry, CmsModel } from "@webiny/app-headless-cms-common/types";
-import { CompositionScope, useSnackbar } from "@webiny/app-admin";
+import { Form } from "@webiny/form";
 import { prepareFormData } from "@webiny/app-headless-cms-common";
-import { CreateEntryResponse, UpdateEntryRevisionResponse } from "~/admin/contexts/Cms";
+import type { FormAPI, FormOnSubmit, FormValidation, FormInvalidFields } from "@webiny/form";
+import type { CmsContentEntry, CmsModel } from "@webiny/app-headless-cms-common/types";
+import { CompositionScope, useSnackbar } from "@webiny/app-admin";
+import type { CreateEntryResponse, UpdateEntryRevisionResponse } from "~/admin/contexts/Cms";
 
 const promptMessage =
     "There are some unsaved changes! Are you sure you want to navigate away and discard all changes?";
@@ -40,6 +41,7 @@ interface ContentEntryFormProviderProps {
     model: CmsModel;
     persistEntry: PersistEntry;
     confirmNavigationIfDirty: boolean;
+    onChange?: FormOnSubmit<Partial<CmsContentEntry>>;
     onAfterCreate?: (entry: CmsContentEntry) => void;
     setSaveEntry?: SetSaveEntry;
     children: React.ReactNode;
@@ -62,6 +64,7 @@ export const ContentEntryFormProvider = ({
     entry,
     children,
     persistEntry,
+    onChange,
     onAfterCreate,
     setSaveEntry,
     confirmNavigationIfDirty
@@ -134,6 +137,7 @@ export const ContentEntryFormProvider = ({
     return (
         <Form<CmsContentEntry>
             onSubmit={onFormSubmit}
+            onChange={onChange}
             data={entry}
             ref={ref}
             validateOnFirstSubmit

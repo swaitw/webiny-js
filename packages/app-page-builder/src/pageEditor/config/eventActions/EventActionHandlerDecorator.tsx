@@ -10,7 +10,7 @@ import { useRevisions } from "~/pageEditor/hooks/useRevisions";
 import { TemplateModeAtomType, useTemplateMode } from "~/pageEditor/hooks/useTemplateMode";
 import { PageAtomType, RevisionsAtomType } from "~/pageEditor/state";
 import { PageEditorEventActionCallableState } from "~/pageEditor/types";
-import { PbElement, PbEditorElement } from "~/types";
+import { PbEditorElementTree } from "~/types";
 
 type ProviderProps = EventActionHandlerProviderProps<PageEditorEventActionCallableState>;
 
@@ -37,11 +37,11 @@ export const EventActionHandlerDecorator = createDecorator(
                     next => {
                         return async props => {
                             const element = props?.element;
-                            const res = (await next({ element })) as PbElement;
+                            const res = (await next({ element })) as PbEditorElementTree;
 
                             const cleanUpReferenceBlocks = (
-                                element: PbElement
-                            ): PbEditorElement => {
+                                element: PbEditorElementTree
+                            ): PbEditorElementTree => {
                                 if (element.data.blockId) {
                                     return {
                                         ...element,
@@ -50,7 +50,7 @@ export const EventActionHandlerDecorator = createDecorator(
                                 } else {
                                     return {
                                         ...element,
-                                        elements: element.elements.map((child: PbElement) =>
+                                        elements: element.elements.map(child =>
                                             cleanUpReferenceBlocks(child)
                                         )
                                     };

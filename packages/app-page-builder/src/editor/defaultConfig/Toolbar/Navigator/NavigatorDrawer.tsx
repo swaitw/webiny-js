@@ -8,7 +8,7 @@ import { TreeView } from "./TreeView";
 import { ReactComponent as UnfoldMoreIcon } from "./assets/unfold_more_24px.svg";
 import { ReactComponent as UnfoldLessIcon } from "./assets/unfold_less_24px.svg";
 import { UpdateElementTreeActionEvent } from "~/editor/recoil/actions";
-import { PbEditorElement } from "~/types";
+import { PbEditorElementTree } from "~/types";
 
 const t = i18n.ns("app-page-builder/editor/plugins/toolbar/navigator");
 
@@ -30,7 +30,7 @@ export const NavigatorContext = createContext<NavigatorContextValue>({
 });
 
 export const NavigatorDrawer = () => {
-    const [elementTree, setElementTree] = useState<PbEditorElement | null>(null);
+    const [elementTree, setElementTree] = useState<PbEditorElementTree | null>(null);
     const [expandAll, setExpandAll] = useState<boolean>(false);
     const [activeElementPath, setActiveElementPath] = useState<string[]>([]);
     const eventHandler = useEventActionHandler();

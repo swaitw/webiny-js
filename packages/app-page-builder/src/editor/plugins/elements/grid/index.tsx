@@ -67,15 +67,12 @@ export default (args: PbEditorElementPluginArgs = {}): PbEditorPageElementPlugin
         type: "pb-editor-page-element",
         name: `pb-editor-page-element-${elementType}`,
         elementType: elementType,
-        /**
-         * TODO @ts-refactor @ashutosh
-         */
         // @ts-expect-error
         toolbar: typeof args.toolbar === "function" ? args.toolbar(defaultToolbar) : defaultToolbar,
         settings:
             typeof args.settings === "function" ? args.settings(defaultSettings) : defaultSettings,
 
-        target: ["cell", "block", "carousel-element", "tab"],
+        target: ["cell", "block", "carousel-element", "tab", "repeater", "entries-list"],
         canDelete: () => {
             return true;
         },

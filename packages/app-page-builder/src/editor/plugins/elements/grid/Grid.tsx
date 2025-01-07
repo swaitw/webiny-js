@@ -1,7 +1,7 @@
 import React from "react";
 import { PbEditorElement } from "~/types";
 
-import PeGrid from "./PeGrid";
+import { PeGrid } from "./PeGrid";
 import { Element } from "@webiny/app-page-builder-elements/types";
 
 interface GridProps {

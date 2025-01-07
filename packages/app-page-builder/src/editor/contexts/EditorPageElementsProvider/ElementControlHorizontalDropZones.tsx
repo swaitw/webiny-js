@@ -25,16 +25,30 @@ export const WrapperDroppable = styled.div<WrapperDroppableProps>(({ below, zInd
 
 interface InnerDivProps {
     zIndex: number;
+    label: string;
 }
 
-const InnerDiv = styled.div<InnerDivProps>(({ zIndex }) => ({
-    height: 5,
-    width: "100%", //"calc(100% - 50px)",
-    zIndex: zIndex,
-    borderRadius: 5,
-    boxSizing: "border-box",
-    display: "none"
-}));
+const InnerDiv = styled.div<InnerDivProps>`
+    height: 5px;
+    width: 100%;
+    z-index: ${props => props.zIndex};
+    border-radius: 5px;
+    box-sizing: border-box;
+    display: none;
+    :before {
+        content: ${props => `"Drop into ${props.label}"`};
+        background-color: var(--mdc-theme-primary);
+        color: #fff;
+        position: absolute;
+        padding: 2px 5px;
+        font-size: 10px;
+        text-align: center;
+        line-height: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        top: -7px;
+    }
+`;
 
 interface OuterDivProps {
     isOver: boolean;
@@ -73,22 +87,34 @@ export const ElementControlHorizontalDropZones = () => {
     const element = getElement();
     const handler = useEventActionHandler();
     const { showSnackbar } = useSnackbar();
+    const parentType = meta.parentElement.type;
 
     const { type } = element;
 
-    const dropElementAction = (source: DragObjectWithTypeWithTarget, position: number) => {
-        const { target } = source;
+    const canDrop = (item: DragObjectWithTypeWithTarget) => {
+        if (!item) {
+            return false;
+        }
 
+        const { target } = item;
         // If the `target` property of the dragged element's plugin is an array, we want to
         // check if the dragged element can be dropped into the target element (the element
         // for which this drop zone is rendered).
         if (Array.isArray(target) && target.length > 0) {
-            if (!target.includes(meta.parentElement.type)) {
-                const sourceTitle = getElementTitle(source.type);
-                const targetTitle = getElementTitle(meta.parentElement.type);
-                showSnackbar(`${sourceTitle} cannot be dropped into ${targetTitle}.`);
-                return;
+            if (!target.includes(parentType)) {
+                return false;
             }
+        }
+
+        return true;
+    };
+
+    const dropElementAction = (source: DragObjectWithTypeWithTarget, position: number) => {
+        if (!canDrop(source)) {
+            const sourceTitle = getElementTitle(source.type);
+            const targetTitle = getElementTitle(parentType);
+            showSnackbar(`${sourceTitle} cannot be dropped into ${targetTitle}.`);
+            return;
         }
 
         handler.trigger(
@@ -96,7 +122,7 @@ export const ElementControlHorizontalDropZones = () => {
                 source,
                 target: {
                     id: meta.parentElement.id,
-                    type: meta.parentElement.type,
+                    type: parentType,
                     position
                 }
             })
@@ -114,28 +140,28 @@ export const ElementControlHorizontalDropZones = () => {
     return (
         <>
             <Droppable
-                isVisible={() => true}
+                isVisible={({ item }) => canDrop(item)}
                 onDrop={source => dropElementAction(source, meta.elementIndex)}
                 type={type}
             >
                 {({ drop, isOver }) => (
                     <WrapperDroppable ref={drop} below={false} zIndex={zIndex}>
                         <OuterDiv isOver={isOver} below={false} zIndex={zIndex}>
-                            <InnerDiv zIndex={zIndex} />
+                            <InnerDiv zIndex={zIndex} label={parentType} />
                         </OuterDiv>
                     </WrapperDroppable>
                 )}
             </Droppable>
             {meta.isLastElement && (
                 <Droppable
-                    isVisible={() => true}
+                    isVisible={({ item }) => canDrop(item)}
                     onDrop={source => dropElementAction(source, meta.elementIndex + 1)}
                     type={type}
                 >
                     {({ drop, isOver }) => (
                         <WrapperDroppable ref={drop} below zIndex={zIndex}>
                             <OuterDiv isOver={isOver} below zIndex={zIndex}>
-                                <InnerDiv zIndex={zIndex} />
+                                <InnerDiv zIndex={zIndex} label={parentType} />
                             </OuterDiv>
                         </WrapperDroppable>
                     )}

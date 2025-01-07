@@ -1,12 +1,12 @@
 import React, { CSSProperties } from "react";
-import { QueryResult } from "@apollo/react-common";
 import { css } from "emotion";
 import styled from "@emotion/styled";
 import { Typography } from "@webiny/ui/Typography";
 import { Select } from "@webiny/ui/Select";
-import { Page } from "@webiny/app-page-builder-elements/components/Page";
 import { Zoom } from "./Zoom";
-import { PbPageData, PbPageTemplate } from "~/types";
+import { PbPageData } from "~/types";
+import { Content } from "@webiny/app-page-builder-elements";
+import { makeDecoratable } from "@webiny/react-composition";
 
 const webinyZoomStyles = css`
     &.mdc-select--no-label:not(.mdc-select--outlined)
@@ -81,11 +81,10 @@ const SelectPageZoom: React.ComponentType<PagePreviewInnerProps> = ({ zoom, setZ
 );
 
 interface PagePreviewProps {
-    page: PbPageData | PbPageTemplate;
-    getPageQuery?: QueryResult;
+    page: PbPageData;
 }
 
-export const PagePreview = ({ page }: PagePreviewProps) => {
+export const PageContentPreview = makeDecoratable(({ page }: PagePreviewProps) => {
     return (
         <Zoom>
             {({ zoom, setZoom }) => (
@@ -93,10 +92,10 @@ export const PagePreview = ({ page }: PagePreviewProps) => {
                     className={pageInnerWrapper}
                     style={{ "--webiny-pb-page-preview-scale": zoom } as CSSProperties}
                 >
-                    <Page page={page as PbPageData} />
+                    <Content content={page.content} />
                     <SelectPageZoom zoom={zoom} setZoom={setZoom} />
                 </div>
             )}
         </Zoom>
     );
-};
+});

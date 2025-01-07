@@ -1,4 +1,5 @@
 import { DefaultSettingsCrudOptions, PbContext } from "~/graphql/types";
+import { GenericRecord } from "@webiny/api/types";
 
 export * from "./graphql/types";
 
@@ -80,7 +81,7 @@ export interface PageSettings {
      */
     [key: string]: any;
 }
-export interface Page<T = Record<string, any> | null> {
+export interface Page<T = Record<string, any> | null> extends DynamicDocument {
     id: string;
     pid: string;
     locale: string;
@@ -795,7 +796,7 @@ export interface BlockCategoryStorageOperations {
 /**
  * @category RecordModel
  */
-export interface PageBlock {
+export interface PageBlock extends DynamicDocument {
     id: string;
     name: string;
     blockCategory: string;
@@ -888,17 +889,41 @@ export interface PageBlockStorageOperations {
     delete(params: PageBlockStorageOperationsDeleteParams): Promise<void>;
 }
 
+export interface DataSource {
+    name: string;
+    type: string;
+    config: GenericRecord;
+}
+
+export interface DataBinding {
+    dataSource: string;
+    bindFrom: string;
+    bindTo: string;
+}
+
+export interface BlockVariable {
+    blockId: string;
+    elementId: string;
+    label: string;
+    inputName: string;
+}
+
+export interface DynamicDocument {
+    dataSources?: DataSource[];
+    dataBindings?: DataBinding[];
+    blockVariables?: BlockVariable[];
+}
+
 /**
  * @category RecordModel
  */
-export interface PageTemplate {
+export interface PageTemplate extends DynamicDocument {
     id: string;
     title: string;
     slug: string;
     tags: string[];
     description: string;
     layout?: string;
-    pageCategory: string;
     content?: any;
     createdOn: string;
     savedOn: string;
@@ -909,7 +934,15 @@ export interface PageTemplate {
 
 export type PageTemplateInput = Pick<
     PageTemplate,
-    "title" | "description" | "content" | "slug" | "tags" | "layout" | "pageCategory"
+    | "title"
+    | "description"
+    | "content"
+    | "slug"
+    | "tags"
+    | "layout"
+    | "dataBindings"
+    | "dataSources"
+    | "blockVariables"
 > & { id?: string };
 
 /**

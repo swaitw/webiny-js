@@ -1,18 +1,16 @@
 import React, { useCallback } from "react";
-import get from "lodash/get";
 import { i18n } from "@webiny/app/i18n";
 import { useRouter } from "@webiny/react-router";
-import { useMutation, useApolloClient } from "@apollo/react-hooks";
 import { SplitView, LeftPanel, RightPanel } from "@webiny/app-admin/components/SplitView";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
 import { useConfirmationDialog } from "@webiny/app-admin/hooks/useConfirmationDialog";
 import { useStateWithCallback } from "@webiny/app-admin/hooks";
 import PageTemplatesDataList from "./PageTemplatesDataList";
-import PageTemplateDetails from "./PageTemplateDetails";
-import CreatePageTemplateDialog from "./CreatePageTemplateDialog";
+import { PageTemplateDetails } from "./PageTemplateDetails";
+import { CreatePageTemplateDialog } from "./CreatePageTemplateDialog";
 import { PbPageTemplate } from "~/types";
-import { LIST_PAGE_TEMPLATES, CREATE_PAGE_TEMPLATE, DELETE_PAGE_TEMPLATE } from "./graphql";
 import { useTemplatesPermissions } from "~/hooks/permissions";
+import { useCreatePageTemplate, useDeletePageTemplate } from "~/features";
 
 const t = i18n.ns("app-page-builder/admin/views/page-templates");
 
@@ -24,9 +22,10 @@ export interface CreatableItem {
 
 const PageTemplates = () => {
     const { history } = useRouter();
-    const client = useApolloClient();
     const { showSnackbar } = useSnackbar();
     const { showConfirmation } = useConfirmationDialog();
+    const { createPageTemplate } = useCreatePageTemplate();
+    const { deletePageTemplate } = useDeletePageTemplate();
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useStateWithCallback<boolean>(false);
 
     const { canCreate, canUpdate, canDelete } = useTemplatesPermissions();
@@ -34,49 +33,34 @@ const PageTemplates = () => {
     const onCreatePageTemplate = async (
         formData: Pick<PbPageTemplate, "title" | "slug" | "description">
     ) => {
-        const { data: res } = await client.mutate({
-            mutation: CREATE_PAGE_TEMPLATE,
-            variables: {
-                data: {
-                    title: formData.title,
-                    slug: formData.slug,
-                    description: formData.description,
-                    tags: [],
-                    layout: "static", // Hardcoded until better UI is in place
-                    pageCategory: "static"
-                }
-            },
-            refetchQueries: [{ query: LIST_PAGE_TEMPLATES }]
-        });
-
-        const { error, data } = get(res, `pageBuilder.pageTemplate`);
-        if (data) {
-            setIsCreateDialogOpen(false, () => {
-                history.push(`/page-builder/template-editor/${data.id}`);
+        try {
+            const pageTemplate = await createPageTemplate({
+                title: formData.title,
+                slug: formData.slug,
+                description: formData.description,
+                tags: [],
+                layout: "static"
             });
-        } else {
+
+            setIsCreateDialogOpen(false, () => {
+                history.push(`/page-builder/template-editor/${pageTemplate.id}`);
+            });
+        } catch (error) {
             showSnackbar(error.message);
         }
     };
 
-    const [deleteIt, deleteMutation] = useMutation(DELETE_PAGE_TEMPLATE, {
-        refetchQueries: [{ query: LIST_PAGE_TEMPLATES }]
-    });
-
     const handleDeleteTemplateClick = useCallback((item: PbPageTemplate) => {
         showConfirmation(async () => {
-            const response = await deleteIt({
-                variables: { id: item.id }
-            });
-
-            const error = response?.data?.pageBuilder?.deletePageTemplate?.error;
-            if (error) {
-                return showSnackbar(error.message);
+            try {
+                await deletePageTemplate(item.id);
+                history.push("/page-builder/page-templates");
+                showSnackbar(
+                    t`Template "{title}" was deleted successfully!`({ title: item.title })
+                );
+            } catch (error) {
+                showSnackbar(error.message);
             }
-
-            history.push("/page-builder/page-templates");
-
-            showSnackbar(t`Template "{title}" deleted.`({ title: item.title }));
         });
     }, []);
 
@@ -90,7 +74,6 @@ const PageTemplates = () => {
                         canDelete={record => canDelete(record.createdBy?.id)}
                         onCreate={() => setIsCreateDialogOpen(true)}
                         onDelete={handleDeleteTemplateClick}
-                        isLoading={deleteMutation?.loading}
                     />
                 </LeftPanel>
                 <RightPanel>

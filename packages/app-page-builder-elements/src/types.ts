@@ -134,7 +134,7 @@ export interface PageProviderProps {
 export type Renderer<
     T = Record<string, any>,
     TElementData = Record<string, any>
-> = React.FunctionComponent<RendererProps<TElementData> & T>;
+> = React.FunctionComponent<RendererProps<TElementData> & T> & { inputs?: ElementInputs };
 
 // TODO: maybe call this `Renderer` but rename the base one to `BaseRenderer` ?
 export type DecoratableRenderer = ReturnType<typeof createRenderer>;

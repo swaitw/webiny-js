@@ -185,6 +185,16 @@ export const GET_PAGE = gql`
                         name
                     }
                     content
+                    dataBindings {
+                        dataSource
+                        bindFrom
+                        bindTo
+                    }
+                    dataSources {
+                        name
+                        type
+                        config
+                    }
 
                 }
                 ${error}

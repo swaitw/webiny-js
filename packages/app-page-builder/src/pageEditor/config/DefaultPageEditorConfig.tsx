@@ -20,6 +20,7 @@ import { PreviewPageOption } from "./TopBar/PreviewPageOption/PreviewPageOption"
 import { SetAsHomepageOption } from "./TopBar/SetAsHomepageOption/SetAsHomepageOption";
 import { EditorConfig } from "~/editor/config";
 import { InjectElementVariables } from "~/render/variables/InjectElementVariables";
+import { SetupDynamicDocument } from "~/pageEditor/config/SetupDynamicDocument";
 
 const { ElementAction, Ui } = EditorConfig;
 
@@ -28,6 +29,7 @@ export const DefaultPageEditorConfig = React.memo(() => {
         <>
             <EventActionHandlerDecorator />
             <EditorConfig>
+                <SetupDynamicDocument />
                 <EventActionHandlers />
                 <Ui.TopBar.Element name={"buttonBack"} group={"left"} element={<BackButton />} />
                 <Ui.TopBar.Element name={"title"} group={"left"} element={<Title />} />

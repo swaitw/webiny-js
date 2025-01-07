@@ -3,7 +3,7 @@ import { COLORS } from "~/editor/plugins/elementSettings/components/StyledCompon
 
 export const breadcrumbs = css({
     display: "flex",
-    zIndex: 20,
+    zIndex: 100,
     flexDirection: "row",
     padding: 0,
     position: "fixed",

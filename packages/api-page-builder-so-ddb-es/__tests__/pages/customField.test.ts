@@ -97,6 +97,12 @@ describe("page custom field", () => {
                     name: "revisions"
                 },
                 {
+                    name: "dataSources"
+                },
+                {
+                    name: "dataBindings"
+                },
+                {
                     name: "customViews"
                 },
                 {
@@ -200,6 +206,12 @@ describe("page custom field", () => {
                 },
                 {
                     name: "content"
+                },
+                {
+                    name: "dataSources"
+                },
+                {
+                    name: "dataBindings"
                 },
                 {
                     name: "customViews"

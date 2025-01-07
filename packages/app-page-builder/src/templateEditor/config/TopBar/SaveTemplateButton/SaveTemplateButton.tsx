@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from "react";
 import styled from "@emotion/styled";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
-import { useRouter } from "@webiny/react-router";
 import { ButtonIcon, ButtonPrimary } from "@webiny/ui/Button";
 import { CircularProgress } from "@webiny/ui/Progress";
 import { useEventActionHandler } from "~/editor/hooks/useEventActionHandler";
@@ -17,7 +16,6 @@ const SpinnerWrapper = styled.div`
 export const SaveTemplateButton = () => {
     const [template] = useTemplate();
     const eventActionHandler = useEventActionHandler();
-    const { history } = useRouter();
     const { showSnackbar } = useSnackbar();
     const [loading, setLoading] = useState(false);
 
@@ -28,7 +26,6 @@ export const SaveTemplateButton = () => {
                 debounce: false,
                 onFinish: () => {
                     setLoading(false);
-                    history.push(`/page-builder/page-templates`);
                     showSnackbar(`Template "${template.title}" saved successfully!`);
                 }
             })

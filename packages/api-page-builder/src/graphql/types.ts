@@ -10,6 +10,7 @@ import {
     BlockCategory,
     Category,
     DefaultSettings,
+    DynamicDocument,
     Menu,
     Page,
     PageBlock,
@@ -23,6 +24,7 @@ import {
 } from "~/types";
 import { PrerenderingServiceClientContext } from "@webiny/api-prerendering-service/client/types";
 import { FileManagerContext } from "@webiny/api-file-manager/types";
+import { DataSourcesContext } from "~/dataSources/types";
 
 // CRUD types.
 export interface ListPagesParamsWhere {
@@ -792,7 +794,8 @@ export interface PbContext
         SecurityContext,
         TenancyContext,
         FileManagerContext,
-        PrerenderingServiceClientContext {
+        PrerenderingServiceClientContext,
+        DataSourcesContext {
     pageBuilder: PageBuilderContextObject;
 }
 
@@ -885,7 +888,7 @@ export interface PbCategoryInput {
     layout: string;
 }
 
-export interface PbUpdatePageInput {
+export interface PbUpdatePageInput extends DynamicDocument {
     title?: string;
     category?: string;
     path?: string;

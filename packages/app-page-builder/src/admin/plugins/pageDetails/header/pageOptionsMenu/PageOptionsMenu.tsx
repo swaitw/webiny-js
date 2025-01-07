@@ -1,5 +1,4 @@
 import React, { useCallback, useState } from "react";
-import { useApolloClient } from "@apollo/react-hooks";
 import { IconButton } from "@webiny/ui/Button";
 import { Icon } from "@webiny/ui/Icon";
 import { ReactComponent as MoreVerticalIcon } from "~/admin/assets/more_vert.svg";
@@ -7,11 +6,7 @@ import { ReactComponent as HomeIcon } from "~/admin/assets/round-home-24px.svg";
 import { ReactComponent as GridViewIcon } from "@material-design-icons/svg/outlined/grid_view.svg";
 import { ListItemGraphic } from "@webiny/ui/List";
 import { MenuItem, Menu } from "@webiny/ui/Menu";
-import {
-    CREATE_TEMPLATE_FROM_PAGE,
-    LIST_PAGE_TEMPLATES
-} from "~/admin/views/PageTemplates/graphql";
-import CreatePageTemplateDialog from "~/admin/views/PageTemplates/CreatePageTemplateDialog";
+import { CreatePageTemplateDialog } from "~/admin/views/PageTemplates/CreatePageTemplateDialog";
 import { usePageBuilderSettings } from "~/admin/hooks/usePageBuilderSettings";
 import { css } from "emotion";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
@@ -25,6 +20,7 @@ import { useFolders } from "@webiny/app-aco";
 import { useTemplatesPermissions } from "~/hooks/permissions";
 import { PreviewPage } from "./PreviewPage";
 import { DuplicatePage } from "./DuplicatePage";
+import { useCreatePageTemplateFromPage } from "~/features";
 
 const menuStyles = css({
     width: 250,
@@ -44,7 +40,7 @@ const PageOptionsMenu = (props: PageOptionsMenuProps) => {
     const { page } = props;
     const [isCreateTemplateDialogOpen, setIsCreateTemplateDialogOpen] = useState<boolean>(false);
     const { settings, isSpecialPage, updateSettingsMutation } = usePageBuilderSettings();
-    const client = useApolloClient();
+    const { createPageTemplateFromPage } = useCreatePageTemplateFromPage();
 
     const pageBuilder = useAdminPageBuilder();
 
@@ -64,19 +60,10 @@ const PageOptionsMenu = (props: PageOptionsMenuProps) => {
     const handleCreateTemplateClick = useCallback(
         async (formData: Pick<PbPageTemplate, "title" | "slug" | "description">) => {
             try {
-                const { data: res } = await client.mutate({
-                    mutation: CREATE_TEMPLATE_FROM_PAGE,
-                    variables: { pageId: page.id, data: formData },
-                    refetchQueries: [{ query: LIST_PAGE_TEMPLATES }]
-                });
+                const pageTemplate = await createPageTemplateFromPage(page.id, formData);
 
-                const { error, data } = res.pageBuilder.pageTemplate;
-                if (error) {
-                    showSnackbar(error.message);
-                } else {
-                    setIsCreateTemplateDialogOpen(false);
-                    showSnackbar(`Template "${data.title}" created successfully.`);
-                }
+                setIsCreateTemplateDialogOpen(false);
+                showSnackbar(`Template "${pageTemplate.title}" created successfully.`);
             } catch (error) {
                 showSnackbar(error.message);
             }

@@ -8,31 +8,31 @@ const titlesCache: Record<string, string> = {};
  * return the element type. A simple cache was added to avoid unnecessary lookups.
  */
 export const getElementTitle = (elementType: string, suffix?: string): string => {
-    if (elementType in titlesCache) {
-        return titlesCache[elementType];
+    const cacheKey = [elementType, suffix].filter(Boolean).join(".");
+
+    if (cacheKey in titlesCache) {
+        return titlesCache[cacheKey];
     }
 
-    titlesCache[elementType] = elementType;
+    titlesCache[cacheKey] = elementType;
 
     const elementEditorPlugin = plugins
         .byType<PbEditorPageElementPlugin>("pb-editor-page-element")
         .find(item => item.elementType === elementType);
 
     if (!elementEditorPlugin) {
-        return titlesCache[elementType];
+        return titlesCache[cacheKey];
     }
 
     const toolbarTitle = elementEditorPlugin?.toolbar?.title;
     if (typeof toolbarTitle === "string") {
-        titlesCache[elementType] = toolbarTitle;
+        titlesCache[cacheKey] = toolbarTitle;
     } else {
         // Upper-case first the type.
-        titlesCache[elementType] = elementType.charAt(0).toUpperCase() + elementType.slice(1);
+        titlesCache[cacheKey] = elementType.charAt(0).toUpperCase() + elementType.slice(1);
     }
 
-    titlesCache[elementType] = suffix
-        ? `${titlesCache[elementType]} | ${suffix}`
-        : titlesCache[elementType];
+    titlesCache[cacheKey] = suffix ? `${titlesCache[cacheKey]} | ${suffix}` : titlesCache[cacheKey];
 
-    return titlesCache[elementType];
+    return titlesCache[cacheKey];
 };

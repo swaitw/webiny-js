@@ -6,7 +6,8 @@ import {
     DisplayMode,
     PbEditorElement,
     PbEditorPageElementPlugin,
-    PbEditorTextElementPluginsArgs
+    PbEditorTextElementPluginsArgs,
+    PbElement
 } from "~/types";
 import { createInitialTextValue } from "../utils/textUtils";
 import { createInitialPerDeviceSettingValue } from "../../elementSettings/elementSettingsUtils";
@@ -38,7 +39,7 @@ export default (args: PbEditorTextElementPluginsArgs = {}): PbEditorPageElementP
         settings:
             typeof args.settings === "function" ? args.settings(defaultSettings) : defaultSettings,
         target: ["cell", "block"],
-        create({ content = {}, ...options }) {
+        create({ content = {}, ...options }: Partial<PbElement> & { content?: any }) {
             const previewText = content.text || `<blockquote><q>${defaultText}</q></blockquote>`;
 
             const defaultValue: Partial<PbEditorElement> = {

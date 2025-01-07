@@ -14,6 +14,8 @@ export const createPageBlockGraphQL = new GraphQLSchemaPlugin<PbContext>({
             name: String
             blockCategory: String
             content: JSON
+            dataSources: [DataSource!]
+            dataBindings: [DataBinding!]
         }
 
         input PbCreatePageBlockInput {
@@ -26,6 +28,8 @@ export const createPageBlockGraphQL = new GraphQLSchemaPlugin<PbContext>({
             name: String
             blockCategory: String
             content: JSON
+            dataSources: [DataSourceInput!]
+            dataBindings: [DataBindingInput!]
         }
 
         input PbListPageBlocksWhereInput {

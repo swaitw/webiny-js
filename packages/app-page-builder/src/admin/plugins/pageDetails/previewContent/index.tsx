@@ -7,8 +7,8 @@ import {
 import { Tab } from "@webiny/ui/Tabs";
 import styled from "@emotion/styled";
 import { Elevation } from "@webiny/ui/Elevation";
-import { PagePreview } from "./PagePreview";
 import { CircularProgress } from "@webiny/ui/Progress";
+import { PageContentPreview } from "./PageContentPreview";
 
 const RenderBlock = styled("div")({
     position: "relative",
@@ -44,7 +44,7 @@ const revisionContentPreviewPlugin: PbPageDetailsRevisionContentPreviewPlugin = 
     name: "pb-page-details-revision-preview",
     type: "pb-page-details-revision-content-preview",
     render(props) {
-        return <PagePreview {...props} />;
+        return <PageContentPreview {...props} />;
     }
 };
 

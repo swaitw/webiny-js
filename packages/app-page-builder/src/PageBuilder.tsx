@@ -19,6 +19,10 @@ import { LexicalHeadingRenderer } from "~/render/plugins/elements/heading/Lexica
 import { NullLoaderCache } from "@webiny/app-page-builder-elements/hooks/useLoader/NullLoaderCache";
 import { ConvertIconSettings as EditorConvertIconSettings } from "~/editor/prepareEditorContent/ConvertIconSettings";
 import { ConvertIconSettings as RendererConvertIconSettings } from "~/render/plugins/elementSettings/icon";
+import { AddImageLinkComponent } from "~/elementDecorators/AddImageLinkComponent";
+import { PageTemplatesPreview } from "./dataInjection/preview/PageTemplatesPreview";
+import { PagesPreview } from "~/dataInjection/preview/PagesPreview";
+import { IfDynamicPagesEnabled } from "~/IfDynamicPagesEnabled";
 
 export type { EditorProps };
 export { EditorRenderer };
@@ -148,6 +152,7 @@ export const PageBuilder = () => {
             <LexicalHeadingRenderer />
             <AddButtonLinkComponent />
             <AddButtonClickHandlers />
+            <AddImageLinkComponent />
             <InjectElementVariables />
             {/* Ensure data is in the correct shape when editor is mounting. */}
             {/* This works only within the block/template/page editor. */}
@@ -155,6 +160,12 @@ export const PageBuilder = () => {
             {/* Ensure each element renderer is receiving data in the correct shape.  */}
             {/* This works for page previews, block previews, etc. */}
             <RendererConvertIconSettings />
+            <IfDynamicPagesEnabled>
+                {/* Decorate page template content preview. */}
+                <PageTemplatesPreview />
+                {/* Decorate page content preview. */}
+                <PagesPreview />
+            </IfDynamicPagesEnabled>
         </Fragment>
     );
 };

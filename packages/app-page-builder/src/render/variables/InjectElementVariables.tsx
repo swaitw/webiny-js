@@ -8,6 +8,7 @@ export const InjectElementVariables = () => {
     return (
         <>
             <ButtonRendererWithVariables />
+            {/* TODO: <ImageRendererWithVariables />*/}
             <ParagraphRendererWithVariables />
             <HeadingRendererWithVariables />
             <IconRendererWithVariables />
