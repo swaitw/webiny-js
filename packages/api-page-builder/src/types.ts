@@ -924,6 +924,7 @@ export interface PageTemplate extends DynamicDocument {
     tags: string[];
     description: string;
     layout?: string;
+    pageCategory: string;
     content?: any;
     createdOn: string;
     savedOn: string;
@@ -940,6 +941,7 @@ export type PageTemplateInput = Pick<
     | "slug"
     | "tags"
     | "layout"
+    | "pageCategory"
     | "dataBindings"
     | "dataSources"
     | "blockVariables"

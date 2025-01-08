@@ -1,4 +1,8 @@
 import React from "react";
+/**
+ * TODO fix with react 19
+ */
+// eslint-disable-next-line react/no-deprecated
 import { render } from "react-dom";
 import ErrorOverlay from "./ErrorOverlay";
 import { ServerError, ServerParseError } from "apollo-link-http-common";

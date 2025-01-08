@@ -9,14 +9,15 @@ import * as aws from "@pulumi/aws";
 import {
     createAppModule,
     PulumiApp,
+    PulumiAppRemoteResource,
     PulumiAppResource,
-    PulumiAppResourceConstructor,
-    PulumiAppRemoteResource
+    PulumiAppResourceConstructor
 } from "@webiny/pulumi";
 
 import { getAwsAccountId } from "../awsUtils";
 import { CoreVpc } from "./CoreVpc";
 import { DEFAULT_PROD_ENV_NAMES, LAMBDA_RUNTIME } from "~/constants";
+import { LogDynamo } from "~/apps/core/LogDynamo";
 
 export interface ElasticSearchParams {
     protect: boolean;
@@ -51,6 +52,8 @@ export const ElasticSearch = createAppModule({
         const isProduction = productionEnvironments.includes(app.params.run.env);
 
         const vpc = app.getModule(CoreVpc, { optional: true });
+
+        const logDynamoDbTable = app.getModule(LogDynamo);
 
         // This needs to be implemented in order to be able to use a shared ElasticSearch cluster.
         let domain:
@@ -221,7 +224,8 @@ export const ElasticSearch = createAppModule({
                 environment: {
                     variables: {
                         DEBUG: String(process.env.DEBUG),
-                        ELASTIC_SEARCH_ENDPOINT: domain.output.endpoint
+                        ELASTIC_SEARCH_ENDPOINT: domain.output.endpoint,
+                        DB_TABLE_LOG: logDynamoDbTable.output.name
                     }
                 },
                 description: "Process DynamoDB Stream.",

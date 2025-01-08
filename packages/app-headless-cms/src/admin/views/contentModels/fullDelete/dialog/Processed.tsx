@@ -12,7 +12,7 @@ export const Processed = (props: IProcessedProps) => {
         if (model.plugin) {
             return "The entries will be deleted, but the model will remain in the system.";
         }
-        return "When all the entries and and the model are deleted, it will disappear from the UI.";
+        return "When all the entries and the model are deleted, it will disappear from the UI.";
     }, [model.plugin]);
 
     return (

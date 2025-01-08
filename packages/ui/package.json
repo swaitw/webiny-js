@@ -16,7 +16,7 @@
   "dependencies": {
     "@editorjs/editorjs": "2.26.5",
     "@emotion/react": "11.10.8",
-    "@emotion/styled": "^11.10.6",
+    "@emotion/styled": "11.10.6",
     "@material-design-icons/svg": "^0.14.3",
     "@rmwc/button": "^14.2.2",
     "@rmwc/checkbox": "^14.2.2",

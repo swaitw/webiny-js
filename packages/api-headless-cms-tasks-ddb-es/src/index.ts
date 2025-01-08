@@ -14,6 +14,7 @@ import {
     createUnpublishEntry
 } from "@webiny/api-headless-cms-bulk-actions";
 import { createHeadlessCmsImportExport } from "@webiny/api-headless-cms-import-export";
+import { createDeleteModelTask } from "@webiny/api-headless-cms-tasks";
 
 const createEsBulkActionEntriesTasks = () => {
     return [
@@ -56,9 +57,12 @@ const createEsBulkActionEntriesTasks = () => {
     ];
 };
 
-export const createHcmsTasks = () => [
-    createHcmsBulkActions(),
-    createEsBulkActionEntriesTasks(),
-    createEmptyTrashBinsTask(),
-    createHeadlessCmsImportExport()
-];
+export const createHcmsTasks = () => {
+    return [
+        createHcmsBulkActions(),
+        createEsBulkActionEntriesTasks(),
+        createEmptyTrashBinsTask(),
+        createHeadlessCmsImportExport(),
+        createDeleteModelTask()
+    ];
+};

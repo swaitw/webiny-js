@@ -3,7 +3,8 @@
   "include": ["src"],
   "references": [
     { "path": "../api-headless-cms-bulk-actions/tsconfig.build.json" },
-    { "path": "../api-headless-cms-import-export/tsconfig.build.json" }
+    { "path": "../api-headless-cms-import-export/tsconfig.build.json" },
+    { "path": "../api-headless-cms-tasks/tsconfig.build.json" }
   ],
   "compilerOptions": {
     "rootDir": "./src",

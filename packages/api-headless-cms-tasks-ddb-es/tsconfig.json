@@ -3,7 +3,8 @@
   "include": ["src", "__tests__"],
   "references": [
     { "path": "../api-headless-cms-bulk-actions" },
-    { "path": "../api-headless-cms-import-export" }
+    { "path": "../api-headless-cms-import-export" },
+    { "path": "../api-headless-cms-tasks" }
   ],
   "compilerOptions": {
     "rootDirs": ["./src", "./__tests__"],
@@ -15,7 +16,9 @@
       "@webiny/api-headless-cms-bulk-actions/*": ["../api-headless-cms-bulk-actions/src/*"],
       "@webiny/api-headless-cms-bulk-actions": ["../api-headless-cms-bulk-actions/src"],
       "@webiny/api-headless-cms-import-export/*": ["../api-headless-cms-import-export/src/*"],
-      "@webiny/api-headless-cms-import-export": ["../api-headless-cms-import-export/src"]
+      "@webiny/api-headless-cms-import-export": ["../api-headless-cms-import-export/src"],
+      "@webiny/api-headless-cms-tasks/*": ["../api-headless-cms-tasks/src/*"],
+      "@webiny/api-headless-cms-tasks": ["../api-headless-cms-tasks/src"]
     },
     "baseUrl": "."
   }

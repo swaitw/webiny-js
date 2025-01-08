@@ -33,6 +33,7 @@ const createSchema = zod.object({
     tags: zod.string().array(),
     description: zod.string().max(100),
     layout: zod.string().max(100).optional(),
+    pageCategory: zod.string().max(100).default("static"),
     content: zod.any(),
     ...dynamicData
 });
@@ -43,6 +44,7 @@ const updateSchema = zod.object({
     tags: zod.string().array().optional(),
     description: zod.string().max(100).optional(),
     layout: zod.string().max(100).optional(),
+    pageCategory: zod.string().max(100).optional(),
     content: zod.any(),
     ...dynamicData
 });
@@ -378,7 +380,7 @@ export const createPageTemplatesCrud = (
             if (!template) {
                 throw new NotFoundError(`Page template "${id || slug}" was not found!`);
             }
-            const page = await context.pageBuilder.createPage("static", meta);
+            const page = await context.pageBuilder.createPage(template.pageCategory, meta);
             this.copyTemplateDataToPage(template, page);
 
             await context.pageBuilder.updatePage(page.id, {
@@ -423,6 +425,7 @@ export const createPageTemplatesCrud = (
                 description: data.description,
                 tags: page.settings.general?.tags || [],
                 layout: page.settings.general?.layout || "static",
+                pageCategory: page.category,
                 content: {
                     ...page.content,
                     data: {

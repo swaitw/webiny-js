@@ -13,8 +13,8 @@
     "directory": "dist"
   },
   "dependencies": {
-    "@pulumi/aws": "^6.64.0",
-    "@pulumi/pulumi": "^3.142.0",
+    "@pulumi/aws": "^6.66.2",
+    "@pulumi/pulumi": "^3.144.1",
     "@webiny/api-aco": "0.0.0",
     "@webiny/api-apw": "0.0.0",
     "@webiny/api-apw-scheduler-so-ddb": "0.0.0",

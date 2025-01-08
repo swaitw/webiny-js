@@ -126,6 +126,7 @@ export interface ExportedTemplateData {
         | "description"
         | "content"
         | "layout"
+        | "pageCategory"
         | "dataSources"
         | "dataBindings"
     >;
@@ -156,6 +157,7 @@ export async function exportTemplate(
             description: template.description,
             content: template.content,
             layout: template.layout,
+            pageCategory: template.pageCategory,
             dataSources: template.dataSources,
             dataBindings: template.dataBindings
         },

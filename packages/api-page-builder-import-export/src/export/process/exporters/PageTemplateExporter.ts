@@ -12,6 +12,7 @@ export interface ExportedTemplateData {
         | "description"
         | "content"
         | "layout"
+        | "pageCategory"
         | "dataBindings"
         | "dataSources"
     >;
@@ -45,6 +46,7 @@ export class PageTemplateExporter {
                 description: template.description,
                 content: template.content,
                 layout: template.layout,
+                pageCategory: template.pageCategory,
                 dataBindings: template.dataBindings,
                 dataSources: template.dataSources
             },
