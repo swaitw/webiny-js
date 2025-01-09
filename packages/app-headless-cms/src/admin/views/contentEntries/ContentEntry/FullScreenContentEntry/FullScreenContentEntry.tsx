@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
-import { featureFlags } from "@webiny/feature-flags";
 import { CircularProgress } from "@webiny/ui/Progress";
 import { useContentEntry } from "~/admin/views/contentEntries/hooks";
 import { RevisionListDrawer } from "./RevisionListDrawer";
@@ -16,6 +15,7 @@ import {
 } from "./FullScreenContentEntry.styled";
 import { FullScreenContentEntryProvider } from "./useFullScreenContentEntry";
 import { ContentEntryEditorConfig } from "~/ContentEntryEditorConfig";
+import { cmsLegacyEntryEditor } from "~/utils/cmsLegacyEntryEditor";
 
 const { ContentEntry } = ContentEntryEditorConfig;
 
@@ -79,7 +79,7 @@ const FullScreenContentEntryFormHeaderDecorator =
     });
 
 export const FullScreenContentEntry = () => {
-    if (!featureFlags.allowCmsFullScreenEditor) {
+    if (cmsLegacyEntryEditor) {
         return null;
     }
 

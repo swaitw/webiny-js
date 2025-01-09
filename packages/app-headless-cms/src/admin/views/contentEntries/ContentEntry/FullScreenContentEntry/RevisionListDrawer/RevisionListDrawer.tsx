@@ -3,7 +3,7 @@ import React from "react";
 import { useHotkeys } from "react-hotkeyz";
 import { DrawerContent } from "@webiny/ui/Drawer";
 import { RevisionsList } from "~/admin/views/contentEntries/ContentEntry/RevisionsList/RevisionsList";
-import { featureFlags } from "@webiny/feature-flags";
+import { cmsLegacyEntryEditor } from "~/utils/cmsLegacyEntryEditor";
 import { useFullScreenContentEntry } from "../useFullScreenContentEntry";
 import { Header } from "./Header";
 import { Drawer } from "./RevisionListDrawer.styled";
@@ -11,7 +11,7 @@ import { Drawer } from "./RevisionListDrawer.styled";
 export const RevisionListDrawer = () => {
     const { isRevisionListOpen, openRevisionList } = useFullScreenContentEntry();
 
-    if (!featureFlags.allowCmsFullScreenEditor) {
+    if (cmsLegacyEntryEditor) {
         return null;
     }
 

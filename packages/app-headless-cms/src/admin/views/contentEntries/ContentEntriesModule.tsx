@@ -35,7 +35,7 @@ import { ShowConfirmationOnUnpublish } from "~/admin/components/Decorators/ShowC
 import { ShowConfirmationOnDeleteRevision } from "~/admin/components/Decorators/ShowConfirmationOnDeleteRevision";
 import { FullScreenContentEntry } from "~/admin/views/contentEntries/ContentEntry/FullScreenContentEntry";
 import { ShowRevisionList } from "~/admin/components/ContentEntryForm/Header/ShowRevisionsList";
-import { featureFlags } from "@webiny/feature-flags";
+import { cmsLegacyEntryEditor } from "~/utils/cmsLegacyEntryEditor";
 
 const { Browser } = ContentEntryListConfig;
 const { Actions } = ContentEntryEditorConfig;
@@ -116,12 +116,12 @@ export const ContentEntriesModule = () => {
                 <Actions.MenuItemAction name={"delete"} element={<DeleteEntryMenuItem />} />
                 {/*
                     The following Menu Action registration is needed
-                    only when the 'allowCmsFullScreenEditor' feature is enabled.
+                    only when the 'cmsLegacyEntryEditor' feature is NOT enabled.
                 */}
                 <Actions.MenuItemAction
                     name={"showRevisionsList"}
                     element={<ShowRevisionList />}
-                    remove={!featureFlags.allowCmsFullScreenEditor}
+                    remove={cmsLegacyEntryEditor}
                 />
             </ContentEntryEditorConfig>
             <FullScreenContentEntry />

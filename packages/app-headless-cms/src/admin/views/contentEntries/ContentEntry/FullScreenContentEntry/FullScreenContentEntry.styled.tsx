@@ -108,7 +108,7 @@ export const FullScreenContentEntryContentFormWrapper = styled.div`
 
 export const FullScreenContentEntryContentFormInner = styled.div`
     flex-shrink: 1;
-    flex-basis: 920px;
+    flex-basis: 1020px;
 `;
 
 export const FullScreenContentEntryContentFormInnerCss = css`
