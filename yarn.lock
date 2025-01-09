@@ -13538,6 +13538,7 @@ __metadata:
     "@webiny/api-i18n": "npm:0.0.0"
     "@webiny/api-i18n-content": "npm:0.0.0"
     "@webiny/api-log": "npm:0.0.0"
+    "@webiny/api-mailer": "npm:0.0.0"
     "@webiny/api-page-builder": "npm:0.0.0"
     "@webiny/api-page-builder-aco": "npm:0.0.0"
     "@webiny/api-page-builder-import-export": "npm:0.0.0"

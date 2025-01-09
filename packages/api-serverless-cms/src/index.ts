@@ -16,9 +16,11 @@ import {
     GraphQLSchemaPluginConfig
 } from "@webiny/handler-graphql";
 import { createSecurityRolePlugin, createSecurityTeamPlugin } from "@webiny/api-security";
+import { MailerContext } from "@webiny/api-mailer/types";
 
 export interface Context
     extends ClientContext,
+        MailerContext,
         TenancyContext,
         SecurityContext,
         I18NContext,
