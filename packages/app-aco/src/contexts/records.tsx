@@ -155,6 +155,10 @@ export const SearchRecordsProvider = ({ children }: Props) => {
                 setRecords(prev => {
                     return [record, ...prev];
                 });
+                setMeta(meta => ({
+                    ...meta,
+                    totalCount: ++meta.totalCount
+                }));
             },
             updateRecordInCache: (record: any) => {
                 const { id: recordId } = parseIdentifier(record.id);
@@ -179,6 +183,10 @@ export const SearchRecordsProvider = ({ children }: Props) => {
                         record => record.id !== id && !record.id.startsWith(`${id}#`)
                     );
                 });
+                setMeta(meta => ({
+                    ...meta,
+                    totalCount: --meta.totalCount
+                }));
             },
 
             async listRecords(params) {
@@ -279,6 +287,10 @@ export const SearchRecordsProvider = ({ children }: Props) => {
                     setRecords(prev => {
                         return prev.filter(record => record.id !== recordId);
                     });
+                    setMeta(meta => ({
+                        ...meta,
+                        totalCount: --meta.totalCount
+                    }));
                     return data;
                 }
                 setRecords(prev => {
@@ -292,6 +304,11 @@ export const SearchRecordsProvider = ({ children }: Props) => {
                     next[index] = data;
                     return next;
                 });
+
+                setMeta(meta => ({
+                    ...meta,
+                    totalCount: ++meta.totalCount
+                }));
 
                 setTags(tags => {
                     if (!data.tags || data.tags.length === 0) {

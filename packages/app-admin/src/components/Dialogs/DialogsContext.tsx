@@ -4,6 +4,7 @@ import { useSnackbar } from "~/hooks";
 import { Dialog } from "./Dialog";
 import { CustomDialog } from "./CustomDialog";
 import { createProvider } from "@webiny/app";
+import { generateId } from "@webiny/utils";
 
 interface ShowDialogParams {
     title: ReactNode;
@@ -30,86 +31,80 @@ interface DialogsProviderProps {
     children: ReactNode;
 }
 
-interface State {
+interface DialogState extends ShowDialogParams {
+    id: string;
     open: boolean;
     loading: boolean;
-    title: ReactNode;
-    content: ReactNode;
-    acceptLabel: ReactNode;
-    cancelLabel: ReactNode;
-    loadingLabel: ReactNode;
     element?: JSX.Element;
-    onAccept?: (data: GenericFormData) => void;
-    onClose?: () => void;
 }
 
-export const initializeState = (): State => ({
-    title: `Confirmation`,
-    content: undefined,
-    acceptLabel: `Confirm`,
-    cancelLabel: `Cancel`,
-    loadingLabel: `Loading`,
-    onAccept: undefined,
-    onClose: undefined,
-    open: false,
-    loading: false
+export const initializeState = (params: Partial<DialogState> = {}): DialogState => ({
+    id: `dialog-${generateId()}`,
+    title: params.title ?? `Confirmation`,
+    content: params.content,
+    acceptLabel: params.acceptLabel ?? `Confirm`,
+    cancelLabel: params.cancelLabel ?? `Cancel`,
+    loadingLabel: params.loadingLabel ?? `Loading`,
+    onAccept: params.onAccept,
+    onClose: params.onClose,
+    open: params.open ?? false,
+    loading: params.loading ?? false,
+    element: params.element
 });
 
 export const DialogsContext = React.createContext<DialogsContext | undefined>(undefined);
 
 export const DialogsProvider = ({ children }: DialogsProviderProps) => {
     const { showSnackbar } = useSnackbar();
+    const [dialogs, setDialogs] = useState<Map<string, DialogState>>(new Map());
 
-    const [state, setState] = useState(initializeState());
-
-    const showDialog = (params: ShowDialogParams | JSX.Element) => {
-        setState(state => ({
-            ...state,
-            ...params,
-            open: true
-        }));
+    const showDialog = (params: ShowDialogParams) => {
+        const newDialog = initializeState({ ...params, open: true });
+        setDialogs(dialogs => new Map(dialogs).set(newDialog.id, newDialog));
     };
 
     const showCustomDialog = ({ onSubmit, element }: ShowCustomDialogParams) => {
-        setState(state => ({
-            ...state,
+        const newDialog = initializeState({
             element,
             onAccept: onSubmit,
             open: true
-        }));
+        });
+        setDialogs(dialogs => new Map(dialogs).set(newDialog.id, newDialog));
     };
 
-    const closeDialog = () => {
-        if (typeof state.onClose === "function") {
-            state.onClose();
+    const closeDialog = (id: string) => {
+        setDialogs(dialogs => {
+            const newDialogs = new Map(dialogs);
+            newDialogs.delete(id);
+            return newDialogs;
+        });
+    };
+
+    const onSubmit = async (id: string, data: GenericFormData) => {
+        const dialog = dialogs.get(id);
+        if (!dialog) {
+            return;
         }
 
-        setState(state => ({
-            ...state,
-            open: false,
-            element: undefined,
-            content: null
-        }));
-    };
-
-    const onSubmit = async (data: GenericFormData) => {
         try {
-            if (typeof state.onAccept === "function") {
-                setState(state => ({
-                    ...state,
-                    loading: true
-                }));
+            if (typeof dialog.onAccept === "function") {
+                setDialogs(dialogs => {
+                    const newDialogs = new Map(dialogs);
+                    newDialogs.set(id, { ...dialog, loading: true });
+                    return newDialogs;
+                });
 
-                await state.onAccept(data);
+                await dialog.onAccept(data);
             }
         } catch (error) {
             showSnackbar(error.message);
         } finally {
-            setState(state => ({
-                ...state,
-                loading: false
-            }));
-            closeDialog();
+            setDialogs(dialogs => {
+                const newDialogs = new Map(dialogs);
+                newDialogs.set(id, { ...dialog, loading: false });
+                return newDialogs;
+            });
+            closeDialog(id);
         }
     };
 
@@ -122,38 +117,35 @@ export const DialogsProvider = ({ children }: DialogsProviderProps) => {
     return (
         <DialogsContext.Provider value={context}>
             {children}
-            <>
-                {state.element ? (
+            {Array.from(dialogs.values()).map(dialog =>
+                dialog.element ? (
                     <CustomDialog
-                        open={state.open}
-                        loading={state.loading}
-                        closeDialog={closeDialog}
-                        onSubmit={onSubmit}
+                        key={dialog.id}
+                        open={dialog.open}
+                        loading={dialog.loading}
+                        closeDialog={() => closeDialog(dialog.id)}
+                        onSubmit={data => onSubmit(dialog.id, data)}
                     >
-                        {state.element}
+                        {dialog.element}
                     </CustomDialog>
-                ) : null}
-                {!state.element ? (
+                ) : (
                     <Dialog
-                        title={state.title}
-                        content={state.content}
-                        open={state.open}
-                        acceptLabel={state.acceptLabel}
-                        cancelLabel={state.cancelLabel}
-                        loadingLabel={state.loadingLabel}
-                        loading={state.loading}
-                        closeDialog={closeDialog}
-                        onSubmit={onSubmit}
+                        key={dialog.id}
+                        title={dialog.title}
+                        content={dialog.content}
+                        open={dialog.open}
+                        acceptLabel={dialog.acceptLabel}
+                        cancelLabel={dialog.cancelLabel}
+                        loadingLabel={dialog.loadingLabel}
+                        loading={dialog.loading}
+                        closeDialog={() => closeDialog(dialog.id)}
+                        onSubmit={data => onSubmit(dialog.id, data)}
                     />
-                ) : null}
-            </>
+                )
+            )}
         </DialogsContext.Provider>
     );
 };
-
-interface DialogsProviderProps {
-    children: React.ReactNode;
-}
 
 export const createDialogsProvider = () => {
     return createProvider(Component => {

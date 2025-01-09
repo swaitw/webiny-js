@@ -38,11 +38,17 @@ interface UseListFilesParams {
     state: State;
 }
 
+const defaultMeta: ListMeta = {
+    totalCount: 0,
+    hasMoreItems: false,
+    cursor: null
+};
+
 export function useListFiles({ modifiers, folderId, state }: UseListFilesParams) {
     const { identity } = useSecurity();
     const fileManager = useFileManagerApi();
     const { getDescendantFolders } = useFolders();
-    const [meta, setMeta] = useStateIfMounted<ListMeta | undefined>(undefined);
+    const [meta, setMeta] = useStateIfMounted<ListMeta>(defaultMeta);
     const [files, setFiles] = useStateIfMounted<FileItem[]>([]);
     const [loading, setLoading] = useStateIfMounted<Loading<LoadingActions>>({});
     const [lastSort, setLastSort] = useStateIfMounted<ListFilesSort | undefined>(undefined);
@@ -155,6 +161,7 @@ export function useListFiles({ modifiers, folderId, state }: UseListFilesParams)
         loading,
         meta,
         setFiles,
+        setMeta,
         listFiles,
         getListVariables
     };

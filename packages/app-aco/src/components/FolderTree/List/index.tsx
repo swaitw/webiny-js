@@ -56,6 +56,8 @@ export const List = ({
         newTree: NodeModel<DndFolderItemData>[],
         { dragSourceId, dropTargetId }: DropOptions
     ) => {
+        // Store the current state of the tree before the drop action
+        const oldTree = [...treeData];
         try {
             const item = folders.find(folder => folder.id === dragSourceId);
 
@@ -73,6 +75,8 @@ export const List = ({
                 { refetchFoldersList: true }
             );
         } catch (error) {
+            // If an error occurred, revert the tree back to its previous state
+            setTreeData(oldTree);
             return showSnackbar(error.message);
         }
     };

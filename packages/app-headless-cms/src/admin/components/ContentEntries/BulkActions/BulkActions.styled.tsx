@@ -9,7 +9,7 @@ export const BulkActionsContainer = styled.div`
     position: absolute;
     top: 0;
     left: 0;
-    z-index: 4;
+    z-index: 3;
 `;
 
 export const BulkActionsInner = styled.div`
