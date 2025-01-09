@@ -96,6 +96,12 @@ const MenusForm = ({ canCreate }: MenusFormProps) => {
         async (formData: PbMenu) => {
             const isUpdate = loadedMenu.slug;
             const data = pick(formData, ["slug", "title", "description", "items"]);
+
+            // We need to ensure `description` is always a string. Otherwise, backend validation will fail.
+            if (!data.description) {
+                data.description = "";
+            }
+
             const [operation, args] = isUpdate
                 ? [update, { variables: { slug: data.slug, data } }]
                 : [create, { variables: { data: data } }];
