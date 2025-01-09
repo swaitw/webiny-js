@@ -16,6 +16,7 @@
   "dependencies": {
     "@babel/runtime": "^7.26.0",
     "@webiny/cli": "0.0.0",
+    "chalk": "^4.1.2",
     "get-yarn-workspaces": "^1.0.2",
     "glob": "^7.2.3",
     "load-json-file": "^6.2.0",

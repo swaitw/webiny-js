@@ -82,9 +82,10 @@ export class DependencyTree implements IDependencyTree {
                 const semverVersion =
                     semver.validRange(version) || version === "beta" ? version : null;
                 if (!semverVersion) {
-                    console.log(
-                        `${version} is not a valid SemVer value in ${file}, package ${name}.`
-                    );
+                    process.env.DEBUG === "true" &&
+                        console.debug(
+                            `${version} is not a valid SemVer value in ${file}, package ${name}.`
+                        );
                     continue;
                 }
                 version = version

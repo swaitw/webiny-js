@@ -2,6 +2,7 @@ import { IDependencyTree } from "~/types";
 import loadJsonFile from "load-json-file";
 import { getDuplicatesFilePath, getReferencesFilePath } from "~/references/files";
 import fs from "fs";
+import { green } from "chalk";
 
 export interface IVerifyDependenciesParams {
     tree: IDependencyTree;
@@ -26,6 +27,8 @@ export const verifyDependencies = (params: IVerifyDependenciesParams): void => {
         references: tree.references
     };
 
+    console.log("Checking references file...");
+
     if (fs.existsSync(referencesFile)) {
         const json = loadJsonFile.sync(referencesFile);
         if (JSON.stringify(references) !== JSON.stringify(json)) {
@@ -38,6 +41,8 @@ export const verifyDependencies = (params: IVerifyDependenciesParams): void => {
             "References file does not exist. Please run `yarn webiny sync-dependencies` command."
         );
     }
+
+    console.log("Checking duplicates file...");
 
     if (fs.existsSync(duplicatesFile)) {
         const json = loadJsonFile.sync(duplicatesFile);
@@ -52,5 +57,5 @@ export const verifyDependencies = (params: IVerifyDependenciesParams): void => {
         );
     }
 
-    console.log("All package reference files are in sync.");
+    console.log(green("✅  All package reference files are in sync."));
 };
