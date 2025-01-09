@@ -11,3 +11,4 @@ packages/cli-plugin-deploy-pulumi/commands/newWatch/handler/mqtt.js
 lerna.json
 coverage/**
 packages/cli/files/**/*.json
+packages/create-webiny-project/utils/binaries/**

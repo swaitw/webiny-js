@@ -6,3 +6,4 @@
 **/*.d.ts
 idea.js
 scripts/**/*.js
+packages/create-webiny-project/utils/binaries/**
