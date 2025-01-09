@@ -1,11 +1,11 @@
 import { AbstractExtension } from "./AbstractExtension";
 import path from "path";
 import { EXTENSIONS_ROOT_FOLDER } from "~/utils/constants";
-import chalk from "chalk";
 import { JsxFragment, Node, Project } from "ts-morph";
 import { formatCode } from "@webiny/cli-plugin-scaffold/utils";
 import { updateDependencies, updateWorkspaces } from "~/utils";
 import Case from "case";
+import { ExtensionMessage } from "~/types";
 
 export class AdminExtension extends AbstractExtension {
     async link() {
@@ -20,7 +20,7 @@ export class AdminExtension extends AbstractExtension {
         await updateWorkspaces(this.params.location);
     }
 
-    getNextSteps(): string[] {
+    getNextSteps(): ExtensionMessage[] {
         let { location: extensionsFolderPath } = this.params;
         if (!extensionsFolderPath) {
             extensionsFolderPath = `${EXTENSIONS_ROOT_FOLDER}/${this.params.name}`;
@@ -30,11 +30,12 @@ export class AdminExtension extends AbstractExtension {
         const indexTsxFilePath = `${extensionsFolderPath}/src/index.tsx`;
 
         return [
-            `run ${chalk.green(watchCommand)} to start local development`,
-            `open ${chalk.green(indexTsxFilePath)} and start coding`,
-            `to install additional dependencies, run ${chalk.green(
-                `yarn workspace ${this.params.packageName} add <package-name>`
-            )}`
+            { text: `run %s to start local development`, variables: [watchCommand] },
+            { text: `open %s and start coding`, variables: [indexTsxFilePath] },
+            {
+                text: `to install additional dependencies, run %s`,
+                variables: [`yarn workspace ${this.params.packageName} add <package-name>`]
+            }
         ];
     }
 

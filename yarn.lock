@@ -13521,7 +13521,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@webiny/api-serverless-cms@workspace:packages/api-serverless-cms":
+"@webiny/api-serverless-cms@npm:0.0.0, @webiny/api-serverless-cms@workspace:packages/api-serverless-cms":
   version: 0.0.0-use.local
   resolution: "@webiny/api-serverless-cms@workspace:packages/api-serverless-cms"
   dependencies:
@@ -17222,7 +17222,6 @@ __metadata:
     "@webiny/api-headless-cms-ddb": "npm:0.0.0"
     "@webiny/api-headless-cms-tasks": "npm:0.0.0"
     "@webiny/api-i18n": "npm:0.0.0"
-    "@webiny/api-i18n-content": "npm:0.0.0"
     "@webiny/api-i18n-ddb": "npm:0.0.0"
     "@webiny/api-log": "npm:0.0.0"
     "@webiny/api-page-builder": "npm:0.0.0"
@@ -17230,12 +17229,12 @@ __metadata:
     "@webiny/api-page-builder-import-export": "npm:0.0.0"
     "@webiny/api-page-builder-import-export-so-ddb": "npm:0.0.0"
     "@webiny/api-page-builder-so-ddb": "npm:0.0.0"
-    "@webiny/api-prerendering-service": "npm:0.0.0"
     "@webiny/api-prerendering-service-aws": "npm:0.0.0"
     "@webiny/api-record-locking": "npm:0.0.0"
     "@webiny/api-security": "npm:0.0.0"
     "@webiny/api-security-cognito": "npm:0.0.0"
     "@webiny/api-security-so-ddb": "npm:0.0.0"
+    "@webiny/api-serverless-cms": "npm:0.0.0"
     "@webiny/api-tenancy": "npm:0.0.0"
     "@webiny/api-tenancy-so-ddb": "npm:0.0.0"
     "@webiny/api-tenant-manager": "npm:0.0.0"

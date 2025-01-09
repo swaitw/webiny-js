@@ -11,7 +11,7 @@ import anonymousAuthorization from "@webiny/api-security/plugins/anonymousAuthor
 import tenantLinkAuthorization from "@webiny/api-security/plugins/tenantLinkAuthorization";
 import createAdminUsersApp from "@webiny/api-admin-users";
 import { createStorageOperations as createAdminUsersStorageOperations } from "@webiny/api-admin-users-so-ddb";
-import { Context } from "./types";
+import { Context } from "@webiny/api-serverless-cms";
 
 export default ({ documentClient }: { documentClient: DynamoDBDocument }) => [
     /**

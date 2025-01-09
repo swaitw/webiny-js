@@ -54,9 +54,6 @@
       "path": "../../../packages/api-i18n/tsconfig.build.json"
     },
     {
-      "path": "../../../packages/api-i18n-content/tsconfig.build.json"
-    },
-    {
       "path": "../../../packages/api-i18n-ddb/tsconfig.build.json"
     },
     {
@@ -75,7 +72,7 @@
       "path": "../../../packages/api-page-builder-so-ddb/tsconfig.build.json"
     },
     {
-      "path": "../../../packages/api-prerendering-service/tsconfig.build.json"
+      "path": "../../../packages/api-prerendering-service-aws/tsconfig.build.json"
     },
     {
       "path": "../../../packages/api-security/tsconfig.build.json"
@@ -85,6 +82,9 @@
     },
     {
       "path": "../../../packages/api-security-so-ddb/tsconfig.build.json"
+    },
+    {
+      "path": "../../../packages/api-serverless-cms/tsconfig.build.json"
     },
     {
       "path": "../../../packages/api-tenancy/tsconfig.build.json"
@@ -165,8 +165,6 @@
       "@webiny/api-record-locking": ["../../../packages/api-record-locking/src"],
       "@webiny/api-i18n/*": ["../../../packages/api-i18n/src/*"],
       "@webiny/api-i18n": ["../../../packages/api-i18n/src"],
-      "@webiny/api-i18n-content/*": ["../../../packages/api-i18n-content/src/*"],
-      "@webiny/api-i18n-content": ["../../../packages/api-i18n-content/src"],
       "@webiny/api-i18n-ddb/*": ["../../../packages/api-i18n-ddb/src/*"],
       "@webiny/api-i18n-ddb": ["../../../packages/api-i18n-ddb/src"],
       "@webiny/api-page-builder/*": ["../../../packages/api-page-builder/src/*"],
@@ -187,14 +185,19 @@
       ],
       "@webiny/api-page-builder-so-ddb/*": ["../../../packages/api-page-builder-so-ddb/src/*"],
       "@webiny/api-page-builder-so-ddb": ["../../../packages/api-page-builder-so-ddb/src"],
-      "@webiny/api-prerendering-service/*": ["../../../packages/api-prerendering-service/src/*"],
-      "@webiny/api-prerendering-service": ["../../../packages/api-prerendering-service/src"],
+      "@webiny/api-prerendering-service-aws/*": [
+        "../../../packages/api-prerendering-service-aws/src/*"
+      ],
+      "@webiny/api-prerendering-service-aws": [
+        "../../../packages/api-prerendering-service-aws/src"
+      ],
       "@webiny/api-security/*": ["../../../packages/api-security/src/*"],
       "@webiny/api-security": ["../../../packages/api-security/src"],
       "@webiny/api-security-cognito/*": ["../../../packages/api-security-cognito/src/*"],
       "@webiny/api-security-cognito": ["../../../packages/api-security-cognito/src"],
       "@webiny/api-security-so-ddb/*": ["../../../packages/api-security-so-ddb/src/*"],
       "@webiny/api-security-so-ddb": ["../../../packages/api-security-so-ddb/src"],
+      "@webiny/api-serverless-cms": ["../../../packages/api-serverless-cms/src"],
       "@webiny/api-tenancy/*": ["../../../packages/api-tenancy/src/*"],
       "@webiny/api-tenancy": ["../../../packages/api-tenancy/src"],
       "@webiny/api-tenancy-so-ddb/*": ["../../../packages/api-tenancy-so-ddb/src/*"],

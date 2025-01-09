@@ -16,3 +16,19 @@ export type ExtensionsCommandParams =
     | ExtensionCommandDownloadFromParams
     | ExtensionCommandGenerateParams
     | ExtensionCommandNoParams;
+
+export interface ExtensionMessage {
+    text: string;
+    variables?: string[];
+}
+
+export type ExtensionJson = Partial<{
+    nextSteps: {
+        clearExisting: boolean;
+        messages: ExtensionMessage[];
+    };
+    additionalNotes: {
+        clearExisting?: boolean;
+        messages: ExtensionMessage[];
+    };
+}>;

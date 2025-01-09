@@ -7,6 +7,7 @@ import loadJson from "load-json-file";
 import { PackageJson } from "@webiny/cli-plugin-scaffold/types";
 import path from "path";
 import { WebsiteExtension } from "~/extensions/WebsiteExtension";
+import { ExtensionMessage } from "~/types";
 
 type PackageJsonPath = string;
 
@@ -47,7 +48,7 @@ export class Extension extends AbstractExtension {
         await this.extension.link();
     }
 
-    getNextSteps(): string[] {
+    getNextSteps(): ExtensionMessage[] {
         return this.extension.getNextSteps();
     }
 

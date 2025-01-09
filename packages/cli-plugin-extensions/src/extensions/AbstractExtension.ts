@@ -1,3 +1,5 @@
+import { ExtensionMessage } from "~/types";
+
 export interface ExtensionTypeConstructorParams {
     name: string;
     type: string;
@@ -14,7 +16,7 @@ export abstract class AbstractExtension {
 
     abstract link(): Promise<void>;
 
-    abstract getNextSteps(): string[];
+    abstract getNextSteps(): ExtensionMessage[];
 
     getPackageJsonPath(): string {
         return `${this.params.location}/package.json`;
