@@ -1,10 +1,5 @@
-const execa = require("execa");
+const { SystemRequirements } = require("@webiny/system-requirements");
 
 module.exports.getYarnVersion = async () => {
-    try {
-        const { stdout } = await execa("yarn", ["--version"]);
-        return stdout;
-    } catch (err) {
-        return "";
-    }
+    return SystemRequirements.getYarnVersion();
 };

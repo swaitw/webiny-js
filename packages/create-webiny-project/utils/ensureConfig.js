@@ -5,12 +5,12 @@ const writeJson = require("write-json-file");
 
 const configPath = path.join(os.homedir(), ".webiny", "config");
 
-module.exports = async () => {
+const ensureConfig = () => {
     // Check user ID
     try {
-        const config = await readJson(configPath);
+        const config = readJson.sync(configPath);
         if (!config.id) {
-            throw Error("Invalid Webiny config!");
+            throw Error("Invalid Webiny config.");
         }
     } catch (e) {
         const { v4: uuidv4 } = require("uuid");
@@ -18,3 +18,5 @@ module.exports = async () => {
         writeJson.sync(configPath, { id: uuidv4(), telemetry: true });
     }
 };
+
+module.exports = { ensureConfig };

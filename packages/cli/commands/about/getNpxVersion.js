@@ -1,10 +1,5 @@
-const execa = require("execa");
+const { SystemRequirements } = require("@webiny/system-requirements");
 
 module.exports.getNpxVersion = async () => {
-    try {
-        const { stdout } = await execa("npx", ["--version"]);
-        return stdout;
-    } catch (err) {
-        return "";
-    }
+    return SystemRequirements.getNpxVersion();
 };

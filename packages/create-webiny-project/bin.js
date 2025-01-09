@@ -1,87 +1,107 @@
 #!/usr/bin/env node
-"use strict";
 
-const semver = require("semver");
-const chalk = require("chalk");
-const getYarnVersion = require("./utils/getYarnVersion");
-const getNpmVersion = require("./utils/getNpmVersion");
-const verifyConfig = require("./utils/verifyConfig");
+// Ensure system requirements are met.
+require("@webiny/system-requirements").ensureSystemRequirements();
 
-(async () => {
-    const minNpmVersion = "10";
-    const minYarnVersion = "1.22.21";
-    /**
-     * Node
-     */
-    const nodeVersion = process.versions.node;
-    if (!semver.satisfies(nodeVersion, `>=20`)) {
-        console.error(
-            chalk.red(
-                [
-                    `You are running Node.js ${nodeVersion}, but Webiny requires version >=20.`,
-                    `Please switch to one of the required versions and try again.`,
-                    "For more information, please visit https://www.webiny.com/docs/get-started/install-webiny#prerequisites."
-                ].join(" ")
-            )
-        );
-        process.exit(1);
-    }
-    /**
-     * npm
-     */
-    try {
-        const npmVersion = await getNpmVersion();
-        if (!semver.satisfies(npmVersion, `>=${minNpmVersion}`)) {
-            console.error(
-                chalk.red(
-                    [
-                        `Webiny requires npm@^${minNpmVersion} or higher.`,
-                        `Please run ${chalk.green(
-                            "npm install npm@latest -g"
-                        )}, to get the latest version.`
-                    ].join("\n")
-                )
-            );
-            process.exit(1);
+// Verify `.webiny` config file and continue.
+require("./utils/ensureConfig").ensureConfig();
+
+const yargs = require("yargs");
+const packageJson = require("./package.json");
+const createProject = require("./utils/createProject");
+
+process.on("unhandledRejection", err => {
+    throw err;
+});
+
+yargs
+    .usage("Usage: create-webiny-project <project-name> [options]")
+    .version(packageJson.version)
+    .demandCommand(1)
+    .help()
+    .alias("help", "h")
+    .scriptName("create-webiny-project")
+    .fail(function (msg, err) {
+        if (msg) {
+            console.log(msg);
         }
-    } catch (err) {
-        console.error(chalk.red(`Webiny depends on "npm".`));
-
-        console.log(
-            `Please visit https://docs.npmjs.com/try-the-latest-stable-version-of-npm to install ${chalk.green(
-                "npm"
-            )}.`
-        );
-
-        process.exit(1);
-    }
-
-    /**
-     * yarn
-     */
-    try {
-        const yarnVersion = await getYarnVersion();
-        if (!semver.satisfies(yarnVersion, `>=${minYarnVersion}`)) {
-            console.error(
-                chalk.red(
-                    [
-                        `Webiny requires yarn@^${minYarnVersion} or higher.`,
-                        `Please visit https://yarnpkg.com/ to install ${chalk.green("yarn")}.`
-                    ].join("\n")
-                )
-            );
-            process.exit(1);
+        if (err) {
+            console.log(err);
         }
-    } catch (err) {
-        console.error(
-            chalk.red(`Webiny depends on "yarn" and its built-in support for workspaces.`)
-        );
-
-        console.log(`Please visit https://yarnpkg.com/ to install ${chalk.green("yarn")}.`);
-
         process.exit(1);
-    }
+    });
 
-    await verifyConfig();
-    require("./index");
-})();
+// noinspection BadExpressionStatementJS
+yargs.command(
+    "$0 <project-name> [options]",
+    "Name of application and template to use",
+    yargs => {
+        yargs.positional("project-name", {
+            describe: "Project name"
+        });
+        yargs.option("force", {
+            describe: "All project creation within an existing folder",
+            default: false,
+            type: "boolean",
+            demandOption: false
+        });
+        yargs.option("template", {
+            describe: `Name of template to use, if no template is provided it will default to "aws" template`,
+            alias: "t",
+            type: "string",
+            default: "aws",
+            demandOption: false
+        });
+        yargs.option("template-options", {
+            describe: `A JSON containing template-specific options (usually used in non-interactive environments)`,
+            default: null,
+            type: "string",
+            demandOption: false
+        });
+        yargs.option("assign-to-yarnrc", {
+            describe: `A JSON containing additional options that will be assigned into the "yarnrc.yml" configuration file`,
+            default: null,
+            type: "string",
+            demandOption: false
+        });
+        yargs.option("tag", {
+            describe: "NPM tag to use for @webiny packages",
+            type: "string",
+            default: "latest",
+            demandOption: false
+        });
+        yargs.option("interactive", {
+            describe: "Enable interactive mode for all commands",
+            default: true,
+            type: "boolean",
+            demandOption: false
+        });
+        yargs.option("log", {
+            describe:
+                "Creates a log file to see output of installation. Defaults to create-webiny-project-logs.txt in current directory",
+            alias: "l",
+            default: "create-webiny-project-logs.txt",
+            type: "string",
+            demandOption: false
+        });
+        yargs.option("debug", {
+            describe: "Turn on debug logs",
+            default: false,
+            type: "boolean",
+            demandOption: false
+        });
+        yargs.option("cleanup", {
+            describe: "If an error occurs upon project creation, deletes all generated files",
+            alias: "c",
+            default: true,
+            type: "boolean",
+            demandOption: false
+        });
+
+        yargs.example("$0 <project-name>");
+        yargs.example("$0 <project-name> --template=aws");
+        yargs.example("$0 <project-name> --template=../path/to/template");
+        yargs.example("$0 <project-name> --log=./my-logs.txt");
+    },
+    argv => createProject(argv)
+).argv;

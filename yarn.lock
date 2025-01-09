@@ -15423,6 +15423,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@webiny/cli@workspace:packages/cli"
   dependencies:
+    "@webiny/system-requirements": "npm:0.0.0"
     "@webiny/telemetry": "npm:0.0.0"
     "@webiny/wcp": "npm:0.0.0"
     boolean: "npm:^3.2.0"
@@ -16251,6 +16252,19 @@ __metadata:
     ttypescript: "npm:^1.5.15"
     typescript: "npm:4.9.5"
     webpack: "npm:^5.97.0"
+  languageName: unknown
+  linkType: soft
+
+"@webiny/system-requirements@npm:0.0.0, @webiny/system-requirements@workspace:packages/system-requirements":
+  version: 0.0.0-use.local
+  resolution: "@webiny/system-requirements@workspace:packages/system-requirements"
+  dependencies:
+    chalk: "npm:^4.1.2"
+    cli-table3: "npm:^0.6.5"
+    execa: "npm:^5.0.0"
+    semver: "npm:^7.3.5"
+  bin:
+    webiny: ./bin.js
   languageName: unknown
   linkType: soft
 
@@ -19576,6 +19590,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"cli-table3@npm:^0.6.5":
+  version: 0.6.5
+  resolution: "cli-table3@npm:0.6.5"
+  dependencies:
+    "@colors/colors": "npm:1.5.0"
+    string-width: "npm:^4.2.0"
+  dependenciesMeta:
+    "@colors/colors":
+      optional: true
+  checksum: 10/8dca71256f6f1367bab84c33add3f957367c7c43750a9828a4212ebd31b8df76bd7419d386e3391ac7419698a8540c25f1a474584028f35b170841cde2e055c5
+  languageName: node
+  linkType: hard
+
 "cli-table3@npm:~0.6.1":
   version: 0.6.3
   resolution: "cli-table3@npm:0.6.3"
@@ -20559,6 +20586,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "create-webiny-project@workspace:packages/create-webiny-project"
   dependencies:
+    "@webiny/system-requirements": "npm:0.0.0"
     "@webiny/telemetry": "npm:0.0.0"
     chalk: "npm:^4.1.2"
     execa: "npm:^5.1.1"

@@ -1,10 +1,5 @@
-const execa = require("execa");
+const { SystemRequirements } = require("@webiny/system-requirements");
 
 module.exports.getNpmVersion = async () => {
-    try {
-        const { stdout } = await execa("npm", ["--version"]);
-        return stdout;
-    } catch (err) {
-        return "";
-    }
+    return SystemRequirements.getNpmVersion();
 };
