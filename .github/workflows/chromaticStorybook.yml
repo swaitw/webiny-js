@@ -1,4 +1,4 @@
-name: 'Chromatic - Storybook Preview'
+name: "Chromatic - Storybook Preview"
 
 # The events that will trigger the action
 on:

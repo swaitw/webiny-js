@@ -319,14 +319,28 @@ const createPushWorkflow = (branchName: string) => {
                             { name: "Check code formatting", run: "yarn prettier:check" },
                             { name: "Check dependencies", run: "yarn adio" },
                             { name: "Check TS configs", run: "yarn check-ts-configs" },
-                            { name: "ESLint", run: "yarn eslint" },
-                            {
-                                name: "Sync Dependencies Verification",
-                                run: "yarn webiny verify-dependencies"
-                            }
+                            { name: "ESLint", run: "yarn eslint" }
                         ],
                         { "working-directory": DIR_WEBINY_JS }
                     )
+                ]
+            }),
+            // We couldn't add the `verify-dependencies` script to the `staticCodeAnalysis` job
+            // because it requires the `build` job to run first. To not slow down the `staticCodeAnalysis`
+            // and not to run the `build` job twice, we've created a separate job for this.
+            staticCodeAnalysisVerifyDependencies: createJob({
+                needs: ["constants", "build"],
+                name: "Static code analysis (verify dependencies)",
+                checkout: { path: DIR_WEBINY_JS },
+                steps: [
+                    ...yarnCacheSteps,
+                    ...runBuildCacheSteps,
+                    ...installBuildSteps,
+                    {
+                        name: "Sync Dependencies Verification",
+                        run: "yarn webiny verify-dependencies",
+                        "working-directory": DIR_WEBINY_JS
+                    }
                 ]
             }),
             staticCodeAnalysisTs: createJob({

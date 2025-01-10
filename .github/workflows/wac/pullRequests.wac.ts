@@ -280,6 +280,25 @@ export const pullRequests = createWorkflow({
                 )
             ]
         }),
+
+        // We couldn't add the `verify-dependencies` script to the `staticCodeAnalysis` job
+        // because it requires the `build` job to run first. To not slow down the `staticCodeAnalysis`
+        // and not to run the `build` job twice, we've created a separate job for this.
+        staticCodeAnalysisVerifyDependencies: createJob({
+            needs: ["constants", "build"],
+            name: "Static code analysis (verify dependencies)",
+            checkout: { path: DIR_WEBINY_JS },
+            steps: [
+                ...yarnCacheSteps,
+                ...runBuildCacheSteps,
+                ...installBuildSteps,
+                {
+                    name: "Sync Dependencies Verification",
+                    run: "yarn webiny verify-dependencies",
+                    "working-directory": DIR_WEBINY_JS
+                }
+            ]
+        }),
         staticCodeAnalysisTs: createJob({
             name: "Static code analysis (TypeScript)",
             "runs-on": BUILD_PACKAGES_RUNNER,

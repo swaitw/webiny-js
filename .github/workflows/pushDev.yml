@@ -3,7 +3,7 @@
 # and run "github-actions-wac build" (or "ghawac build") to regenerate this file.
 # For more information, run "github-actions-wac --help".
 name: Dev Branch - Push
-'on':
+"on":
   push:
     branches:
       - dev
@@ -30,7 +30,7 @@ jobs:
           vars.RANDOM_CACHE_KEY_SUFFIX }}" >> $GITHUB_OUTPUT
     runs-on: ubuntu-latest
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
   build:
     name: Build
@@ -62,7 +62,7 @@ jobs:
           path: dev/.webiny/cached-packages
           key: ${{ needs.constants.outputs.run-cache-key }}
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
   codeAnalysis:
     name: Static code analysis
@@ -99,12 +99,42 @@ jobs:
       - name: ESLint
         run: yarn eslint
         working-directory: dev
+    runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: "--max_old_space_size=4096"
+      YARN_ENABLE_IMMUTABLE_INSTALLS: false
+  staticCodeAnalysisVerifyDependencies:
+    needs:
+      - constants
+      - build
+    name: Static code analysis (verify dependencies)
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/checkout@v4
+        with:
+          path: dev
+      - uses: actions/cache@v4
+        with:
+          path: dev/.yarn/cache
+          key: yarn-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
+      - uses: actions/cache@v4
+        with:
+          path: dev/.webiny/cached-packages
+          key: ${{ needs.constants.outputs.run-cache-key }}
+      - name: Install dependencies
+        run: yarn --immutable
+        working-directory: dev
+      - name: Build packages
+        run: yarn build:quick
+        working-directory: dev
       - name: Sync Dependencies Verification
         run: yarn webiny verify-dependencies
         working-directory: dev
     runs-on: ubuntu-latest
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
   staticCodeAnalysisTs:
     name: Static code analysis (TypeScript)
@@ -130,7 +160,7 @@ jobs:
         run: yarn cy:ts
         working-directory: dev
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
   jestTestsNoStorage:
     needs:
@@ -150,7 +180,7 @@ jobs:
           }}
     runs-on: ${{ matrix.os }}
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
       AWS_REGION: eu-central-1
     steps:
@@ -238,7 +268,7 @@ jobs:
           }}
     runs-on: ${{ matrix.os }}
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
       AWS_REGION: eu-central-1
     steps:
@@ -325,7 +355,7 @@ jobs:
           }}
     runs-on: ${{ matrix.os }}
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
       AWS_REGION: eu-central-1
       AWS_ELASTIC_SEARCH_DOMAIN_NAME: ${{ secrets.AWS_ELASTIC_SEARCH_DOMAIN_NAME }}
@@ -422,7 +452,7 @@ jobs:
           }}
     runs-on: ${{ matrix.os }}
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
       AWS_REGION: eu-central-1
       AWS_ELASTIC_SEARCH_DOMAIN_NAME: ${{ secrets.AWS_OPEN_SEARCH_DOMAIN_NAME }}
@@ -483,7 +513,7 @@ jobs:
           github.run_id }}_ddb" >> $GITHUB_OUTPUT
     runs-on: ubuntu-latest
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
   e2eTestsDdb-setup:
     needs:
@@ -495,8 +525,8 @@ jobs:
       cypress-config: ${{ steps.save-cypress-config.outputs.cypress-config }}
     environment: next
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
-      YARN_ENABLE_IMMUTABLE_INSTALLS: 'false'
+      NODE_OPTIONS: "--max_old_space_size=4096"
+      YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
       CYPRESS_MAILOSAUR_API_KEY: ${{ secrets.CYPRESS_MAILOSAUR_API_KEY }}
       PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
       PULUMI_SECRETS_PROVIDER: ${{ secrets.PULUMI_SECRETS_PROVIDER }}
@@ -632,8 +662,8 @@ jobs:
         cypress-folder: ${{ fromJson(needs.e2eTestsDdb-constants.outputs.cypress-folders) }}
     environment: next
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
-      YARN_ENABLE_IMMUTABLE_INSTALLS: 'false'
+      NODE_OPTIONS: "--max_old_space_size=4096"
+      YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
       CYPRESS_MAILOSAUR_API_KEY: ${{ secrets.CYPRESS_MAILOSAUR_API_KEY }}
       PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
       PULUMI_SECRETS_PROVIDER: ${{ secrets.PULUMI_SECRETS_PROVIDER }}
@@ -693,7 +723,7 @@ jobs:
           github.run_id }}_ddb-es" >> $GITHUB_OUTPUT
     runs-on: ubuntu-latest
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
   e2eTestsDdb-es-setup:
     needs:
@@ -705,8 +735,8 @@ jobs:
       cypress-config: ${{ steps.save-cypress-config.outputs.cypress-config }}
     environment: next
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
-      YARN_ENABLE_IMMUTABLE_INSTALLS: 'false'
+      NODE_OPTIONS: "--max_old_space_size=4096"
+      YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
       CYPRESS_MAILOSAUR_API_KEY: ${{ secrets.CYPRESS_MAILOSAUR_API_KEY }}
       PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
       PULUMI_SECRETS_PROVIDER: ${{ secrets.PULUMI_SECRETS_PROVIDER }}
@@ -847,8 +877,8 @@ jobs:
           }}
     environment: next
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
-      YARN_ENABLE_IMMUTABLE_INSTALLS: 'false'
+      NODE_OPTIONS: "--max_old_space_size=4096"
+      YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
       CYPRESS_MAILOSAUR_API_KEY: ${{ secrets.CYPRESS_MAILOSAUR_API_KEY }}
       PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
       PULUMI_SECRETS_PROVIDER: ${{ secrets.PULUMI_SECRETS_PROVIDER }}
@@ -911,7 +941,7 @@ jobs:
           github.run_id }}_ddb-os" >> $GITHUB_OUTPUT
     runs-on: ubuntu-latest
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
   e2eTestsDdb-os-setup:
     needs:
@@ -923,8 +953,8 @@ jobs:
       cypress-config: ${{ steps.save-cypress-config.outputs.cypress-config }}
     environment: next
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
-      YARN_ENABLE_IMMUTABLE_INSTALLS: 'false'
+      NODE_OPTIONS: "--max_old_space_size=4096"
+      YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
       CYPRESS_MAILOSAUR_API_KEY: ${{ secrets.CYPRESS_MAILOSAUR_API_KEY }}
       PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
       PULUMI_SECRETS_PROVIDER: ${{ secrets.PULUMI_SECRETS_PROVIDER }}
@@ -1065,8 +1095,8 @@ jobs:
           }}
     environment: next
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
-      YARN_ENABLE_IMMUTABLE_INSTALLS: 'false'
+      NODE_OPTIONS: "--max_old_space_size=4096"
+      YARN_ENABLE_IMMUTABLE_INSTALLS: "false"
       CYPRESS_MAILOSAUR_API_KEY: ${{ secrets.CYPRESS_MAILOSAUR_API_KEY }}
       PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
       PULUMI_SECRETS_PROVIDER: ${{ secrets.PULUMI_SECRETS_PROVIDER }}

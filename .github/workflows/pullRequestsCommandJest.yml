@@ -3,9 +3,9 @@
 # and run "github-actions-wac build" (or "ghawac build") to regenerate this file.
 # For more information, run "github-actions-wac --help".
 name: Pull Requests Command - Jest
-'on': issue_comment
+"on": issue_comment
 env:
-  NODE_OPTIONS: '--max_old_space_size=4096'
+  NODE_OPTIONS: "--max_old_space_size=4096"
   AWS_REGION: eu-central-1
 jobs:
   checkComment:
@@ -21,9 +21,9 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           command: jest
-          reaction: 'true'
+          reaction: "true"
           reaction-type: eyes
-          allow-edits: 'false'
+          allow-edits: "false"
           permission-level: write
       - name: Create comment
         uses: peter-evans/create-or-update-comment@v2
@@ -35,7 +35,7 @@ jobs:
             github.run_id }})). :sparkles:
     runs-on: ubuntu-latest
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
   validateWorkflows:
     name: Validate workflows
@@ -51,7 +51,7 @@ jobs:
     needs: checkComment
     runs-on: ubuntu-latest
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
   baseBranch:
     needs: checkComment
@@ -72,7 +72,7 @@ jobs:
           baseRefName -q .baseRefName)" >> $GITHUB_OUTPUT
     runs-on: ubuntu-latest
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
   constants:
     needs: baseBranch
@@ -97,7 +97,7 @@ jobs:
           vars.RANDOM_CACHE_KEY_SUFFIX }}" >> $GITHUB_OUTPUT
     runs-on: ubuntu-latest
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
   build:
     name: Build
@@ -136,7 +136,7 @@ jobs:
           path: ${{ needs.baseBranch.outputs.base-branch }}/.webiny/cached-packages
           key: ${{ needs.constants.outputs.run-cache-key }}
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
   jestTestsNoStorage:
     needs:
@@ -156,7 +156,7 @@ jobs:
           }}
     runs-on: ${{ matrix.os }}
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
       AWS_REGION: eu-central-1
     steps:
@@ -244,7 +244,7 @@ jobs:
           }}
     runs-on: ${{ matrix.os }}
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
       AWS_REGION: eu-central-1
     steps:
@@ -331,7 +331,7 @@ jobs:
           }}
     runs-on: ${{ matrix.os }}
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
       AWS_REGION: eu-central-1
       AWS_ELASTIC_SEARCH_DOMAIN_NAME: ${{ secrets.AWS_ELASTIC_SEARCH_DOMAIN_NAME }}
@@ -428,7 +428,7 @@ jobs:
           }}
     runs-on: ${{ matrix.os }}
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: "--max_old_space_size=4096"
       YARN_ENABLE_IMMUTABLE_INSTALLS: false
       AWS_REGION: eu-central-1
       AWS_ELASTIC_SEARCH_DOMAIN_NAME: ${{ secrets.AWS_OPEN_SEARCH_DOMAIN_NAME }}
