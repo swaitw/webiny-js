@@ -6,57 +6,63 @@ import { i18n } from "@webiny/app/i18n";
 import { DeleteIcon } from "@webiny/ui/List/DataList/icons";
 import {
     DataList,
-    List,
-    ListItem,
-    ListItemText,
-    ListItemTextSecondary,
-    ListItemMeta,
-    ListActions,
     DataListModalOverlay,
-    DataListModalOverlayAction
+    DataListModalOverlayAction,
+    List,
+    ListActions,
+    ListItem,
+    ListItemMeta,
+    ListItemText,
+    ListItemTextSecondary
 } from "@webiny/ui/List";
 import { useRouter } from "@webiny/react-router";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
-import { useQuery, useApolloClient } from "../../hooks";
+import { useApolloClient, useQuery } from "../../hooks";
 import { useConfirmationDialog } from "@webiny/app-admin/hooks/useConfirmationDialog";
 import * as GQL from "./graphql";
+import { CmsGroupWithModels, ListCmsGroupsQueryResponse } from "./graphql";
 import { ButtonIcon, ButtonSecondary } from "@webiny/ui/Button";
 import { Cell, Grid } from "@webiny/ui/Grid";
 import { Select } from "@webiny/ui/Select";
 import SearchUI from "@webiny/app-admin/components/SearchUI";
 import { ReactComponent as AddIcon } from "@webiny/app-admin/assets/icons/add-18px.svg";
 import { ReactComponent as FilterIcon } from "@webiny/app-admin/assets/icons/filter-24px.svg";
-import { serializeSorters, deserializeSorters } from "../utils";
+import { deserializeSorters } from "../utils";
 import usePermission from "../../hooks/usePermission";
 import { Tooltip } from "@webiny/ui/Tooltip";
+import { CmsGroup } from "~/types";
 
 const t = i18n.ns("app-headless-cms/admin/content-model-groups/data-list");
 
-const SORTERS = [
+interface Sort {
+    label: string;
+    sorters: string;
+}
+const SORTERS: Sort[] = [
     {
         label: t`Newest to oldest`,
-        sorters: { createdOn: "desc" }
+        sorters: "createdOn_DESC"
     },
     {
         label: t`Oldest to newest`,
-        sorters: { createdOn: "asc" }
+        sorters: "createdOn_ASC"
     },
     {
         label: t`Name A-Z`,
-        sorters: { name: "asc" }
+        sorters: "name_ASC"
     },
     {
         label: t`Name Z-A`,
-        sorters: { name: "desc" }
+        sorters: "name_DESC"
     }
 ];
 
-type ContentModelGroupsDataListProps = {
+interface ContentModelGroupsDataListProps {
     canCreate: boolean;
-};
+}
 const ContentModelGroupsDataList = ({ canCreate }: ContentModelGroupsDataListProps) => {
-    const [filter, setFilter] = useState("");
-    const [sort, setSort] = useState(serializeSorters(SORTERS[0].sorters));
+    const [filter, setFilter] = useState<string>("");
+    const [sort, setSort] = useState<string>(SORTERS[0].sorters);
     const { history } = useRouter();
     const { showSnackbar } = useSnackbar();
     const client = useApolloClient();
@@ -68,28 +74,30 @@ const ContentModelGroupsDataList = ({ canCreate }: ContentModelGroupsDataListPro
     const { canDelete } = usePermission();
 
     const filterData = useCallback(
-        ({ name }) => {
+        ({ name }: Pick<CmsGroup, "name">) => {
             return name.toLowerCase().includes(filter);
         },
         [filter]
     );
 
     const sortData = useCallback(
-        list => {
+        (list: CmsGroupWithModels[]): CmsGroupWithModels[] => {
             if (!sort) {
                 return list;
             }
-            const [[key, value]] = Object.entries(deserializeSorters(sort));
-            return orderBy(list, [key], [value]);
+            const [sortField, sortOrderBy] = deserializeSorters(sort);
+            return orderBy(list, [sortField], [sortOrderBy]);
         },
         [sort]
     );
 
-    const data = listQuery.loading ? [] : get(listQuery, "data.listContentModelGroups.data", []);
+    const data: CmsGroupWithModels[] = listQuery.loading
+        ? []
+        : get(listQuery, "data.listContentModelGroups.data", []);
     const groupId = new URLSearchParams(location.search).get("id");
 
     const deleteItem = useCallback(
-        group => {
+        (group: Pick<CmsGroup, "id" | "name">) => {
             showConfirmation(async () => {
                 const response = await client.mutate({
                     mutation: GQL.DELETE_CONTENT_MODEL_GROUP,
@@ -97,12 +105,17 @@ const ContentModelGroupsDataList = ({ canCreate }: ContentModelGroupsDataListPro
                     update(cache, { data }) {
                         const { error } = data.deleteContentModelGroup;
                         if (error) {
+                            showSnackbar(error.message);
                             return;
                         }
 
                         // Delete the item from list cache
                         const gqlParams = { query: GQL.LIST_CONTENT_MODEL_GROUPS };
-                        const { listContentModelGroups } = cache.readQuery(gqlParams);
+                        const result = cache.readQuery<ListCmsGroupsQueryResponse>(gqlParams);
+                        if (!result || !result.listContentModelGroups) {
+                            return;
+                        }
+                        const { listContentModelGroups } = result;
                         const index = listContentModelGroups.data.findIndex(
                             item => item.id === group.id
                         );
@@ -143,11 +156,11 @@ const ContentModelGroupsDataList = ({ canCreate }: ContentModelGroupsDataListPro
                             value={sort}
                             onChange={setSort}
                             label={t`Sort by`}
-                            description={"Sort pages by"}
+                            description={"Sort groups by"}
                         >
                             {SORTERS.map(({ label, sorters }) => {
                                 return (
-                                    <option key={label} value={serializeSorters(sorters)}>
+                                    <option key={label} value={sorters}>
                                         {label}
                                     </option>
                                 );
@@ -162,6 +175,10 @@ const ContentModelGroupsDataList = ({ canCreate }: ContentModelGroupsDataListPro
 
     const filteredData = filter === "" ? data : data.filter(filterData);
     const contentModelGroups = sortData(filteredData);
+
+    const onRefreshClick = useCallback(() => {
+        listQuery.refetch();
+    }, []);
 
     return (
         <DataList
@@ -192,8 +209,9 @@ const ContentModelGroupsDataList = ({ canCreate }: ContentModelGroupsDataListPro
                     data-testid={"default-data-list.filter"}
                 />
             }
+            refresh={onRefreshClick}
         >
-            {({ data }) => (
+            {({ data }: { data: CmsGroupWithModels[] }) => (
                 <List data-testid="default-data-list">
                     {data.map(item => (
                         <ListItem key={item.id} selected={item.id === groupId}>

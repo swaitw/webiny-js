@@ -1,5 +1,5 @@
-import useGqlHandler from "./useGqlHandler";
 import { SecurityIdentity } from "@webiny/api-security/types";
+import useGqlHandler from "~tests/utils/useGqlHandler";
 
 const identityA: SecurityIdentity = {
     id: "a",
@@ -69,9 +69,39 @@ describe("Files settings test", () => {
                     getSettings: {
                         data: {
                             uploadMinFileSize: 0,
-                            uploadMaxFileSize: 26214401
+                            uploadMaxFileSize: 10737418240
                         },
                         error: null
+                    }
+                }
+            }
+        });
+        const [updateInvalidMaxFileSize] = await updateSettings({
+            data: {
+                uploadMaxFileSize: 10737418241
+            }
+        });
+        expect(updateInvalidMaxFileSize).toEqual({
+            data: {
+                fileManager: {
+                    updateSettings: {
+                        data: null,
+                        error: {
+                            code: "VALIDATION_FAILED_INVALID_FIELDS",
+                            message: "Validation failed.",
+                            data: {
+                                invalidFields: {
+                                    uploadMaxFileSize: {
+                                        code: "too_big",
+                                        data: {
+                                            path: ["uploadMaxFileSize"]
+                                        },
+                                        message:
+                                            "Value needs to be lesser than or equal to 10737418240."
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -91,8 +121,10 @@ describe("Files settings test", () => {
                             data: {
                                 invalidFields: {
                                     uploadMinFileSize: {
-                                        code: "VALIDATION_FAILED_INVALID_FIELD",
-                                        data: null,
+                                        code: "too_small",
+                                        data: {
+                                            path: ["uploadMinFileSize"]
+                                        },
                                         message: "Value needs to be greater than or equal to 0."
                                     }
                                 }
@@ -112,7 +144,7 @@ describe("Files settings test", () => {
                     updateSettings: {
                         data: {
                             uploadMinFileSize: 1024,
-                            uploadMaxFileSize: 26214401
+                            uploadMaxFileSize: 10737418240
                         },
                         error: null
                     }
@@ -127,7 +159,7 @@ describe("Files settings test", () => {
                     getSettings: {
                         data: {
                             uploadMinFileSize: 1024,
-                            uploadMaxFileSize: 26214401
+                            uploadMaxFileSize: 10737418240
                         },
                         error: null
                     }

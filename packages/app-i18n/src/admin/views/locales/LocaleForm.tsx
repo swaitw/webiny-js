@@ -44,9 +44,9 @@ const I18NLocaleForm = () => {
     }
 
     return (
-        <Form data={locale} onSubmit={onSubmit}>
+        <Form data-testid={"i18n-locale-form"} data={locale} onSubmit={onSubmit}>
             {({ data, form, Bind }) => (
-                <SimpleForm data-testid={"i18n-locale-form"}>
+                <SimpleForm>
                     {loading && <CircularProgress />}
                     <SimpleFormHeader title={data.code || t`New locale`} />
                     <SimpleFormContent>
@@ -56,6 +56,7 @@ const I18NLocaleForm = () => {
                                     <LocaleCodesAutoComplete
                                         disabled={Boolean(data.createdOn)}
                                         label={t`Code`}
+                                        data-testid="l18n.locale.code"
                                         description={t`For example: "en-GB"`}
                                     />
                                 </Bind>
@@ -72,7 +73,12 @@ const I18NLocaleForm = () => {
                     <SimpleFormFooter>
                         <ButtonWrapper>
                             <ButtonDefault onClick={cancelEditing}>{t`Cancel`}</ButtonDefault>
-                            <ButtonPrimary onClick={form.submit}>{t`Save locale`}</ButtonPrimary>
+                            <ButtonPrimary
+                                onClick={ev => {
+                                    form.submit(ev);
+                                }}
+                                data-testid="l18n.locale.save"
+                            >{t`Save locale`}</ButtonPrimary>
                         </ButtonWrapper>
                     </SimpleFormFooter>
                 </SimpleForm>

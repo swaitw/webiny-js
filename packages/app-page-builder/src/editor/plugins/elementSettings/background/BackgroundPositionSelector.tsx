@@ -44,16 +44,16 @@ const PositionWrapper = styled("div")({
     display: "flex"
 });
 
-type Props = {
+interface BackgroundPositionSelectorProps {
     disabled?: boolean;
     value?: string;
-    onChange: Function;
-};
+    onChange: (value: string) => void;
+}
 
-const BackgroundPositionSelector = (props: Props) => {
+const BackgroundPositionSelector = (props: BackgroundPositionSelectorProps) => {
     return (
         <PositionWrapper>
-            <Typography style={{ width: "60%" }} use={"subtitle2"}>
+            <Typography style={{ width: "60%" }} use={"body2"}>
                 Position
             </Typography>
             <Ul className={classNames({ disabled: props.disabled })}>

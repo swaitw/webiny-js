@@ -1,19 +1,19 @@
 import React, { useCallback } from "react";
-import { useRecoilValue } from "recoil";
 import { css } from "emotion";
-import { usePageBuilder } from "../../../../hooks/usePageBuilder";
-import { activeElementAtom, elementWithChildrenByIdSelector } from "../../../recoil/modules";
-import { PbEditorPageElementSettingsRenderComponentProps } from "../../../../types";
+import startCase from "lodash/startCase";
+import { usePageElements } from "@webiny/app-page-builder-elements/hooks/usePageElements";
+import { IconPicker } from "@webiny/app-admin/components/IconPicker";
+import { PbEditorElement, PbEditorPageElementSettingsRenderComponentProps } from "~/types";
 // Components
-import IconPickerComponent from "../../../components/IconPicker";
+import { ICON_PICKER_SIZE } from "@webiny/app-admin/components/IconPicker/types";
 import Accordion from "../../elementSettings/components/Accordion";
-import { BaseColorPicker } from "../../elementSettings/components/ColorPicker";
 import { ContentWrapper } from "../../elementSettings/components/StyledComponents";
 import Wrapper from "../../elementSettings/components/Wrapper";
 import InputField from "../../elementSettings/components/InputField";
 import SelectField from "../../elementSettings/components/SelectField";
-import { updateButtonElementIcon } from "../utils/iconUtils";
 import useUpdateHandlers from "../../elementSettings/useUpdateHandlers";
+import { useActiveElement } from "~/editor";
+import { useUpdateIconSettings } from "~/editor/plugins/elementSettings/hooks/useUpdateIconSettings";
 
 const classes = {
     gridClass: css({
@@ -45,72 +45,62 @@ const classes = {
                 width: "100%"
             }
         }
+    }),
+    rightCellStyle: css({
+        justifySelf: "end"
     })
 };
 
-const ButtonSettings: React.FunctionComponent<PbEditorPageElementSettingsRenderComponentProps> = ({
+const ButtonSettings = ({
     defaultAccordionValue
-}) => {
-    const activeElementId = useRecoilValue(activeElementAtom);
-    const element = useRecoilValue(elementWithChildrenByIdSelector(activeElementId));
-    const { theme } = usePageBuilder();
-    const { types } = theme?.elements?.button || [];
-    const defaultType = types?.[0]?.name || "";
-    const { type = defaultType, icon = { width: 36 } } = element.data || {};
+}: PbEditorPageElementSettingsRenderComponentProps) => {
+    const [element] = useActiveElement<PbEditorElement>();
+    const { iconWidth, iconValue, onIconChange, onIconWidthChange, HiddenIconMarkup } =
+        useUpdateIconSettings(element);
 
-    const { getUpdateValue, getUpdatePreview } = useUpdateHandlers({
+    const { theme } = usePageElements();
+    const types = Object.keys(theme.styles?.button || {});
+    const typesOptions = types.map(item => ({
+        value: item,
+        label: startCase(item)
+    }));
+
+    const defaultType = typesOptions[0].value;
+    const { type = defaultType, icon } = element.data || {};
+
+    const { getUpdateValue } = useUpdateHandlers({
         element,
-        dataNamespace: "data",
-        postModifyElement: updateButtonElementIcon
+        dataNamespace: "data"
     });
 
-    const updateType = useCallback(value => getUpdateValue("type")(value), [getUpdateValue]);
-    const updateIcon = useCallback(value => getUpdateValue("icon.id")(value?.id), [getUpdateValue]);
-    const updateIconColor = useCallback(
-        (value: string) => getUpdateValue("icon.color")(value),
+    const updateType = useCallback(
+        (value: string) => getUpdateValue("type")(value),
         [getUpdateValue]
     );
-    const updateIconColorPreview = useCallback(
-        (value: string) => getUpdatePreview("icon.color")(value),
-        [getUpdatePreview]
-    );
-    const updateIconWidth = useCallback(
-        (value: string) => getUpdateValue("icon.width")(value),
-        [getUpdateValue]
-    );
+
     const updateIconPosition = useCallback(
         (value: string) => getUpdateValue("icon.position")(value),
         [getUpdateValue]
     );
-    const removeIcon = useCallback(() => getUpdateValue("icon")({ id: null }), [getUpdateValue]);
 
     return (
         <Accordion title={"Button"} defaultValue={defaultAccordionValue}>
             <ContentWrapper direction={"column"}>
                 <Wrapper label={"Type"} containerClassName={classes.gridClass}>
                     <SelectField value={type} onChange={updateType}>
-                        {types.map(type => (
-                            <option key={type.className} value={type.className}>
-                                {type.label}
+                        {typesOptions.map(t => (
+                            <option key={t.value} value={t.value}>
+                                {t.label}
                             </option>
                         ))}
                     </SelectField>
                 </Wrapper>
                 <Wrapper label={"Icon"} containerClassName={classes.gridClass}>
-                    <IconPickerComponent
-                        handlerClassName={"icon-picker-handler"}
-                        value={icon?.id}
-                        onChange={updateIcon}
-                        removeIcon={removeIcon}
-                        useInSidebar={true}
-                    />
-                </Wrapper>
-                <Wrapper label={"Icon color"} containerClassName={classes.gridClass}>
-                    <BaseColorPicker
-                        handlerClassName={"color-picker-handler"}
-                        value={icon?.color}
-                        updateValue={updateIconColor}
-                        updatePreview={updateIconColorPreview}
+                    <IconPicker
+                        size={ICON_PICKER_SIZE.SMALL}
+                        value={iconValue}
+                        onChange={onIconChange}
+                        removable
                     />
                 </Wrapper>
                 <Wrapper
@@ -121,8 +111,8 @@ const ButtonSettings: React.FunctionComponent<PbEditorPageElementSettingsRenderC
                 >
                     <InputField
                         placeholder={"Width"}
-                        value={icon?.width}
-                        onChange={updateIconWidth}
+                        value={iconWidth}
+                        onChange={onIconWidthChange}
                     />
                 </Wrapper>
                 <Wrapper
@@ -138,6 +128,8 @@ const ButtonSettings: React.FunctionComponent<PbEditorPageElementSettingsRenderC
                         <option value={"bottom"}>Bottom</option>
                     </SelectField>
                 </Wrapper>
+                {/* Renders IconPicker.Icon for accessing its HTML without displaying it. */}
+                <HiddenIconMarkup />
             </ContentWrapper>
         </Accordion>
     );

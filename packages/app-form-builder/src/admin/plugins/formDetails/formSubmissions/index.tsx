@@ -19,9 +19,23 @@ export default [
         name: "forms-form-details-revision-content-submissions",
         type: "forms-form-details-revision-content",
         render({ form, loading, security }) {
-            const { submissions } = security.identity.getPermission("fb.form");
+            const { getPermissions } = security;
 
-            if (typeof submissions !== "undefined" && submissions !== true) {
+            const fbFormPermissions = getPermissions("fb.form");
+            if (!fbFormPermissions.length) {
+                return null;
+            }
+
+            let hasAccessToSubmissions = false;
+            for (let i = 0; i < fbFormPermissions.length; i++) {
+                const { submissions } = fbFormPermissions[i];
+                if (typeof submissions == "undefined" || submissions === true) {
+                    hasAccessToSubmissions = true;
+                    break;
+                }
+            }
+
+            if (!hasAccessToSubmissions) {
                 return null;
             }
 

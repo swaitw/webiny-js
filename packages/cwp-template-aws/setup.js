@@ -7,7 +7,8 @@ const merge = require("lodash/merge");
 const writeJsonFile = require("write-json-file");
 const loadJsonFile = require("load-json-file");
 const getPackages = require("get-yarn-workspaces");
-const { green } = require("chalk");
+const { yellow } = require("chalk");
+const ora = require("ora");
 
 const IS_TEST = process.env.NODE_ENV === "test";
 
@@ -78,8 +79,18 @@ const setup = async args => {
 
     if (!IS_TEST && isGitAvailable) {
         // Commit .gitignore.
-        execa.sync("git", ["add", ".gitignore"], { cwd: projectRoot });
-        execa.sync("git", ["commit", "-m", `chore: initialize .gitignore`], { cwd: projectRoot });
+        try {
+            execa.sync("git", ["add", ".gitignore"], { cwd: projectRoot });
+            execa.sync("git", ["commit", "-m", `chore: initialize .gitignore`], {
+                cwd: projectRoot
+            });
+        } catch (e) {
+            console.log(
+                yellow(
+                    "Failed to commit .gitignore. You will have to do it manually once the project is created."
+                )
+            );
+        }
     }
 
     const rootEnvFilePath = path.join(projectRoot, ".env");
@@ -113,46 +124,28 @@ const setup = async args => {
         await writeJsonFile(packageJsonPath, packageJson);
     }
 
-    if (!IS_TEST) {
-        console.log(`⏳ Installing dependencies....`);
-        console.log();
-        // Install dependencies.
-        const options = {
-            cwd: projectRoot,
-            maxBuffer: "500_000_000",
-            stdio: "inherit"
-        };
-
-        try {
-            await execa("yarn", [], options);
-        } catch (e) {
-            throw new Error(
-                "Failed while installing project dependencies. Please check the above logs for more information."
-            );
-        }
+    if (IS_TEST) {
+        return;
     }
 
-    if (!IS_TEST) {
-        console.log(
-            [
-                "",
-                `🎉 Your new Webiny project ${green(projectName)} is ready!`,
-                "",
-                `Finish the setup by running the following command: ${green(
-                    `cd ${projectName} && yarn webiny deploy`
-                )}`,
-                "",
-                `To see all of the available CLI commands, run ${green(
-                    "yarn webiny --help"
-                )} in your ${green(projectName)} directory.`,
-                "",
-                "Want to dive deeper into Webiny? Check out https://webiny.com/docs/!",
-                "Like the project? Star us on https://github.com/webiny/webiny-js!",
-                "",
-                "Need help? Join our Slack community! https://www.webiny.com/slack",
-                "",
-                "🚀 Happy coding!"
-            ].join("\n")
+    // Install dependencies.
+    console.log();
+    const spinner = ora("Installing packages...").start();
+    try {
+        const subprocess = execa("yarn", [], {
+            cwd: projectRoot,
+            maxBuffer: "500_000_000"
+        });
+        await subprocess;
+        spinner.succeed("Packages installed successfully.");
+    } catch (e) {
+        spinner.fail("Failed to install packages.");
+
+        console.log(e.message);
+
+        throw new Error(
+            "Failed while installing project dependencies. Please check the above Yarn logs for more information.",
+            { cause: e }
         );
     }
 };

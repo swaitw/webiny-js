@@ -1,7 +1,6 @@
 import React from "react";
 import styled from "@emotion/styled";
-import Droppable from "../Droppable";
-import { DragObjectWithType } from "react-dnd";
+import { Droppable, IsVisibleCallable, OnDropCallable } from "../Droppable";
 
 const InnerDivVertical = styled("div")({
     position: "absolute",
@@ -20,12 +19,12 @@ const BackgroundColorDiv = styled("div")({
     height: "100%"
 });
 
-type OuterDivVerticalProps = {
+interface OuterDivVerticalProps {
     isOver: boolean;
     last?: boolean;
-    isVisible?: any;
+    isVisible?: boolean;
     isDragging?: boolean;
-};
+}
 
 const OuterDivVertical = styled("div")(
     {
@@ -39,12 +38,12 @@ const OuterDivVertical = styled("div")(
     (props: OuterDivVerticalProps) => ({
         [props.last ? "right" : "left"]: -9,
         textAlign: props.last ? "right" : "left",
-        // @ts-ignore
+        // @ts-expect-error
         [InnerDivVertical]: {
             borderColor: props.isOver ? "var(--mdc-theme-primary)" : "var(--mdc-theme-secondary)",
             [props.last ? "right" : "left"]: -2,
             display: props.isDragging ? "block" : "none",
-            // @ts-ignore
+            // @ts-expect-error
             [BackgroundColorDiv]: {
                 opacity: 0.5,
                 backgroundColor: props.isOver
@@ -55,13 +54,13 @@ const OuterDivVertical = styled("div")(
     })
 );
 
-type VerticalProps = {
-    onDrop(item: DragObjectWithType): void;
+export interface VerticalProps {
+    onDrop: OnDropCallable;
     last?: boolean;
-    isVisible?: any;
-};
+    isVisible?: IsVisibleCallable;
+}
 
-const Vertical = ({ last, onDrop, isVisible }: VerticalProps) => {
+export const Vertical = ({ last, onDrop, isVisible }: VerticalProps) => {
     return (
         <Droppable onDrop={onDrop} isVisible={isVisible}>
             {({ isOver, isDragging, drop }) => (
@@ -77,7 +76,7 @@ const Vertical = ({ last, onDrop, isVisible }: VerticalProps) => {
                         zIndex: isDragging ? 1000 : -1
                     }}
                 >
-                    <OuterDivVertical isOver={isOver} isDragging={isDragging} last={last}>
+                    <OuterDivVertical isOver={isOver} isDragging={isDragging} last={!!last}>
                         <InnerDivVertical>
                             <BackgroundColorDiv />
                         </InnerDivVertical>
@@ -87,5 +86,3 @@ const Vertical = ({ last, onDrop, isVisible }: VerticalProps) => {
         </Droppable>
     );
 };
-
-export default Vertical;

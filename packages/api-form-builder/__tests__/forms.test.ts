@@ -8,7 +8,6 @@ jest.setTimeout(100000);
 
 describe('Form Builder "Form" Test', () => {
     const {
-        until,
         install,
         installFileManager,
         createForm,
@@ -36,11 +35,12 @@ describe('Form Builder "Form" Test', () => {
             // Run FM installer (we'll need to have FM settings to perform submissions export)
             await installFileManager({ srcPrefix: "https://some.domain.com/files/" });
         } catch (e) {
-            console.log(e);
+            console.error(e);
+            process.exit(1);
         }
     });
 
-    test("should create a form and return it in the list of latest forms", async () => {
+    it("should create a form and return it in the list of latest forms", async () => {
         const [create] = await createForm({ data: { name: "contact-us" } });
         const { id } = create.data.formBuilder.createForm.data;
 
@@ -64,36 +64,28 @@ describe('Form Builder "Form" Test', () => {
             }
         });
 
-        await until(
-            () => listForms().then(([data]) => data),
-            ({ data }) => data.formBuilder.listForms.data.length > 0
-        );
-
         const [list] = await listForms();
         const { data } = list.data.formBuilder.listForms;
         expect(data.length).toBe(1);
         expect(data[0].id).toEqual(id);
     });
 
-    test("should update form and return new data from storage", async () => {
+    it("should update form and return new data from storage", async () => {
         const [create] = await createForm({ data: { name: "contact-us" } });
         const { id } = create.data.formBuilder.createForm.data;
 
         const newData = {
             name: "New name",
-            layout: [["QIspyfQRx", "AVoKqyAuH"], ["fNJag3ZdX"]]
+            steps: [
+                {
+                    title: "Test Step",
+                    layout: [["QIspyfQRx", "AVoKqyAuH"], ["fNJag3ZdX"]]
+                }
+            ]
         };
 
         const [update] = await updateRevision({ revision: id, data: newData });
         expect(update.data.formBuilder.updateRevision.data).toMatchObject(newData);
-
-        await until(
-            () => listForms().then(([data]) => data),
-            ({ data }) => data.formBuilder.listForms.data[0].name === newData.name,
-            {
-                name: "list forms after update revision"
-            }
-        );
 
         const [get] = await getForm({ revision: id });
         expect(get.data.formBuilder.getForm.data).toMatchObject(newData);
@@ -104,17 +96,74 @@ describe('Form Builder "Form" Test', () => {
         expect(data[0].name).toEqual(newData.name);
     });
 
+    test(`should correctly add step, rename step and remove step from the form`, async () => {
+        const [create] = await createForm({ data: { name: "general-info" } });
+        const { id } = create.data.formBuilder.createForm.data;
+
+        const newDataWithSteps = {
+            name: "Personal Info",
+            steps: [
+                {
+                    title: "General Info",
+                    layout: [["AVoKqyAuH", "QIspyfQRx"]]
+                },
+                {
+                    title: "Web Info",
+                    layout: [["fNJag3ZdX"]]
+                }
+            ]
+        };
+
+        const [update] = await updateRevision({ revision: id, data: newDataWithSteps });
+        expect(update.data.formBuilder.updateRevision.data).toMatchObject(newDataWithSteps);
+
+        const [get] = await getForm({ revision: id });
+        expect(get.data.formBuilder.getForm.data).toMatchObject(newDataWithSteps);
+
+        const newDataWithRenamedStep = {
+            name: "Personal Info",
+            steps: [
+                {
+                    title: "General Info",
+                    layout: [["AVoKqyAuH", "QIspyfQRx"]]
+                },
+                {
+                    title: "Email",
+                    layout: [["fNJag3ZdX"]]
+                }
+            ]
+        };
+
+        const [rename] = await updateRevision({ revision: id, data: newDataWithRenamedStep });
+        expect(rename.data.formBuilder.updateRevision.data).toMatchObject(newDataWithRenamedStep);
+
+        const [getFormAfterRename] = await getForm({ revision: id });
+        expect(getFormAfterRename.data.formBuilder.getForm.data).toMatchObject(
+            newDataWithRenamedStep
+        );
+
+        const dataAfterRemovingStep = {
+            name: "Personal Info",
+            steps: [
+                {
+                    title: "Email",
+                    layout: [["fNJag3ZdX"]]
+                }
+            ]
+        };
+
+        const [remove] = await updateRevision({ revision: id, data: dataAfterRemovingStep });
+        expect(remove.data.formBuilder.updateRevision.data).toMatchObject(dataAfterRemovingStep);
+
+        const [getAfterRemovingStep] = await getForm({ revision: id });
+        expect(getAfterRemovingStep.data.formBuilder.getForm.data).toMatchObject(
+            dataAfterRemovingStep
+        );
+    });
+
     test(`should correctly update the "latest" revision when a revision is deleted`, async () => {
         const [create] = await createForm({ data: { name: "contact-us" } });
         const { id } = create.data.formBuilder.createForm.data;
-
-        await until(
-            () => listForms().then(([data]) => data),
-            ({ data }) => data.formBuilder.listForms.data.length > 0,
-            {
-                name: "after create form"
-            }
-        );
 
         // Create 2 new revisions
         const [create2] = await createRevisionFrom({ revision: id });
@@ -122,14 +171,6 @@ describe('Form Builder "Form" Test', () => {
 
         const [create3] = await createRevisionFrom({ revision: id });
         const { id: id3 } = create3.data.formBuilder.createRevisionFrom.data;
-
-        await until(
-            () => listForms().then(([data]) => data),
-            ({ data }) => data.formBuilder.listForms.data[0].id === id3,
-            {
-                name: "after create revisions"
-            }
-        );
 
         const [list] = await listForms();
         const { data: data1 } = list.data.formBuilder.listForms;
@@ -149,14 +190,6 @@ describe('Form Builder "Form" Test', () => {
                 }
             }
         });
-
-        await until(
-            () => listForms().then(([data]) => data),
-            ({ data }) => data.formBuilder.listForms.data[0].id === id2,
-            {
-                name: "after delete revision 3"
-            }
-        );
 
         // Make sure revision #2 is now "latest"
         const [list2] = await listForms();
@@ -186,7 +219,7 @@ describe('Form Builder "Form" Test', () => {
         expect(revisions[0].version).toEqual(2);
     });
 
-    test("should delete a form and all of its revisions", async () => {
+    it("should delete a form and all of its revisions", async () => {
         const [create] = await createForm({ data: { name: "contact-us" } });
         const { id } = create.data.formBuilder.createForm.data;
 
@@ -195,15 +228,17 @@ describe('Form Builder "Form" Test', () => {
         await createRevisionFrom({ revision: id });
 
         // Delete the whole form
-        await deleteForm({ id });
-
-        await until(
-            () => listForms().then(([data]) => data),
-            ({ data }) => data.formBuilder.listForms.data.length === 0,
-            {
-                name: "list after delete form"
+        const [result] = await deleteForm({ id });
+        expect(result).toEqual({
+            data: {
+                formBuilder: {
+                    deleteForm: {
+                        data: true,
+                        error: null
+                    }
+                }
             }
-        );
+        });
 
         const [get] = await getForm({ revision: id });
         expect(get.data.formBuilder.getForm.data).toBe(null);
@@ -211,20 +246,12 @@ describe('Form Builder "Form" Test', () => {
         expect(list.data.formBuilder.listForms.data.length).toBe(0);
     });
 
-    test("should publish, add views and unpublish", async () => {
+    it("should publish, add views and unpublish", async () => {
         const [create] = await createForm({ data: { name: "contact-us" } });
         const { id } = create.data.formBuilder.createForm.data;
 
         // Publish revision #1
         await publishRevision({ revision: id });
-
-        await until(
-            () => listForms().then(([data]) => data),
-            ({ data }) => data.formBuilder.listForms.data[0].id === id,
-            {
-                name: "list forms after publish revision"
-            }
-        );
 
         // Get the published form
         const [{ data: get }] = await getPublishedForm({ revision: id });
@@ -233,11 +260,6 @@ describe('Form Builder "Form" Test', () => {
         // Create a new revision
         const [create2] = await createRevisionFrom({ revision: id });
         const { id: id2 } = create2.data.formBuilder.createRevisionFrom.data;
-
-        await until(
-            () => listForms().then(([data]) => data),
-            ({ data }) => data.formBuilder.listForms.data[0].id === id2
-        );
 
         // Latest published form should still be #1
         const [latestPublished] = await getPublishedForm({ parent: id.split("#")[0] });
@@ -285,15 +307,42 @@ describe('Form Builder "Form" Test', () => {
     });
 
     test("should create, list and export submissions to file", async () => {
-        const [create] = await createForm({ data: { name: "contact-us" } });
+        const formName = "contact-us";
+        const [create] = await createForm({
+            data: {
+                name: formName
+            }
+        });
         const { id } = create.data.formBuilder.createForm.data;
 
         // Add fields definitions
-        await updateRevision({ revision: id, data: { fields } });
+        await updateRevision({
+            revision: id,
+            data: {
+                fields,
+                steps: [
+                    {
+                        title: "Test Step",
+                        layout: []
+                    }
+                ]
+            }
+        });
 
-        await publishRevision({ revision: id });
-
-        await new Promise(res => setTimeout(res, 2000));
+        const [publishedForm] = await publishRevision({ revision: id });
+        expect(publishedForm).toMatchObject({
+            data: {
+                formBuilder: {
+                    publishRevision: {
+                        data: {
+                            name: formName,
+                            status: "published"
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
 
         // Create form submissions
         const [createSubmission1Response] = await createFormSubmission({
@@ -301,6 +350,7 @@ describe('Form Builder "Form" Test', () => {
             data: formSubmissionDataA.data,
             meta: formSubmissionDataA.meta
         });
+
         expect(createSubmission1Response).toMatchObject({
             data: {
                 formBuilder: {
@@ -311,8 +361,6 @@ describe('Form Builder "Form" Test', () => {
                 }
             }
         });
-
-        await new Promise(res => setTimeout(res, 2000));
 
         const [createSubmission2Response] = await createFormSubmission({
             revision: id,
@@ -329,14 +377,6 @@ describe('Form Builder "Form" Test', () => {
                 }
             }
         });
-
-        await until(
-            () => listFormSubmissions({ form: id, sort: "savedOn_ASC" }).then(([data]) => data),
-            ({ data }) => data.formBuilder.listFormSubmissions.data.length === 2,
-            {
-                name: "after create submission"
-            }
-        );
 
         // Load submissions
         const [submissions] = await listFormSubmissions({ form: id, sort: ["createdOn_ASC"] });
@@ -358,17 +398,318 @@ describe('Form Builder "Form" Test', () => {
         });
 
         const { data } = exportCSV.data.formBuilder.exportFormSubmissions;
-        expect(data).toMatchObject({
-            src: `https://some.domain.com/files/form_submissions_export.csv`,
-            key: "form_submissions_export.csv"
-        });
+
+        expect(data.src.endsWith("form_submissions_export.csv")).toEqual(true);
+        expect(data.key.endsWith("form_submissions_export.csv")).toEqual(true);
+        expect(data.key.includes("form-submissions")).toEqual(true);
 
         // Parse CSV and verify there are 2 submissions
         const csvFile = path.join(__dirname, data.key);
         const json = await csv({ output: "csv" }).fromFile(csvFile);
         expect(json.length).toBe(2);
-        expect(json[0].sort()).toEqual(Object.values(formSubmissionDataB.data).sort());
-        expect(json[1].sort()).toEqual(Object.values(formSubmissionDataA.data).sort());
+        expect(json[0].sort()).toEqual(
+            Object.values({
+                ...formSubmissionDataB.data,
+                "Date submitted (UTC)": expect.any(String)
+            }).sort()
+        );
+        expect(json[1].sort()).toEqual(
+            Object.values({
+                ...formSubmissionDataA.data,
+                "Date submitted (UTC)": expect.any(String)
+            }).sort()
+        );
         fs.unlinkSync(csvFile);
+    });
+
+    it("should create multiple forms and delete a single one - rest should be visible", async () => {
+        /**
+         * First we create three forms.
+         */
+        const [createForm1Response] = await createForm({
+            data: {
+                name: "form 1"
+            }
+        });
+        expect(createForm1Response).toMatchObject({
+            data: {
+                formBuilder: {
+                    createForm: {
+                        data: {
+                            name: "form 1"
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
+        const form1 = createForm1Response.data.formBuilder.createForm.data;
+        const [createForm2Response] = await createForm({
+            data: {
+                name: "form 2"
+            }
+        });
+        expect(createForm2Response).toMatchObject({
+            data: {
+                formBuilder: {
+                    createForm: {
+                        data: {
+                            name: "form 2"
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
+        const form2 = createForm2Response.data.formBuilder.createForm.data;
+        const [createForm3Response] = await createForm({
+            data: {
+                name: "form 3"
+            }
+        });
+        expect(createForm3Response).toMatchObject({
+            data: {
+                formBuilder: {
+                    createForm: {
+                        data: {
+                            name: "form 3"
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
+
+        /**
+         * Publish form 2 so we can create new revision.
+         */
+        const [publishForm2Response] = await publishRevision({
+            revision: form2.id
+        });
+        expect(publishForm2Response).toMatchObject({
+            data: {
+                formBuilder: {
+                    publishRevision: {
+                        data: {
+                            name: "form 2",
+                            published: true,
+                            stats: {
+                                submissions: 0,
+                                views: 0
+                            },
+                            status: "published",
+                            version: 1
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
+        /**
+         * We need a new revision of form 2
+         */
+        const [createRevisionForm2Response] = await createRevisionFrom({
+            revision: form2.id
+        });
+        expect(createRevisionForm2Response).toMatchObject({
+            data: {
+                formBuilder: {
+                    createRevisionFrom: {
+                        data: {
+                            id: `${form2.formId}#0002`,
+                            version: 2,
+                            published: false,
+                            status: "draft"
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
+
+        const [deleteForm2Response] = await deleteForm({
+            id: form2.id
+        });
+        expect(deleteForm2Response).toEqual({
+            data: {
+                formBuilder: {
+                    deleteForm: {
+                        data: true,
+                        error: null
+                    }
+                }
+            }
+        });
+        /**
+         * Publish form 1 so we can create new revision.
+         */
+        const [publishForm1Response] = await publishRevision({
+            revision: form1.id
+        });
+        expect(publishForm1Response).toMatchObject({
+            data: {
+                formBuilder: {
+                    publishRevision: {
+                        data: {
+                            name: "form 1",
+                            published: true,
+                            stats: {
+                                submissions: 0,
+                                views: 0
+                            },
+                            status: "published",
+                            version: 1
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
+        /**
+         * Create new revision of the first form.
+         */
+        const [createRevisionForm1Response] = await createRevisionFrom({
+            revision: form1.id
+        });
+        expect(createRevisionForm1Response).toMatchObject({
+            data: {
+                formBuilder: {
+                    createRevisionFrom: {
+                        data: {
+                            id: `${form1.formId}#0002`,
+                            version: 2,
+                            published: false,
+                            status: "draft"
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
+        /**
+         * Publish it and then create new revision again.
+         */
+        const [publishForm1ResponseSecond] = await publishRevision({
+            revision: `${form1.formId}#0002`
+        });
+        expect(publishForm1ResponseSecond).toMatchObject({
+            data: {
+                formBuilder: {
+                    publishRevision: {
+                        data: {
+                            name: "form 1",
+                            published: true,
+                            stats: {
+                                submissions: 0,
+                                views: 0
+                            },
+                            status: "published",
+                            version: 2
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
+        const [createRevisionForm1ResponseSecond] = await createRevisionFrom({
+            revision: `${form1.formId}#0002`
+        });
+        expect(createRevisionForm1ResponseSecond).toMatchObject({
+            data: {
+                formBuilder: {
+                    createRevisionFrom: {
+                        data: {
+                            id: `${form1.formId}#0003`,
+                            version: 3,
+                            published: false,
+                            status: "draft"
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
+        /**
+         * Delete the last revision of the form.
+         */
+        const [deleteRevisionForm1Response] = await deleteRevision({
+            revision: `${form1.formId}#0003`
+        });
+        expect(deleteRevisionForm1Response).toMatchObject({
+            data: {
+                formBuilder: {
+                    deleteRevision: {
+                        data: true,
+                        error: null
+                    }
+                }
+            }
+        });
+    });
+
+    it("should properly sort form revisions", async () => {
+        const name = "test form";
+        const [formResponse] = await createForm({
+            data: {
+                name
+            }
+        });
+        expect(formResponse).toMatchObject({
+            data: {
+                formBuilder: {
+                    createForm: {
+                        data: {
+                            name
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
+        const form = formResponse.data.formBuilder.createForm.data;
+        const revisions: string[] = [form.id];
+        const total = 25;
+        /**
+         * Now we need to create 20+ revisions
+         */
+        for (let i = revisions.length; i < total; i++) {
+            const prev = revisions[i - 1];
+            const [createRevisionResponse] = await createRevisionFrom({
+                revision: prev
+            });
+            expect(createRevisionResponse).toMatchObject({
+                data: {
+                    formBuilder: {
+                        createRevisionFrom: {
+                            data: {
+                                name,
+                                version: i + 1
+                            },
+                            error: null
+                        }
+                    }
+                }
+            });
+            revisions.push(createRevisionResponse.data.formBuilder.createRevisionFrom.data.id);
+        }
+        expect(revisions).toHaveLength(total);
+
+        const [listRevisionsResponse] = await getFormRevisions({
+            id: form.id
+        });
+        expect(listRevisionsResponse).toMatchObject({
+            data: {
+                formBuilder: {
+                    getFormRevisions: {
+                        data: revisions.map(rev => {
+                            return {
+                                id: rev
+                            };
+                        }),
+                        error: null
+                    }
+                }
+            }
+        });
     });
 });

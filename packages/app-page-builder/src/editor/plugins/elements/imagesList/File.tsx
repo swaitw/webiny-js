@@ -6,6 +6,12 @@ import { ReactComponent as RemoveIcon } from "../../../../admin/assets/round-clo
 const COMPONENT_WIDTH = 176;
 const COMPONENT_HEIGHT = 176;
 
+interface ImagesListFile {
+    id: string;
+    src: string;
+    name?: string;
+}
+
 const styles = css({
     cursor: "move",
     display: "inline-block",
@@ -68,17 +74,17 @@ const imageStyles = css({
     transform: "translateX(-50%) translateY(-50%)"
 });
 
-type Props = {
-    file: any; // TODO: @adrian define type for this
+interface FileProps {
+    file: ImagesListFile;
     selected?: boolean;
-    uploadFile?: Function;
+    uploadFile?: () => void;
     onSelect?: (e: SyntheticEvent) => void;
     onClick?: (e: SyntheticEvent) => void;
     onRemove?: (e: SyntheticEvent) => void;
     options?: Array<{ label: string; onClick: (file: any) => void }>;
-};
+}
 
-export default function File(props: Props) {
+const File = (props: FileProps) => {
     const { file, onSelect, onRemove } = props;
 
     return (
@@ -97,7 +103,9 @@ export default function File(props: Props) {
                     />
                 </div>
             </div>
-            <div className={"label"}>{file.name}</div>
+            <div className={"label"}>{file.name || ""}</div>
         </div>
     );
-}
+};
+
+export default File;

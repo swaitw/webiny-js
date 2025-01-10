@@ -1,22 +1,24 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { IconButton } from "@webiny/ui/Button";
 import { Tooltip } from "@webiny/ui/Tooltip";
 import { useConfirmationDialog } from "@webiny/app-admin/hooks/useConfirmationDialog";
 import { i18n } from "@webiny/app/i18n";
-import { useSecurity } from "@webiny/app-security";
-import { ReactComponent as PublishIcon } from "../../../../assets/round-publish-24px.svg";
-import { ReactComponent as UnpublishIcon } from "../../../../assets/unpublish.svg";
+import { ReactComponent as PublishIcon } from "@material-design-icons/svg/round/publish.svg";
+import { ReactComponent as UnpublishIcon } from "@material-design-icons/svg/round/settings_backup_restore.svg";
+import { makeDecoratable } from "@webiny/app-admin";
+import { usePagesPermissions } from "~/hooks/permissions";
+import { useFolders } from "@webiny/app-aco";
+import { usePage } from "~/admin/views/Pages/PageDetails";
 import { usePublishRevisionHandler } from "../../pageRevisions/usePublishRevisionHandler";
-import usePermission from "../../../../../hooks/usePermission";
 
 const t = i18n.ns("app-headless-cms/app-page-builder/page-details/header/publish");
 
-const PublishRevision = props => {
-    const { identity } = useSecurity();
-    const { canPublish, canUnpublish } = usePermission();
-    const { page } = props;
+const PublishRevision = () => {
+    const { canPublish, canUnpublish, hasPermissions } = usePagesPermissions();
+    const { folderLevelPermissions: flp } = useFolders();
+    const { page } = usePage();
 
-    const { publishRevision, unpublishRevision } = usePublishRevisionHandler({ page });
+    const { publishRevision, unpublishRevision } = usePublishRevisionHandler();
 
     const { showConfirmation: showPublishConfirmation } = useConfirmationDialog({
         title: t`Publish page`,
@@ -42,8 +44,8 @@ const PublishRevision = props => {
         )
     });
 
-    const pbPagePermission = useMemo(() => identity.getPermission("pb.page"), []);
-    if (!pbPagePermission) {
+    const folderId = page.wbyAco_location?.folderId;
+    if (!hasPermissions() || !flp.canManageContent(folderId)) {
         return null;
     }
 
@@ -80,4 +82,4 @@ const PublishRevision = props => {
     return null;
 };
 
-export default PublishRevision;
+export default makeDecoratable("PublishRevision", PublishRevision);

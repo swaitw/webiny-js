@@ -1,19 +1,23 @@
 import React, { useState } from "react";
 import { css } from "emotion";
 import styled from "@emotion/styled";
-import { camelCase, cloneDeep } from "lodash";
+import camelCase from "lodash/camelCase";
+import cloneDeep from "lodash/cloneDeep";
 import { OptionsListItem, AddOptionInput, EditFieldOptionDialog } from "./OptionsListComponents";
-// @ts-ignore
-import { sortableContainer, sortableElement, sortableHandle } from "react-sortable-hoc";
 import { Icon } from "@webiny/ui/Icon";
+import { Typography } from "@webiny/ui/Typography";
+import { Switch } from "@webiny/ui/Switch";
+import { Grid, Cell } from "@webiny/ui/Grid";
 import { ReactComponent as HandleIcon } from "../../../../icons/round-drag_indicator-24px.svg";
 import { validation } from "@webiny/validation";
 import { FormRenderPropParams } from "@webiny/form/types";
-
-const OptionList = styled("ul")({
-    padding: 25,
-    border: "1px solid var(--mdc-theme-on-background)"
-});
+import { FieldOption } from "./types";
+import { DragEndEvent } from "@dnd-kit/core";
+import { arrayMove } from "@dnd-kit/sortable";
+import {
+    SortableContainerContextProvider,
+    FieldOptionWithId
+} from "./OptionsListComponents/OptionsListItem";
 
 const OptionListItem = styled("li")({
     zIndex: 10,
@@ -29,139 +33,186 @@ const OptionListItem = styled("li")({
     }
 });
 
-const sortableList = css({
-    zIndex: 20
-});
+const switchWrapper = css`
+    align-self: end;
+    height: 100%;
+    display: flex;
+    align-items: center;
 
-const DragHandle = sortableHandle(() => (
-    <Icon icon={<HandleIcon style={{ cursor: "pointer" }} />} />
-));
+    .switch-label {
+        margin-right: 12px;
 
-const SortableContainer = sortableContainer(({ children }) => {
-    return <OptionList>{children}</OptionList>;
-});
+        strong {
+            font-weight: 600;
+        }
+    }
+`;
 
-const SortableItem = sortableElement(
-    ({
-        setOptionsValue,
-        setEditOption,
-        option,
-        optionsValue: options,
-        Bind,
-        multiple,
-        optionIndex
-    }) => (
-        <OptionListItem>
-            <OptionsListItem
-                dragHandle={<DragHandle />}
-                key={option.value}
-                Bind={Bind}
-                multiple={multiple}
-                option={option}
-                deleteOption={() => {
-                    const newValue = [...options];
-                    newValue.splice(optionIndex, 1);
-                    setOptionsValue(newValue);
-                }}
-                editOption={() => setEditOption({ index: optionIndex, data: cloneDeep(option) })}
-            />
-        </OptionListItem>
-    )
-);
+const DragHandle = () => <Icon icon={<HandleIcon style={{ cursor: "pointer" }} />} />;
 
-type OptionsListProps = {
+interface SetEditOptionParams {
+    index: number | null;
+    data: FieldOption | null;
+}
+interface OptionsListProps {
     form: FormRenderPropParams;
     multiple?: boolean;
-};
+    otherOption?: boolean;
+}
+interface OptionsListBindParams {
+    validation: any;
+    value: FieldOption[];
+    onChange: (values: FieldOption[]) => void;
+}
 
-const OptionsList = ({ form, multiple }: OptionsListProps) => {
+const OptionsList = ({ form, multiple, otherOption }: OptionsListProps) => {
     const { Bind } = form;
 
-    const [editOption, setEditOption] = useState({
+    const [editOption, setEditOption] = useState<SetEditOptionParams>({
         data: null,
         index: null
     });
-    const clearEditOption = () =>
+    const clearEditOption = (): void =>
         setEditOption({
             data: null,
             index: null
         });
 
+    const onEditOption = (option: FieldOption, optionIndex: number) => {
+        return setEditOption({ index: optionIndex, data: cloneDeep(option) });
+    };
+
     return (
         <Bind name={"options"} validators={validation.create("required,minLength:1")}>
-            {({
-                validation: optionsValidation,
-                value: optionsValue,
-                onChange: setOptionsValue
-            }) => (
-                <>
-                    <div>Options</div>
-                    <div>
-                        <AddOptionInput
+            {(bind: OptionsListBindParams) => {
+                const {
+                    validation: optionsValidation,
+                    value: optionsValue,
+                    onChange: setOptionsValue
+                } = bind;
+
+                // We are adding prop id to the list of options because SortableContext requires it.
+                // SortableContext needs to have an id in order to make "sort" work.
+                const optionsValueWithId: FieldOptionWithId[] = optionsValue?.map(
+                    (option, index) => ({
+                        ...option,
+                        id: (index += 1)
+                    })
+                );
+
+                const onSubmit = (data: FieldOptionWithId): void => {
+                    // We need to remove id prop from option before saving it in graphql,
+                    // because we do not store id for option in graphql.
+                    delete data.id;
+                    const newValue = [...optionsValueWithId].map(option => {
+                        delete option.id;
+                        return option;
+                    });
+
+                    newValue.splice(editOption.index as number, 1, data);
+                    setOptionsValue(newValue);
+                    clearEditOption();
+                };
+
+                const onDragEnd = (event: DragEndEvent) => {
+                    const { active, over } = event;
+
+                    if (active.id === over?.id) {
+                        return;
+                    }
+
+                    const oldIndex = optionsValueWithId.findIndex(
+                        (option: FieldOptionWithId) => option.id === active.id
+                    );
+                    const newIndex = optionsValueWithId.findIndex(
+                        (option: FieldOptionWithId) => option.id === over?.id
+                    );
+
+                    const sortedOptions = arrayMove(optionsValueWithId, oldIndex, newIndex).map(
+                        option => {
+                            delete option.id;
+
+                            return option;
+                        }
+                    );
+                    setOptionsValue(sortedOptions);
+                };
+
+                return (
+                    <>
+                        <div>Options</div>
+                        <Grid>
+                            <Cell span={otherOption ? 9 : 12}>
+                                <AddOptionInput
+                                    options={optionsValue}
+                                    validation={optionsValidation}
+                                    onAdd={label => {
+                                        const newValue = Array.isArray(optionsValue)
+                                            ? [...optionsValue]
+                                            : [];
+                                        newValue.push({
+                                            value: camelCase(label),
+                                            label
+                                        });
+                                        setOptionsValue(newValue);
+                                    }}
+                                />
+                            </Cell>
+                            {otherOption && (
+                                <Cell span={3} className={switchWrapper}>
+                                    <Typography use={"button"} className="switch-label">
+                                        Allow &quot;<strong>Other</strong>&quot;
+                                    </Typography>
+                                    <Bind name={"settings.otherOption"}>
+                                        <Switch />
+                                    </Bind>
+                                </Cell>
+                            )}
+                        </Grid>
+
+                        <div style={{ position: "relative" }}>
+                            {Array.isArray(optionsValueWithId) && optionsValueWithId.length > 0 ? (
+                                <>
+                                    <SortableContainerContextProvider
+                                        optionsValue={optionsValueWithId}
+                                        onDragEnd={onDragEnd}
+                                    >
+                                        {optionsValueWithId.map((item, index) => (
+                                            <OptionListItem key={`item-${index}`}>
+                                                <OptionsListItem
+                                                    dragHandle={<DragHandle />}
+                                                    multiple={!!multiple}
+                                                    option={item}
+                                                    Bind={Bind}
+                                                    editOption={() => onEditOption(item, index)}
+                                                    deleteOption={() => {
+                                                        const newValue = [...optionsValue];
+                                                        newValue.splice(index, 1);
+                                                        setOptionsValue(newValue);
+                                                    }}
+                                                />
+                                            </OptionListItem>
+                                        ))}
+                                    </SortableContainerContextProvider>
+                                </>
+                            ) : (
+                                <div style={{ padding: 40, textAlign: "center" }}>
+                                    No options added.
+                                </div>
+                            )}
+                        </div>
+
+                        <EditFieldOptionDialog
+                            onClose={clearEditOption}
+                            open={!!editOption.data}
                             options={optionsValue}
-                            validation={optionsValidation}
-                            onAdd={label => {
-                                const newValue = Array.isArray(optionsValue)
-                                    ? [...optionsValue]
-                                    : [];
-                                newValue.push({
-                                    value: camelCase(label),
-                                    label
-                                });
-                                setOptionsValue(newValue);
-                            }}
+                            option={editOption.data}
+                            optionIndex={editOption.index as number}
+                            onSubmit={onSubmit}
                         />
-                    </div>
-
-                    <div style={{ position: "relative" }}>
-                        {Array.isArray(optionsValue) && optionsValue.length > 0 ? (
-                            <SortableContainer
-                                helperClass={sortableList}
-                                useDragHandle
-                                transitionDuration={0}
-                                onSortEnd={({ oldIndex, newIndex }) => {
-                                    const newValue = [...optionsValue];
-                                    const [movedItem] = newValue.splice(oldIndex, 1);
-                                    newValue.splice(newIndex, 0, movedItem);
-                                    setOptionsValue(newValue);
-                                }}
-                            >
-                                {optionsValue.map((item, index) => (
-                                    <SortableItem
-                                        key={`item-${index}`}
-                                        Bind={Bind}
-                                        multiple={multiple}
-                                        setEditOption={setEditOption}
-                                        setOptionsValue={setOptionsValue}
-                                        option={item}
-                                        optionsValue={optionsValue}
-                                        optionIndex={index}
-                                        index={index}
-                                    />
-                                ))}
-                            </SortableContainer>
-                        ) : (
-                            <div style={{ padding: 40, textAlign: "center" }}>
-                                No options added.
-                            </div>
-                        )}
-                    </div>
-
-                    <EditFieldOptionDialog
-                        onClose={clearEditOption}
-                        open={editOption.data}
-                        options={optionsValue}
-                        option={editOption.data}
-                        optionIndex={editOption.index}
-                        onSubmit={data => {
-                            const newValue = [...optionsValue];
-                            newValue.splice(editOption.index, 1, data);
-                            setOptionsValue(newValue);
-                            clearEditOption();
-                        }}
-                    />
-                </>
-            )}
+                    </>
+                );
+            }}
         </Bind>
     );
 };

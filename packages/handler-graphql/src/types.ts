@@ -4,7 +4,10 @@ import {
     GraphQLSchema
 } from "graphql";
 import { Plugin } from "@webiny/plugins/types";
-import { ContextInterface } from "@webiny/handler/types";
+import { Context, GenericRecord } from "@webiny/api/types";
+import { RouteMethodPath } from "@webiny/handler/types";
+import { ResolversComposition } from "@graphql-tools/resolvers-composition";
+import { IResolvers, TypeSource } from "@graphql-tools/utils";
 
 export interface GraphQLScalarPlugin extends Plugin {
     type: "graphql-scalar";
@@ -12,17 +15,21 @@ export interface GraphQLScalarPlugin extends Plugin {
 }
 
 export interface HandlerGraphQLOptions {
+    path?: RouteMethodPath;
     debug?: boolean | string;
 }
 
 export type GraphQLFieldResolver<
     TSource = any,
     TArgs = any,
-    TContext = ContextInterface
+    TContext = Context
 > = BaseGraphQLFieldResolver<TSource, TContext, TArgs>;
 
-// `GraphQLSchemaPlugin` types.
-export type Types = string | (() => string | Promise<string>);
+/**
+ * @deprecated Use `TypeDefs` instead.
+ */
+export type Types = TypeDefs;
+export type TypeDefs = TypeSource;
 
 export interface GraphQLSchemaPluginTypeArgs {
     context?: any;
@@ -30,18 +37,21 @@ export interface GraphQLSchemaPluginTypeArgs {
     source?: any;
 }
 
-export type Resolvers<TContext> =
-    | GraphQLScalarType
-    | GraphQLFieldResolver<any, Record<string, any>, TContext>
-    | { [property: string]: Resolvers<TContext> };
+export type Resolvers<TContext> = IResolvers<any, TContext>;
+
+export type ResolverDecorator<TSource = any, TContext = any, TArgs = any> = ResolversComposition<
+    GraphQLFieldResolver<TSource, TContext, TArgs>
+>;
+
+export type ResolverDecorators = GenericRecord<string, ResolverDecorator[]>;
 
 export interface GraphQLSchemaDefinition<TContext> {
-    typeDefs: Types;
+    typeDefs: TypeDefs;
     resolvers?: Resolvers<TContext>;
+    resolverDecorators?: ResolverDecorators;
 }
 
-export interface GraphQLSchemaPlugin<TContext extends ContextInterface = ContextInterface>
-    extends Plugin {
+export interface GraphQLSchemaPlugin<TContext extends Context = Context> extends Plugin {
     type: "graphql-schema";
     schema: GraphQLSchemaDefinition<TContext>;
 }
@@ -52,14 +62,12 @@ export interface GraphQLRequestBody {
     operationName: string;
 }
 
-export interface GraphQLBeforeQueryPlugin<TContext extends ContextInterface = ContextInterface>
-    extends Plugin {
+export interface GraphQLBeforeQueryPlugin<TContext extends Context = Context> extends Plugin {
     type: "graphql-before-query";
     apply(params: { body: GraphQLRequestBody; schema: GraphQLSchema; context: TContext }): void;
 }
 
-export interface GraphQLAfterQueryPlugin<TContext extends ContextInterface = ContextInterface>
-    extends Plugin {
+export interface GraphQLAfterQueryPlugin<TContext extends Context = Context> extends Plugin {
     type: "graphql-after-query";
     apply(params: {
         result: any;

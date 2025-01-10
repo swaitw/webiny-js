@@ -1,6 +1,6 @@
 {
   "name": "@webiny/cli-plugin-workspaces",
-  "version": "5.17.0",
+  "version": "0.0.0",
   "main": "index.js",
   "repository": {
     "type": "git",
@@ -10,21 +10,20 @@
   "author": "Webiny Ltd.",
   "description": "A CLI plugin for working with workspaces.",
   "dependencies": {
-    "@webiny/project-utils": "^5.17.0",
-    "archy": "^1.0.0",
-    "chalk": "^4.1.0",
-    "execa": "5.0.0",
-    "graphlib": "2.1.8",
+    "@webiny/project-utils": "0.0.0",
+    "archy": "1.0.0",
+    "chalk": "^4.1.2",
+    "color": "^4.2.3",
+    "execa": "^5.1.1",
+    "graphlib": "^2.1.8",
     "multimatch": "5.0.0",
-    "p-map": "2.1.0",
-    "random-color": "1.0.1"
+    "p-map": "^4.0.0"
   },
   "license": "MIT",
   "publishConfig": {
     "access": "public",
     "directory": "."
   },
-  "scripts": {},
   "adio": {
     "ignoreDirs": [
       "/node_modules/",

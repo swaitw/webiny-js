@@ -1,6 +1,14 @@
 import get from "lodash/get";
+import { BindComponentRenderProp } from "@webiny/form";
 
-const getValue = ({ bind, index, name }) => {
+interface Params {
+    bind: BindComponentRenderProp;
+    index: number;
+    name: string;
+}
+
+export const getValue = (params: Params): string[] | undefined => {
+    const { bind, index, name } = params;
     const value = bind.value || [];
 
     if (index >= 0) {
@@ -9,5 +17,3 @@ const getValue = ({ bind, index, name }) => {
 
     return value;
 };
-
-export default getValue;

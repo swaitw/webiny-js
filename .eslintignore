@@ -1,8 +1,9 @@
 **/node_modules/
 **/dist/
+**/lib/
 **/build/
 **/.out/
 **/*.d.ts
 idea.js
-scripts
-packages/ui/src/RichTextEditor/editorjs/**
+scripts/**/*.js
+packages/create-webiny-project/utils/binaries/**

@@ -1,15 +1,17 @@
-import { CliPluginsScaffoldCi } from "../types";
+import { CliPluginsScaffoldCi } from "~/types";
 import { Octokit } from "octokit";
 import chalk from "chalk";
-import commitWorkflows from "./commitWorkflows";
-import fetchAllRepositories from "./fetchAllRepositories";
+import commitWorkflows from "~/githubActions/commitWorkflows";
+import fetchAllRepositories from "~/githubActions/fetchAllRepositories";
 import validateNpmPackageName from "validate-npm-package-name";
 import open from "open";
+import { validation } from "@webiny/validation";
 
 type Await<T> = T extends PromiseLike<infer U> ? U : T;
 
-interface Input {
+export interface GithubActionsInput {
     provider: string;
+    githubAccessTokenCreate: string;
     githubAccessToken: string;
     newOrExistingRepo: "newRepo" | "existingRepo";
     newRepoName: string;
@@ -19,6 +21,7 @@ interface Input {
         name: string;
         owner: string;
     };
+    userEmail: "";
 }
 
 let octokit: Octokit;
@@ -32,7 +35,7 @@ const LONG_LIVED_BRANCHES = ["dev", "staging", "prod"];
 
 let generateErrorsCount = 0;
 
-const plugin: CliPluginsScaffoldCi<Input> = {
+const plugin: CliPluginsScaffoldCi<GithubActionsInput> = {
     type: "cli-plugin-scaffold-ci",
     name: "cli-plugin-scaffold-ci-github",
     provider: "githubActions",
@@ -65,11 +68,11 @@ const plugin: CliPluginsScaffoldCi<Input> = {
                     return `Your GitHub personal access token:`;
                 },
                 required: true,
-                when: answers => {
+                when: (answers: GithubActionsInput) => {
                     answers.githubAccessTokenCreate && open(NEW_TOKEN_URL);
                     return true;
                 },
-                validate: async answer => {
+                validate: async (answer: GithubActionsInput) => {
                     octokit = new Octokit({ auth: answer });
 
                     try {
@@ -79,6 +82,22 @@ const plugin: CliPluginsScaffoldCi<Input> = {
                     }
 
                     return true;
+                }
+            },
+            {
+                name: "userEmail",
+                message:
+                    "Please enter your e-mail address (will be used ONLY upon making git commits): ",
+                required: true,
+                when: () => !user.email,
+                type: "input",
+                validate: answer => {
+                    try {
+                        validation.validateSync(answer, "email");
+                        return true;
+                    } catch (e) {
+                        return e.message;
+                    }
                 }
             },
             {
@@ -94,11 +113,10 @@ const plugin: CliPluginsScaffoldCi<Input> = {
 
             {
                 name: "newRepoOrgName",
-                when: answers => answers.newOrExistingRepo === "newRepo",
+                when: (answers: GithubActionsInput) => answers.newOrExistingRepo === "newRepo",
                 message:
                     "Select an organization within which the new repository will be created (optional):",
                 type: "list",
-                default: null,
                 choices: async () => {
                     const organizations = await octokit.rest.orgs.listForAuthenticatedUser();
                     return [
@@ -112,8 +130,8 @@ const plugin: CliPluginsScaffoldCi<Input> = {
                 name: "newRepoName",
                 message: `Enter your code repository name:`,
                 required: true,
-                when: answers => answers.newOrExistingRepo === "newRepo",
-                validate: async (answer, answers) => {
+                when: (answers: GithubActionsInput) => answers.newOrExistingRepo === "newRepo",
+                validate: async (answer: string, answers: GithubActionsInput) => {
                     const repositories = await fetchAllRepositories({ octokit });
                     for (let i = 0; i < repositories.length; i++) {
                         const repository = repositories[i];
@@ -132,7 +150,7 @@ const plugin: CliPluginsScaffoldCi<Input> = {
             {
                 name: "newRepoPrivacyType",
                 message: "Please select the type of code repository to create:",
-                when: answers => answers.newOrExistingRepo === "newRepo",
+                when: (answers: GithubActionsInput) => answers.newOrExistingRepo === "newRepo",
                 type: "list",
                 default: "private",
                 choices: [
@@ -143,7 +161,7 @@ const plugin: CliPluginsScaffoldCi<Input> = {
             {
                 name: "existingRepo",
                 message: "Please select your code repository:",
-                when: answers => answers.newOrExistingRepo === "existingRepo",
+                when: (answers: GithubActionsInput) => answers.newOrExistingRepo === "existingRepo",
                 type: "list",
                 choices: async () => {
                     return fetchAllRepositories({ octokit }).then(repositories =>
@@ -186,7 +204,7 @@ const plugin: CliPluginsScaffoldCi<Input> = {
         }
 
         console.log(
-            `- push GitHub actions workflow files (located in ${chalk.green(".github/workflows")})`
+            `- push GitHub Actions workflow files (located in ${chalk.green(".github/workflows")})`
         );
         console.log(
             `- create protected ${chalk.green("dev")}, ${chalk.green("staging")}, and ${chalk.green(
@@ -195,12 +213,6 @@ const plugin: CliPluginsScaffoldCi<Input> = {
         );
 
         console.log(`- set ${chalk.green("dev")} as the default branch`);
-
-        console.log(
-            `- create ${chalk.green("pr")}, ${chalk.green("dev")}, ${chalk.green(
-                "staging"
-            )}, and ${chalk.green("prod")} code repository environments`
-        );
 
         const { proceed } = await prompt({
             name: "proceed",
@@ -215,7 +227,7 @@ const plugin: CliPluginsScaffoldCi<Input> = {
         console.log();
     },
     generate: async ({ input, ora }) => {
-        const { newRepoName, newRepoOrgName, existingRepo, newRepoPrivacyType } = input;
+        const { newRepoName, newRepoOrgName, existingRepo, newRepoPrivacyType, userEmail } = input;
 
         // 1. Create a new repo or get existing.
         if (newRepoName) {
@@ -260,8 +272,8 @@ const plugin: CliPluginsScaffoldCi<Input> = {
                 repo: repo.name,
                 branch: repo.default_branch,
                 author: {
-                    name: user.name,
-                    email: user.email
+                    name: user.name as string,
+                    email: userEmail || (user.email as string)
                 }
             });
 
@@ -275,6 +287,9 @@ const plugin: CliPluginsScaffoldCi<Input> = {
                 symbol: chalk.red("✘"),
                 text: `Creation of GitHub Actions workflows failed with the following message: ${e.message}`
             });
+
+            console.log(chalk.red("✘") + " Cannot continue, exiting...");
+            return;
         }
 
         // 3. Create protected (long-lived) branches.
@@ -377,46 +392,6 @@ const plugin: CliPluginsScaffoldCi<Input> = {
                 text: `Setting ${chalk.green(
                     "dev"
                 )} as the default branch failed with the following message: ${e.message}`
-            });
-        }
-
-        // 6. Create code repository environments
-
-        ora.start(
-            `Creating ${chalk.green("pr")}, ${chalk.green("dev")}, ${chalk.green(
-                "staging"
-            )}, and ${chalk.green("prod")} code repository environments...`
-        );
-
-        const REPOSITORY_ENVIRONMENTS = ["pr", ...LONG_LIVED_BRANCHES];
-
-        try {
-            for (let i = 0; i < REPOSITORY_ENVIRONMENTS.length; i++) {
-                const env = REPOSITORY_ENVIRONMENTS[i];
-                await octokit.rest.repos.createOrUpdateEnvironment({
-                    owner: repo.owner.login,
-                    repo: repo.name,
-                    environment_name: env,
-                    reviewers: [{ type: "User", id: user.id }],
-                    deployment_branch_policy: null
-                });
-            }
-
-            ora.stopAndPersist({
-                symbol: chalk.green("✔"),
-                text: `${chalk.green("pr")}, ${chalk.green("dev")}, ${chalk.green(
-                    "staging"
-                )}, and ${chalk.green("prod")} code repository environments created.`
-            });
-        } catch (e) {
-            generateErrorsCount++;
-            ora.stopAndPersist({
-                symbol: chalk.red("✘"),
-                text: `Creation of ${chalk.green("pr")}, ${chalk.green("dev")}, ${chalk.green(
-                    "staging"
-                )}, and ${chalk.green(
-                    "prod"
-                )} code repository environments failed with the following message: ${e.message}`
             });
         }
     },

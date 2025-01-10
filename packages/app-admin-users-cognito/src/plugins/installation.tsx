@@ -1,21 +1,29 @@
 import gql from "graphql-tag";
-import React, { useState, useCallback } from "react";
+import { css } from "emotion";
+import React, { useCallback, useState } from "react";
 import { useApolloClient } from "@apollo/react-hooks";
 import { Form } from "@webiny/form";
 import { Alert } from "@webiny/ui/Alert";
 import { ButtonPrimary } from "@webiny/ui/Button";
 import { Input } from "@webiny/ui/Input";
 import { Checkbox } from "@webiny/ui/Checkbox";
-import { Grid, Cell } from "@webiny/ui/Grid";
+import { Cell, Grid } from "@webiny/ui/Grid";
 import { CircularProgress } from "@webiny/ui/Progress";
 import { validation } from "@webiny/validation";
 import {
     SimpleForm,
-    SimpleFormHeader,
+    SimpleFormContent,
     SimpleFormFooter,
-    SimpleFormContent
+    SimpleFormHeader
 } from "@webiny/app-admin/components/SimpleForm";
 import { View } from "@webiny/app/components/View";
+import { AdminInstallationPlugin } from "@webiny/app-admin/types";
+
+const removeGridPadding = css`
+    > .mdc-layout-grid {
+        padding: 0;
+    }
+`;
 
 const IS_INSTALLED = gql`
     query IsAdminUsersInstalled {
@@ -26,7 +34,7 @@ const IS_INSTALLED = gql`
 `;
 
 const INSTALL = gql`
-    mutation InstallAdminUsers($data: AdminUsersInstallInput!) {
+    mutation InstallAdminUsers($data: AdminUsersInstallInput) {
         adminUsers {
             install(data: $data) {
                 data
@@ -39,12 +47,26 @@ const INSTALL = gql`
     }
 `;
 
-const Install = ({ onInstalled }) => {
-    const client = useApolloClient();
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+interface InstallCallableParams {
+    subscribed: boolean;
+    email: string;
+    [key: string]: string | boolean;
+}
 
-    const onSubmit = useCallback(async ({ subscribed, ...form }) => {
+interface InstallCallable {
+    (data: InstallCallableParams): Promise<void>;
+}
+
+export interface InstallProps {
+    onInstalled: () => void;
+}
+
+const Install = ({ onInstalled }: InstallProps) => {
+    const client = useApolloClient();
+    const [loading, setLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const onSubmit = useCallback<InstallCallable>(async ({ subscribed, ...form }) => {
         setLoading(true);
         setError(null);
 
@@ -52,7 +74,14 @@ const Install = ({ onInstalled }) => {
         setLoading(false);
         const { error } = res.adminUsers.install;
         if (error) {
-            setError(error);
+            switch (error.code) {
+                case "COGNITO_ACCOUNT_EXISTS":
+                    setError(`An account with this email already exists.`);
+                    break;
+                default:
+                    setError(error.message);
+            }
+
             return;
         }
 
@@ -90,7 +119,7 @@ const Install = ({ onInstalled }) => {
                             {error && (
                                 <Cell span={12}>
                                     <Alert title={"Something went wrong"} type={"danger"}>
-                                        {error.message}
+                                        {error}
                                     </Alert>
                                 </Cell>
                             )}
@@ -123,26 +152,37 @@ const Install = ({ onInstalled }) => {
                             <View name={"adminUsers.installation.fields"} props={{ Bind, data }} />
                         </Grid>
 
-                        <Grid>
+                        <Grid style={{ paddingTop: "0px" }}>
                             <Cell span={12}>
                                 <Bind name="subscribed">
                                     <Checkbox
                                         label={
-                                            <span>
-                                                I want to receive updates on product improvements
-                                                and new features. Doing so I accept Webiny&apos;s{" "}
-                                                {privacyPolicyLink}.
-                                            </span>
+                                            "I want to receive updates on product improvements and new features."
                                         }
                                     />
                                 </Bind>
                             </Cell>
                         </Grid>
                     </SimpleFormContent>
-                    <SimpleFormFooter>
-                        <ButtonPrimary data-testid="install-security-button" onClick={submit}>
-                            Create Admin User
-                        </ButtonPrimary>
+                    <SimpleFormFooter className={removeGridPadding}>
+                        <Grid>
+                            <Cell span={8}>
+                                <p style={{ textAlign: "left" }}>
+                                    By submitting the form, you agree to our Terms of Service and
+                                    acknowledge our {privacyPolicyLink}.
+                                </p>
+                            </Cell>
+                            <Cell span={4}>
+                                <ButtonPrimary
+                                    data-testid="install-security-button"
+                                    onClick={() => {
+                                        submit();
+                                    }}
+                                >
+                                    Create Admin User
+                                </ButtonPrimary>
+                            </Cell>
+                        </Grid>
                     </SimpleFormFooter>
                 </SimpleForm>
             )}
@@ -150,19 +190,19 @@ const Install = ({ onInstalled }) => {
     );
 };
 
-export default [
-    {
-        name: "admin-installation-admin-users",
-        type: "admin-installation",
-        dependencies: ["admin-installation-security"],
-        secure: false,
-        title: "Admin User",
-        async getInstalledVersion({ client }) {
-            const { data } = await client.query({ query: IS_INSTALLED });
-            return data.adminUsers.version;
-        },
-        render({ onInstalled }) {
-            return <Install onInstalled={onInstalled} />;
-        }
+const installationPlugin: AdminInstallationPlugin = {
+    name: "admin-installation-admin-users",
+    type: "admin-installation",
+    dependencies: ["admin-installation-security"],
+    secure: false,
+    title: "Admin User",
+    async getInstalledVersion({ client }) {
+        const { data } = await client.query({ query: IS_INSTALLED });
+        return data.adminUsers.version;
+    },
+    render({ onInstalled }) {
+        return <Install onInstalled={onInstalled} />;
     }
-];
+};
+
+export default [installationPlugin];

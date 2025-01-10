@@ -1,9 +1,9 @@
-import { useContentGqlHandler } from "../utils/useContentGqlHandler";
+import { useGraphQLHandler } from "../testHelpers/useGraphQLHandler";
 import { CmsEntry, CmsGroup } from "~/types";
 import models from "./mocks/contentModels";
-import { useProductManageHandler } from "../utils/useProductManageHandler";
-import { useCategoryManageHandler } from "../utils/useCategoryManageHandler";
-import { useProductReadHandler } from "../utils/useProductReadHandler";
+import { useProductManageHandler } from "../testHelpers/useProductManageHandler";
+import { useCategoryManageHandler } from "../testHelpers/useCategoryManageHandler";
+import { useProductReadHandler } from "../testHelpers/useProductReadHandler";
 
 const richTextMock = [
     {
@@ -38,7 +38,7 @@ describe("richTextField", () => {
         createContentModelMutation,
         updateContentModelMutation,
         createContentModelGroupMutation
-    } = useContentGqlHandler(manageOpts);
+    } = useGraphQLHandler(manageOpts);
 
     // This function is not directly within `beforeEach` as we don't always setup the same content model.
     // We call this function manually at the beginning of each test, where needed.
@@ -56,11 +56,16 @@ describe("richTextField", () => {
 
     const setupContentModel = async (contentModelGroup: CmsGroup, name: string) => {
         const model = models.find(m => m.modelId === name);
+        if (!model) {
+            throw new Error(`Could not find model "${name}".`);
+        }
         // Create initial record
         const [create] = await createContentModelMutation({
             data: {
                 name: model.name,
                 modelId: model.modelId,
+                singularApiName: model.singularApiName,
+                pluralApiName: model.pluralApiName,
                 group: contentModelGroup.id
             }
         });
@@ -80,7 +85,7 @@ describe("richTextField", () => {
         return update.data.updateContentModel.data;
     };
     const setupContentModels = async (contentModelGroup: CmsGroup) => {
-        const models = {
+        const models: Record<string, any> = {
             category: null,
             product: null,
             review: null,
@@ -121,7 +126,7 @@ describe("richTextField", () => {
             ...manageOpts
         });
 
-        const { until, getProduct } = useProductReadHandler({
+        const { getProduct } = useProductReadHandler({
             ...readOpts
         });
 
@@ -135,7 +140,7 @@ describe("richTextField", () => {
                 image: "file.jpg",
                 category: {
                     modelId: "category",
-                    entryId: category.id
+                    id: category.id
                 },
                 richText: richTextMock
             }
@@ -146,21 +151,27 @@ describe("richTextField", () => {
                 createProduct: {
                     data: {
                         id: expect.any(String),
-                        createdOn: expect.stringMatching(/^20/),
+                        entryId: expect.any(String),
+                        createdOn: expect.toBeDateString(),
+                        modifiedOn: null,
+                        savedOn: expect.toBeDateString(),
+                        firstPublishedOn: null,
+                        lastPublishedOn: null,
                         createdBy: {
-                            id: "12345678",
+                            id: "id-12345678",
                             displayName: "John Doe",
                             type: "admin"
                         },
-                        savedOn: expect.stringMatching(/^20/),
                         title: "Potato",
                         price: 100,
-                        availableOn: expect.stringMatching(/^20/),
+                        image: "file.jpg",
+                        availableOn: expect.toBeDateString(),
                         color: "white",
                         availableSizes: ["s", "m"],
                         category: {
                             modelId: "category",
-                            entryId: category.id
+                            id: category.id,
+                            entryId: category.entryId
                         },
                         richText: richTextMock,
                         inStock: null,
@@ -169,7 +180,6 @@ describe("richTextField", () => {
                         meta: {
                             locked: false,
                             modelId: "product",
-                            publishedOn: null,
                             revisions: [
                                 {
                                     id: expect.any(String),
@@ -192,18 +202,6 @@ describe("richTextField", () => {
             revision: product.id
         });
 
-        // If this `until` resolves successfully, we know entry is accessible via the "read" API
-        await until(
-            () =>
-                getProduct({
-                    where: {
-                        id: product.id
-                    }
-                }).then(([data]) => data),
-            ({ data }) => data.getProduct.data.id === product.id,
-            { name: "get created product" }
-        );
-
         const [response] = await getProduct({
             where: {
                 id: product.id
@@ -215,11 +213,16 @@ describe("richTextField", () => {
                 getProduct: {
                     data: {
                         id: expect.any(String),
-                        createdOn: expect.stringMatching(/^20/),
-                        savedOn: expect.stringMatching(/^20/),
+                        entryId: expect.any(String),
+                        createdOn: expect.toBeDateString(),
+                        modifiedOn: expect.toBeDateString(),
+                        savedOn: expect.toBeDateString(),
+                        firstPublishedOn: expect.toBeDateString(),
+                        lastPublishedOn: expect.toBeDateString(),
                         title: "Potato",
+                        image: "file.jpg",
                         price: 100,
-                        availableOn: expect.stringMatching(/^20/),
+                        availableOn: expect.toBeDateString(),
                         color: "white",
                         availableSizes: ["s", "m"],
                         category: {
@@ -256,7 +259,7 @@ describe("richTextField", () => {
             image: "file.jpg",
             category: {
                 modelId: "category",
-                entryId: category.id
+                id: category.id
             }
         };
         /**
@@ -268,21 +271,27 @@ describe("richTextField", () => {
 
         const expectedCreatedProduct = {
             id: expect.any(String),
-            createdOn: expect.stringMatching(/^20/),
+            entryId: expect.any(String),
+            createdOn: expect.toBeDateString(),
+            modifiedOn: null,
+            savedOn: expect.toBeDateString(),
+            firstPublishedOn: null,
+            lastPublishedOn: null,
             createdBy: {
-                id: "12345678",
+                id: "id-12345678",
                 displayName: "John Doe",
                 type: "admin"
             },
-            savedOn: expect.stringMatching(/^20/),
             title: "Potato",
             price: 100,
-            availableOn: expect.stringMatching(/^20/),
+            image: "file.jpg",
+            availableOn: expect.toBeDateString(),
             color: "white",
             availableSizes: ["s", "m"],
             category: {
                 modelId: "category",
-                entryId: category.id
+                id: category.id,
+                entryId: category.entryId
             },
             richText: null,
             inStock: null,
@@ -291,7 +300,6 @@ describe("richTextField", () => {
             meta: {
                 locked: false,
                 modelId: "product",
-                publishedOn: null,
                 revisions: [
                     {
                         id: expect.any(String),
@@ -332,7 +340,8 @@ describe("richTextField", () => {
                 updateProduct: {
                     data: {
                         ...expectedCreatedProduct,
-                        richText: richTextMock
+                        richText: richTextMock,
+                        modifiedOn: expect.toBeDateString()
                     },
                     error: null
                 }

@@ -1,21 +1,32 @@
 const path = require("path");
 
-const getDefaults = cwd => ({
-    outputPath: path.join(cwd, "build"),
-    outputFilename: "handler.js"
-});
+const getDefaults = ({ cwd, projectApplication }) => {
+    let outputPath = path.join(cwd, "build");
+    if (projectApplication) {
+        outputPath = path.join(
+            projectApplication.paths.workspace,
+            path.relative(projectApplication.paths.absolute, cwd),
+            "build"
+        );
+    }
 
-const getOutput = ({ cwd, overrides }) => {
+    return {
+        outputPath,
+        outputFilename: "handler.js"
+    };
+};
+
+const getOutput = options => {
     let output = null;
-    if (overrides && overrides.output) {
-        output = overrides.output;
+    if (options.overrides && options.overrides.output) {
+        output = options.overrides.output;
     }
 
     if (!output) {
         output = {};
     }
 
-    const defaults = getDefaults(cwd);
+    const defaults = getDefaults(options);
     if (!output.path) {
         output.path = defaults.outputPath;
     }
@@ -33,4 +44,7 @@ const getEntry = ({ cwd, overrides }) => {
     return overrides.entry || path.join(cwd, "src/index");
 };
 
-module.exports = { getOutput, getEntry };
+module.exports = {
+    getOutput,
+    getEntry
+};

@@ -3,7 +3,6 @@ import styled from "@emotion/styled";
 import kebabCase from "lodash/kebabCase";
 import { Typography } from "@webiny/ui/Typography";
 import { createEmbedPlugin, createEmbedSettingsPlugin } from "../../utils/oembed";
-import PinterestEmbed from "./PinterestEmbed";
 import { validation } from "@webiny/validation";
 import { ReactComponent as LogoIcon } from "./pinterest-brands.svg";
 import Accordion from "../../../elementSettings/components/Accordion";
@@ -15,7 +14,9 @@ import {
     SimpleButton,
     classes
 } from "../../../elementSettings/components/StyledComponents";
-import { PbEditorElementPluginArgs } from "../../../../../types";
+import { PbEditorElementPluginArgs } from "~/types";
+
+import { PePinterest } from "~/editor/plugins/elements/social/pinterest/PePinterest";
 
 const PreviewBox = styled("div")({
     textAlign: "center",
@@ -43,12 +44,19 @@ export default (args: PbEditorElementPluginArgs = {}) => {
     return [
         createEmbedPlugin({
             type: elementType,
+            /**
+             * TODO @ts-refactor @ashutosh
+             * Completely different types between method result and variable
+             */
+            // @ts-expect-error
             toolbar:
                 typeof args.toolbar === "function" ? args.toolbar(defaultToolbar) : defaultToolbar,
             create: args.create,
+            // @ts-expect-error
             settings: args.settings,
-            render({ element }) {
-                return <PinterestEmbed element={element} />;
+            render(props) {
+                // @ts-expect-error No need to worry about different `element.elements` type.
+                return <PePinterest {...props} />;
             }
         }),
         createEmbedSettingsPlugin({

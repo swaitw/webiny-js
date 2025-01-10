@@ -1,40 +1,35 @@
 import {
-    FormBuilderStorageOperations as BaseFormBuilderStorageOperations,
-    FormBuilderSystemStorageOperations as BaseFormBuilderSystemStorageOperations,
-    FormBuilderSubmissionStorageOperations as BaseFormBuilderSubmissionStorageOperations,
+    FormBuilder,
+    FormBuilderContext as BaseFormBuilderContext,
+    FormBuilderFormStorageOperations as BaseFormBuilderFormStorageOperations,
     FormBuilderSettingsStorageOperations as BaseFormBuilderSettingsStorageOperations,
-    FormBuilderFormStorageOperations as BaseFormBuilderFormStorageOperations
+    FormBuilderStorageOperations as BaseFormBuilderStorageOperations,
+    FormBuilderSubmissionStorageOperations as BaseFormBuilderSubmissionStorageOperations,
+    FormBuilderSystemStorageOperations as BaseFormBuilderSystemStorageOperations
 } from "@webiny/api-form-builder/types";
-import { DocumentClient } from "aws-sdk/clients/dynamodb";
-import { Table, Entity } from "dynamodb-toolbox";
-import { DynamoDBTypes } from "dynamodb-toolbox/dist/classes/Table";
-import {
-    EntityAttributeConfig,
-    EntityCompositeAttributes
-} from "dynamodb-toolbox/dist/classes/Entity";
+import { DynamoDBDocument } from "@webiny/aws-sdk/client-dynamodb";
+import { AttributeDefinition, Entity, Table } from "@webiny/db-dynamodb/toolbox";
 import { Client } from "@elastic/elasticsearch";
-import { Plugin } from "@webiny/plugins";
-
-export type AttributeDefinition = DynamoDBTypes | EntityAttributeConfig | EntityCompositeAttributes;
+import { PluginCollection } from "@webiny/plugins/types";
 
 export type Attributes = Record<string, AttributeDefinition>;
 
 export enum ENTITIES {
     FORM = "FormBuilderForm",
+    ES_SUBMISSION = "FormBuilderSubmissionEs",
     ES_FORM = "FormBuilderFormEs",
     SUBMISSION = "FormBuilderSubmission",
-    ES_SUBMISSION = "FormBuilderSubmissionEs",
     SYSTEM = "FormBuilderSystem",
     SETTINGS = "FormBuilderSettings"
 }
 
 export interface FormBuilderStorageOperationsFactoryParams {
-    documentClient: DocumentClient;
+    documentClient: DynamoDBDocument;
     elasticsearch: Client;
     table?: string;
     esTable?: string;
     attributes?: Record<ENTITIES, Attributes>;
-    plugins?: Plugin[];
+    plugins?: PluginCollection;
 }
 
 export interface FormBuilderSystemCreateKeysParams {
@@ -91,11 +86,17 @@ export interface FormBuilderStorageOperations
         FormBuilderSubmissionStorageOperations,
         FormBuilderFormStorageOperations,
         FormBuilderSystemStorageOperations {
-    getTable(): Table;
-    getEsTable(): Table;
+    getTable(): Table<string, string, string>;
+    getEsTable(): Table<string, string, string>;
     getEntities(): Record<Entities, Entity<any>>;
 }
 
 export interface FormBuilderStorageOperationsFactory {
     (params: FormBuilderStorageOperationsFactoryParams): FormBuilderStorageOperations;
+}
+
+export interface FormBuilderContext extends BaseFormBuilderContext {
+    formBuilder: FormBuilder & {
+        storageOperations: FormBuilderStorageOperations;
+    };
 }

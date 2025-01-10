@@ -1,8 +1,10 @@
-import { Plugin } from "./types";
+import { Plugin, PluginCollection } from "./types";
 import uniqid from "uniqid";
 
-const isOptionsObject = item => item && !Array.isArray(item) && !item.type && !item.name;
-const normalizeArgs = args => {
+export type WithName<T extends Plugin> = T & { name: string };
+
+const isOptionsObject = (item?: any) => item && !Array.isArray(item) && !item.type && !item.name;
+const normalizeArgs = (args: any[]): [Plugin[], any] => {
     let options = {};
 
     // Check if last item in the plugins array is actually an options object.
@@ -13,12 +15,29 @@ const normalizeArgs = args => {
     return [args, options];
 };
 
-const assign = (plugins: any, options, target: Object): void => {
-    for (let i = 0; i < plugins.length; i++) {
-        const plugin = plugins[i];
+const assign = (
+    plugins: Plugin[] | Plugin[][],
+    options: any,
+    target: Record<string, any>
+): void => {
+    for (const plugin of plugins) {
         if (Array.isArray(plugin)) {
             assign(plugin, options, target);
             continue;
+        }
+
+        if (typeof plugin !== "object") {
+            throw new Error(
+                `Could not register plugin. Expected an object, but got ${typeof plugin}.`
+            );
+        }
+
+        if (!plugin.type) {
+            let name = "";
+            if (plugin.name) {
+                name = ` "${plugin.name}"`;
+            }
+            throw new Error(`Could not register plugin${name}. Missing "type" definition.`);
         }
 
         let name = plugin._name || plugin.name;
@@ -36,26 +55,32 @@ const assign = (plugins: any, options, target: Object): void => {
 
 export class PluginsContainer {
     private plugins: Record<string, Plugin> = {};
-    private _byTypeCache: Record<string, Plugin[]> = {};
+    private _byTypeCache: Record<string, WithName<Plugin>[]> = {};
 
-    constructor(...args) {
+    constructor(...args: PluginCollection) {
         this.register(...args);
     }
 
-    public byName<T extends Plugin>(name: T["name"]): T {
-        return this.plugins[name] as T;
+    public byName<T extends Plugin>(name: T["name"]) {
+        if (!name) {
+            return null;
+        }
+        /**
+         * We can safely cast name as string, we know it is so.
+         */
+        return this.plugins[name as string] as WithName<T>;
     }
 
-    public byType<T extends Plugin>(type: T["type"]): T[] {
+    public byType<T extends Plugin>(type: T["type"]) {
         if (this._byTypeCache[type]) {
-            return Array.from(this._byTypeCache[type]) as T[];
+            return Array.from(this._byTypeCache[type]) as WithName<T>[];
         }
         const plugins = this.findByType<T>(type);
         this._byTypeCache[type] = plugins;
         return Array.from(plugins);
     }
 
-    public atLeastOneByType<T extends Plugin>(type: T["type"]): T[] {
+    public atLeastOneByType<T extends Plugin>(type: T["type"]) {
         const list = this.byType<T>(type);
         if (list.length === 0) {
             throw new Error(`There are no plugins by type "${type}".`);
@@ -63,7 +88,7 @@ export class PluginsContainer {
         return list;
     }
 
-    public oneByType<T extends Plugin>(type: T["type"]): T {
+    public oneByType<T extends Plugin>(type: T["type"]) {
         const list = this.atLeastOneByType<T>(type);
         if (list.length > 1) {
             throw new Error(
@@ -71,6 +96,18 @@ export class PluginsContainer {
             );
         }
         return list[0];
+    }
+
+    public merge(input: PluginsContainer | PluginCollection): void {
+        if (input instanceof PluginsContainer) {
+            this.register(...input.all());
+            return;
+        }
+        this.register(input);
+    }
+
+    public mergeByType(container: PluginsContainer, type: string): void {
+        this.register(...container.byType(type));
     }
 
     public all<T extends Plugin>(): T[] {
@@ -90,7 +127,9 @@ export class PluginsContainer {
         delete this.plugins[name];
     }
 
-    private findByType<T extends Plugin>(type: T["type"]): T[] {
-        return Object.values(this.plugins).filter((pl: Plugin) => pl.type === type) as T[];
+    private findByType<T extends Plugin>(type: T["type"]) {
+        return Object.values(this.plugins).filter(
+            (pl): pl is T => pl.type === type
+        ) as WithName<T>[];
     }
 }

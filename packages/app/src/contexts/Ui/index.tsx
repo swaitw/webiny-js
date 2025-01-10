@@ -1,10 +1,10 @@
 import React from "react";
-import { UiStatePlugin } from "../../types";
+import { UiStatePlugin } from "~/types";
 import { plugins } from "@webiny/plugins";
 
-export const UiContext = React.createContext({});
+export const UiContext = React.createContext<Record<string, any>>({});
 
-type Props = {};
+type Props = Record<string, any>;
 
 type State = {
     ui: { [key: string]: any };
@@ -24,15 +24,17 @@ export interface UiContextValue {
 }
 
 export class UiProvider extends React.Component<Props, State> {
-    state: State = { ui: {} };
+    public override state: State = {
+        ui: {}
+    };
 
-    setData = (setter: Function) => {
+    private readonly setData = (setter: UiDataSetter): void => {
         return this.setState((state: State) => {
             return { ui: { ...state.ui, ...setter(state.ui) } };
         });
     };
 
-    render() {
+    public override render() {
         const value: UiContextValue = { ...this.state.ui, setState: this.setData };
         const uiStatePlugins = plugins.byType<UiStatePlugin>("ui-state");
         return (
@@ -43,7 +45,3 @@ export class UiProvider extends React.Component<Props, State> {
         );
     }
 }
-
-export const UiConsumer = ({ children }) => {
-    return <UiContext.Consumer>{ui => React.cloneElement(children, { ui })}</UiContext.Consumer>;
-};

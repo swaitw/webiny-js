@@ -1,48 +1,103 @@
 import React from "react";
-import { css } from "emotion";
+import styled from "@emotion/styled";
 import { renderPlugins } from "@webiny/app/plugins";
 import { Typography } from "@webiny/ui/Typography";
-import { Grid, Cell } from "@webiny/ui/Grid";
+import { ReactComponent as OpenInNew } from "@material-design-icons/svg/round/open_in_new.svg";
+import { PbPageData } from "~/types";
+import { usePreviewPage } from "~/admin/hooks/usePreviewPage";
 
-const headerTitle = css({
-    "&.mdc-layout-grid": {
-        borderBottom: "1px solid var(--mdc-theme-on-background)",
-        color: "var(--mdc-theme-text-primary-on-background)",
-        background: "var(--mdc-theme-surface)",
-        paddingTop: 10,
-        paddingBottom: 9,
-        ".mdc-layout-grid__inner": {
-            alignItems: "center"
-        }
+const HeaderTitle = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--mdc-theme-on-background);
+    color: var(--mdc-theme-text-primary-on-background);
+    background: var(--mdc-theme-surface);
+    padding-top: 10px;
+    padding-bottom: 9px;
+    padding-left: 24px;
+    padding-right: 24px;
+`;
+
+const PageInfo = styled.div`
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+`;
+
+const PageTitle = styled.div`
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    span {
+        font-weight: bold;
     }
-});
+`;
 
-const pageTitle = css({
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis"
-});
+const PageLink = styled.div`
+    display: flex;
+    align-items: center;
+    height: 24px;
+    cursor: pointer;
 
-const headerActions = css({
-    justifyContent: "flex-end",
-    marginRight: "-15px",
-    display: "flex",
-    alignItems: "center"
-});
+    span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 300px;
+    }
 
-const Header = props => {
+    svg {
+        display: none;
+        flex-shrink: 0;
+        width: 14px;
+        height: 14px;
+        margin-left: 2px;
+        cursor: pointer;
+    }
+
+    :hover svg {
+        display: block;
+    }
+`;
+
+const HeaderActions = styled.div`
+    justify-content: flex-end;
+    margin-right: -15px;
+    margin-left: 10px;
+    display: flex;
+    align-items: center;
+`;
+
+interface HeaderProps {
+    page: PbPageData;
+}
+const Header = (props: HeaderProps) => {
     const { page } = props;
+    const { previewPage, previewUrl } = usePreviewPage({
+        id: page.id,
+        status: page.status,
+        path: page.path
+    });
+
     return (
         <React.Fragment>
-            <Grid className={headerTitle}>
-                <Cell span={8} className={pageTitle}>
-                    <Typography use="headline5">{page.title}</Typography>
-                </Cell>
-                <Cell span={4} className={headerActions}>
+            <HeaderTitle>
+                <PageInfo>
+                    <PageTitle>
+                        <Typography use="headline6">{page.title}</Typography>
+                    </PageTitle>
+                    <PageLink onClick={previewPage}>
+                        <Typography use="caption">{previewUrl}</Typography>
+                        <OpenInNew />
+                    </PageLink>
+                </PageInfo>
+                <HeaderActions>
                     {renderPlugins("pb-page-details-header-left", props)}
                     {renderPlugins("pb-page-details-header-right", props)}
-                </Cell>
-            </Grid>
+                </HeaderActions>
+            </HeaderTitle>
         </React.Fragment>
     );
 };

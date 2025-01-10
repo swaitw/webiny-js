@@ -1,20 +1,12 @@
 import React from "react";
 import kebabCase from "lodash/kebabCase";
-import Block from "./Block";
-import {
-    CreateElementActionEvent,
-    DeleteElementActionEvent,
-    updateElementAction
-} from "../../../recoil/actions";
-import { addElementToParent, createDroppedElement } from "../../../helpers";
+import { Block } from "./Block";
 import {
     DisplayMode,
-    EventActionHandlerActionCallableResponse,
     PbEditorPageElementPlugin,
     PbEditorElement,
     PbEditorElementPluginArgs
-} from "../../../../types";
-import { AfterDropElementActionEvent } from "../../../recoil/actions/afterDropElement";
+} from "~/types";
 import { createInitialPerDeviceSettingValue } from "../../elementSettings/elementSettingsUtils";
 
 export default (args: PbEditorElementPluginArgs = {}): PbEditorPageElementPlugin => {
@@ -25,7 +17,6 @@ export default (args: PbEditorElementPluginArgs = {}): PbEditorPageElementPlugin
         "pb-editor-page-element-style-settings-shadow",
         "pb-editor-page-element-style-settings-padding",
         "pb-editor-page-element-style-settings-margin",
-        "pb-editor-page-element-style-settings-width",
         "pb-editor-page-element-style-settings-height",
         "pb-editor-page-element-style-settings-horizontal-align-flex",
         "pb-editor-page-element-style-settings-vertical-align",
@@ -42,7 +33,7 @@ export default (args: PbEditorElementPluginArgs = {}): PbEditorPageElementPlugin
         settings:
             typeof args.settings === "function" ? args.settings(elementSettings) : elementSettings,
         create(options = {}) {
-            const defaultValue = {
+            const defaultValue: Partial<PbEditorElement> = {
                 type: this.elementType,
                 elements: [],
                 data: {
@@ -87,44 +78,10 @@ export default (args: PbEditorElementPluginArgs = {}): PbEditorPageElementPlugin
 
             return typeof args.create === "function" ? args.create(defaultValue) : defaultValue;
         },
+        target: ["document"],
         render(props) {
             return <Block {...props} />;
         },
-        // This callback is executed when another element is dropped on the drop zones with type "block"
-        onReceived({ source, target, position = null, state, meta }) {
-            const element = createDroppedElement(source as any, target);
-
-            const block = addElementToParent(element, target, position);
-
-            const result = updateElementAction(state, meta, {
-                element: block,
-                history: true
-            }) as EventActionHandlerActionCallableResponse;
-
-            result.actions.push(
-                new AfterDropElementActionEvent({
-                    element
-                })
-            );
-
-            if (source.id) {
-                // Delete source element
-                result.actions.push(
-                    new DeleteElementActionEvent({
-                        element: source as PbEditorElement
-                    })
-                );
-
-                return result;
-            }
-
-            result.actions.push(
-                new CreateElementActionEvent({
-                    element,
-                    source: source as any
-                })
-            );
-            return result;
-        }
+        canReceiveChildren: true
     };
 };

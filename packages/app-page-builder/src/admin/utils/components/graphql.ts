@@ -12,9 +12,7 @@ const PAGE_ELEMENT_FIELDS = /*GraphQL*/ `
         id
         name
         type
-        category
         content
-        preview
     }
 `;
 
@@ -22,7 +20,6 @@ export const DELETE_PAGE_ELEMENT = gql`
     mutation PbDeletePageElement($id: ID!) {
         pageBuilder {
             deletePageElement(id: $id) {
-                data ${PAGE_ELEMENT_FIELDS}
                 error ${ERROR_FIELDS}
             }
         }
@@ -30,7 +27,7 @@ export const DELETE_PAGE_ELEMENT = gql`
 `;
 
 export const UPDATE_PAGE_ELEMENT = gql`
-    mutation PbUpdatePageElement($id: ID!, $data: PbPageElementInput!) {
+    mutation PbUpdatePageElement($id: ID!, $data: PbUpdatePageElementInput!) {
         pageBuilder {
             updatePageElement(id: $id, data: $data) {
                 data ${PAGE_ELEMENT_FIELDS}

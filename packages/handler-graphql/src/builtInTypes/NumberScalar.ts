@@ -19,7 +19,7 @@ const parseValue = (value: any) => {
     return parseFloat(value);
 };
 
-export const Number = new GraphQLScalarType({
+export const NumberScalar = new GraphQLScalarType({
     name: "Number",
     description: "A custom input type to be used with numbers. Supports Int and Float.",
     serialize: (value: any) => {
@@ -37,11 +37,12 @@ export const Number = new GraphQLScalarType({
         }
     },
     parseValue,
-    parseLiteral: (ast: any) => {
-        if (ast.kind === Kind.INT || ast.kind === Kind.FLOAT) {
-            return ast.value;
+    parseLiteral: ast => {
+        if (ast.kind === Kind.INT) {
+            return Number(ast.value);
+        } else if (ast.kind === Kind.FLOAT) {
+            return parseFloat(ast.value);
         }
-
-        throw new Error(`Expected type Number, found {${ast.value}}`);
+        throw new Error(`Expected type Number, found {${ast.kind}}`);
     }
 });

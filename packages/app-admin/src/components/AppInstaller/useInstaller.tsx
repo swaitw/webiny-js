@@ -1,56 +1,81 @@
-import React, { useCallback, useReducer, useEffect, Suspense } from "react";
+import { useCallback, useReducer, useEffect } from "react";
 import { Graph, alg } from "graphlib";
-import { sort, gt, lte } from "semver";
 import { useApolloClient } from "@apollo/react-hooks";
 import { plugins } from "@webiny/plugins";
 import { AdminInstallationPlugin } from "~/types";
-import { CircularProgress } from "@webiny/ui/Progress";
+import { config as appConfig } from "@webiny/app/config";
 
-const Loader = ({ children, ...props }) => (
-    <Suspense fallback={<CircularProgress label={"Loading..."} />}>
-        {React.cloneElement(children, props)}
-    </Suspense>
-);
+interface GetInstallersResult {
+    toInstall: Installer[];
+}
 
-export const useInstaller = ({ isInstalled }) => {
-    const [{ loading, installers, installerIndex, showLogin, skippingVersions }, setState] =
-        useReducer((prev, next) => ({ ...prev, ...next }), {
-            loading: true,
-            installers: [],
-            installerIndex: -1,
-            showLogin: false,
-            skippingVersions: false
-        });
+interface UseInstallerParams {
+    isInstalled: boolean;
+}
+
+interface BaseInstaller {
+    installed: string | null;
+    plugin: AdminInstallationPlugin;
+}
+
+export interface Installer extends BaseInstaller {
+    type: "install";
+    name: string;
+    title: string;
+    render: AdminInstallationPlugin["render"];
+    secure?: boolean;
+}
+interface State {
+    loading: boolean;
+    installers: Installer[];
+    installerIndex: number;
+    showLogin: boolean;
+}
+
+interface Reducer {
+    (prev: State, next: Partial<State>): State;
+}
+
+export const useInstaller = (params: UseInstallerParams) => {
+    const { isInstalled } = params;
+    const [state, setState] = useReducer<Reducer>((prev, next) => ({ ...prev, ...next }), {
+        loading: true,
+        installers: [],
+        installerIndex: -1,
+        showLogin: false
+    });
+    const { loading, installers, installerIndex, showLogin } = state;
 
     const client = useApolloClient();
 
-    const validateGraph = graph => {
+    const validateGraph = (graph: Graph): void => {
         const isAcyclic = alg.isAcyclic(graph);
-        if (!isAcyclic) {
-            const cycles = alg.findCycles(graph);
-            const msg = ["Your installers have circular dependencies:"];
-            cycles.forEach((cycle, index) => {
-                let fromAToB = cycle.join(" --> ");
-                fromAToB = `${index + 1}. ${fromAToB}`;
-                const fromBToA = cycle.reverse().join(" <-- ");
-                const padLength = fromAToB.length + 4;
-                msg.push(fromAToB.padStart(padLength));
-                msg.push(fromBToA.padStart(padLength));
-            }, cycles);
-            throw new Error(msg.join("\n"));
+        if (isAcyclic) {
+            return;
         }
+        const cycles = alg.findCycles(graph);
+        const msg = ["Your installers have circular dependencies:"];
+        cycles.forEach((cycle, index) => {
+            let fromAToB = cycle.join(" --> ");
+            fromAToB = `${index + 1}. ${fromAToB}`;
+            const fromBToA = cycle.reverse().join(" <-- ");
+            const padLength = fromAToB.length + 4;
+            msg.push(fromAToB.padStart(padLength));
+            msg.push(fromBToA.padStart(padLength));
+        }, cycles);
+        throw new Error(msg.join("\n"));
     };
 
-    const createGraph = installers => {
+    const createGraph = (installers: BaseInstaller[]): Graph => {
         const graph = new Graph();
         installers.forEach(({ plugin }) => {
-            graph.setNode(plugin.name, plugin);
+            graph.setNode(plugin.name as string, plugin);
         });
 
         installers.forEach(({ plugin: pl }) => {
             if (Array.isArray(pl.dependencies)) {
                 pl.dependencies.forEach(dep => {
-                    graph.setEdge(pl.name, dep);
+                    graph.setEdge(pl.name as string, dep);
                 });
             }
         });
@@ -60,85 +85,65 @@ export const useInstaller = ({ isInstalled }) => {
         return graph;
     };
 
-    const getInstallers = useCallback((installers, graph, toInstall = [], toUpgrade = []) => {
-        const leaf = graph.sinks()[0];
-        if (leaf) {
-            const installer = installers.find(inst => inst.plugin.name === leaf);
-            if (!installer) {
-                throw new Error(`Missing installer plugin "${leaf}"!`);
-            }
+    const getInstallers = useCallback(
+        (
+            installers: BaseInstaller[],
+            graph: Graph,
+            toInstall: Installer[] = []
+        ): GetInstallersResult => {
+            const leaf = graph.sinks()[0];
+            if (leaf) {
+                const installer = installers.find(inst => inst.plugin.name === leaf);
+                if (!installer) {
+                    throw new Error(`Missing installer plugin "${leaf}"!`);
+                }
 
-            graph.removeNode(leaf);
-            if (!installer.installed) {
-                toInstall.push({
-                    type: "install",
-                    name: `${installer.plugin.name}-install`,
-                    title: installer.plugin.title,
-                    render: installer.plugin.render,
-                    secure: installer.plugin.secure,
-                    installed: false
-                });
-            } else {
-                const upgrades = (installer.plugin.upgrades || []).filter(({ version }) => {
-                    return (
-                        lte(version, process.env.REACT_APP_WEBINY_VERSION) &&
-                        gt(version, installer.installed)
-                    );
-                });
-
-                if (upgrades.length > 1) {
-                    const availableUpgrades = sort(upgrades.map(u => u.version));
-                    const latestUpgrade = availableUpgrades[availableUpgrades.length - 1];
-                    setState({
-                        skippingVersions: {
-                            current: installer.installed,
-                            latest: latestUpgrade,
-                            availableUpgrades
-                        }
-                    });
-                } else if (upgrades.length === 1) {
-                    toUpgrade.push({
-                        type: "upgrade",
-                        name: `${installer.plugin.name}-upgrade`,
+                graph.removeNode(leaf);
+                if (!installer.installed) {
+                    toInstall.push({
+                        type: "install",
+                        name: `${installer.plugin.name}-install`,
                         title: installer.plugin.title,
-                        secure: true,
-                        installed: false,
-                        render({ onInstalled }) {
-                            const Component = upgrades[0].getComponent();
-                            return (
-                                <Loader>
-                                    <Component onInstalled={onInstalled} />
-                                </Loader>
-                            );
-                        }
+                        render: installer.plugin.render,
+                        secure: installer.plugin.secure,
+                        installed: null,
+                        plugin: installer.plugin
                     });
                 }
+
+                return getInstallers(installers, graph, toInstall);
             }
-            return getInstallers(installers, graph, toInstall, toUpgrade);
-        }
-        toInstall.sort((a, b) => {
-            if (a.secure && !b.secure) {
-                return 1;
-            } else if (!a.secure && b.secure) {
-                return -1;
-            }
-            return 0;
-        });
-        return { toInstall, toUpgrade };
-    }, []);
+            toInstall.sort((a, b) => {
+                if (a.secure && !b.secure) {
+                    return 1;
+                } else if (!a.secure && b.secure) {
+                    return -1;
+                }
+                return 0;
+            });
+            return { toInstall };
+        },
+        []
+    );
 
     const onUser = () => {
         setState({ showLogin: false });
     };
 
-    const showNextInstaller = () => {
+    /**
+     * If set to anything else, it breaks in AppInstaller.tsx
+     */
+    const showNextInstaller = (): any => {
         const prevInstaller = installers[installerIndex];
 
-        installers[installerIndex].installed = true;
+        installers[installerIndex].installed = appConfig.getKey(
+            "WEBINY_VERSION",
+            process.env.REACT_APP_WEBINY_VERSION as string
+        );
         setState({ installers });
 
         if (installers.length < installerIndex + 1) {
-            setState({ installerIndex: null });
+            setState({ installerIndex: undefined });
             return;
         }
 
@@ -161,7 +166,7 @@ export const useInstaller = ({ isInstalled }) => {
                 return;
             }
 
-            const allInstallers = [];
+            const allInstallers: BaseInstaller[] = [];
             await Promise.all(
                 plugins.byType<AdminInstallationPlugin>("admin-installation").map(async pl => {
                     const installed = await pl.getInstalledVersion({ client });
@@ -170,24 +175,26 @@ export const useInstaller = ({ isInstalled }) => {
             );
 
             const graph = createGraph(allInstallers);
-            const { toInstall, toUpgrade } = getInstallers(allInstallers, graph);
-            const installers = [...toUpgrade, ...toInstall];
+            const { toInstall } = getInstallers(allInstallers, graph);
+            const installers = [...toInstall];
             setState({
                 installers,
                 installerIndex: 0,
                 loading: false,
-                showLogin: toUpgrade.length > 0 || (toInstall.length > 0 && toInstall[0].secure)
+                showLogin: toInstall.length > 0 && toInstall[0].secure
             });
         })();
     }, []);
 
+    const isFirstInstall = installers.some(installer => installer.installed);
+
     return {
         loading,
         installers,
+        isFirstInstall,
         installer: installers[installerIndex],
         showNextInstaller,
         showLogin,
-        onUser,
-        skippingVersions
+        onUser
     };
 };

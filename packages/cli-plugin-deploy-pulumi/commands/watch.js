@@ -1,23 +1,35 @@
 const os = require("os");
+const fs = require("fs");
 const chalk = require("chalk");
 const path = require("path");
 const localtunnel = require("localtunnel");
 const express = require("express");
 const bodyParser = require("body-parser");
-const { login, getPulumi, loadEnvVariables, getRandomColorForString } = require("../utils");
-const { getProjectApplication } = require("@webiny/cli/utils");
+const { getProjectApplication, getProject } = require("@webiny/cli/utils");
 const get = require("lodash/get");
 const merge = require("lodash/merge");
-const browserOutput = require("./watch/output/browserOutput");
-const terminalOutput = require("./watch/output/terminalOutput");
+const simpleOutput = require("./watch/output/simpleOutput");
+const listPackages = require("./watch/listPackages");
 const minimatch = require("minimatch");
 const glob = require("fast-glob");
 const watchPackages = require("./watch/watchPackages");
+const { PackagesWatcher } = require("./watch/watchers/PackagesWatcher");
+const {
+    login,
+    getPulumi,
+    getRandomColorForString,
+    loadEnvVariables,
+    runHook
+} = require("../utils");
 
 // Do not allow watching "prod" and "production" environments. On the Pulumi CLI side, the command
 // is still in preview mode, so it's definitely not wise to use it on production environments.
 const WATCH_DISABLED_ENVIRONMENTS = ["prod", "production"];
 
+const PULUMI_WATCH_SUPPORTED = os.platform() !== "win32";
+
+// Note: we are not using `createPulumiCommand` here because this command has a bit specific
+// behaviour which is not encapsulated by `createPulumiCommand`. Maybe we can improve in the future.
 module.exports = async (inputs, context) => {
     // 1. Initial checks for deploy and build commands.
     if (!inputs.folder && !inputs.package) {
@@ -28,14 +40,39 @@ module.exports = async (inputs, context) => {
 
     let projectApplication;
     if (inputs.folder) {
+        // Detect if an app alias was provided.
+        const project = getProject();
+        if (project.config.appAliases) {
+            const appAliases = project.config.appAliases;
+            if (appAliases[inputs.folder]) {
+                inputs.folder = appAliases[inputs.folder];
+            }
+        }
+
         // Get project application metadata. Will throw an error if invalid folder specified.
         projectApplication = getProjectApplication({
             cwd: path.join(process.cwd(), inputs.folder)
         });
 
-        // If exists - read default inputs from "webiny.application.js" file.
+        // If exists - read default inputs from "webiny.application.ts" file.
         inputs = merge({}, get(projectApplication, "config.cli.watch"), inputs);
 
+        // We don't do anything here. We assume the workspace has already been created
+        // upon running the `webiny deploy` command. We rely on that.
+        // TODO: maybe we can improve this in the future, depending on the feedback.
+        // await createProjectApplicationWorkspace({
+        //     projectApplication,
+        //     env: inputs.env,
+        //     context,
+        //     inputs
+        // });
+
+        // Check if there are any plugins that need to be registered.
+        if (projectApplication.config.plugins) {
+            context.plugins.register(projectApplication.config.plugins);
+        }
+
+        // Load env vars specified via .env files located in project application folder.
         await loadEnvVariables(inputs, context);
     }
 
@@ -59,9 +96,28 @@ module.exports = async (inputs, context) => {
     }
 
     if (inputs.deploy) {
-        if (typeof inputs.logs === "string" && inputs.logs === "") {
-            inputs.logs = "*";
+        if (typeof inputs.remoteRuntimeLogs === "string" && inputs.remoteRuntimeLogs === "") {
+            inputs.remoteRuntimeLogs = "*";
         }
+    }
+
+    const hookArgs = { context, env: inputs.env, inputs, projectApplication };
+
+    await runHook({
+        hook: "hook-before-watch",
+        args: hookArgs,
+        context
+    });
+
+    console.log();
+
+    // TODO: separate the rest of the code below into separate "watcher" classes.
+    // TODO: This was done just because of the time constraints.
+    if (!inputs.deploy) {
+        const packages = await listPackages({ inputs });
+        const packagesWatcher = new PackagesWatcher({ packages, context, inputs });
+        await packagesWatcher.watch();
+        return;
     }
 
     // 1.1. Check if the project application and Pulumi stack exist.
@@ -73,11 +129,7 @@ module.exports = async (inputs, context) => {
 
         await login(projectApplication);
 
-        const pulumi = await getPulumi({
-            execa: {
-                cwd: projectApplication.root
-            }
-        });
+        const pulumi = await getPulumi({ projectApplication });
 
         let stackExists = true;
         try {
@@ -101,8 +153,11 @@ module.exports = async (inputs, context) => {
         }
     }
 
-    let output = inputs.output === "browser" ? browserOutput : terminalOutput;
-    await output.initialize(inputs);
+    const output = simpleOutput;
+
+    if (typeof output.initialize === "function") {
+        await output.initialize(inputs);
+    }
 
     const logging = {
         url: null
@@ -114,6 +169,41 @@ module.exports = async (inputs, context) => {
             const tunnel = await localtunnel({ port: 3010 });
 
             logging.url = tunnel.url;
+
+            const uniqueLocalTunnelErrorMessages = [];
+            tunnel.on("error", e => {
+                // We're ensuring the same message is not printed twice or more.
+                // We're doing this because we've seen the same error message being printed
+                // multiple times, and it's not really helpful. This way we're ensuring
+                // the user sees the error only once.
+                if (!uniqueLocalTunnelErrorMessages.includes(e.message)) {
+                    uniqueLocalTunnelErrorMessages.push(e.message);
+
+                    if (uniqueLocalTunnelErrorMessages.length === 1) {
+                        output.log({
+                            type: "logs",
+                            message: chalk.red("Could not initialize logs forwarding.")
+                        });
+                    }
+
+                    output.log({
+                        type: "logs",
+                        message: chalk.red("Could not initialize logs forwarding.")
+                    });
+
+                    output.log({
+                        type: "logs",
+                        message: chalk.red(e.message)
+                    });
+
+                    if (inputs.debug) {
+                        output.log({
+                            type: "logs",
+                            message: chalk.red(e.stack)
+                        });
+                    }
+                }
+            });
 
             const app = express();
             app.use(bodyParser.urlencoded({ extended: false }));
@@ -135,11 +225,16 @@ module.exports = async (inputs, context) => {
             app.listen(3010);
 
             [
-                chalk.green(`Listening for incoming logs on port 3010...`),
-                `Note: everything you log in your code will be forwarded here ${chalk.underline(
-                    "over public internet"
+                `webiny ${chalk.blueBright(
+                    "info"
+                )}: Log forwarding enabled. Listening for incoming logs on port ${chalk.blueBright(
+                    3010
                 )}.`,
-                `To learn more, please visit https://www.webiny.com/docs/how-to-guides/use-watch-command#enabling-logs-forwarding.`
+                `webiny ${chalk.blueBright(
+                    "info"
+                )}: Everything you log in your application code will be forwarded here over ${chalk.bold(
+                    "public internet"
+                )}. Learn more: https://webiny.link/enable-logs-forwarding.`
             ].forEach(message => output.log({ type: "logs", message }));
 
             output.log({ type: "logs", message: "" });
@@ -157,7 +252,22 @@ module.exports = async (inputs, context) => {
                 type: "logs",
                 message: chalk.red(e.message)
             });
+
+            if (inputs.debug) {
+                output.log({
+                    type: "logs",
+                    message: chalk.red(e.stack)
+                });
+            }
         }
+    } else if (inputs.deploy) {
+        [
+            `webiny ${chalk.blueBright(
+                "info"
+            )}: To enable log forwarding, rerun the command with the ${chalk.blueBright(
+                "-r"
+            )} flag. Learn more: https://webiny.link/enable-logs-forwarding.`
+        ].forEach(message => output.log({ type: "logs", message }));
     }
 
     // Add deploy logs.
@@ -168,38 +278,41 @@ module.exports = async (inputs, context) => {
                 message: chalk.green("Watching cloud infrastructure resources...")
             });
 
-            const pulumiFolder = path.join(projectApplication.root, "pulumi");
-
-            const buildFoldersGlob = [
-                projectApplication.project.root,
-                inputs.folder,
-                "**/build"
-            ].join("/");
+            const buildFoldersGlob = [projectApplication.paths.workspace, "**/build/*.js"].join(
+                "/"
+            );
 
             const buildFolders = glob.sync(buildFoldersGlob, { onlyFiles: false });
 
             // The final array of values that will be sent to Pulumi CLI's "--path" argument.
             // NOTE: for Windows, there's a bug in Pulumi preventing us to use path filtering.
-            const pathArg = os.platform() === "win32" ? undefined : [pulumiFolder, ...buildFolders];
+            let pathArg = undefined;
+            if (PULUMI_WATCH_SUPPORTED) {
+                pathArg = [...buildFolders];
+
+                const pulumiFolder = path.join(projectApplication.root, "pulumi");
+                if (fs.existsSync(pulumiFolder)) {
+                    pathArg.push(pulumiFolder);
+                }
+            }
 
             // Log used values if debugging has been enabled.
             if (inputs.debug) {
+                const message = pathArg
+                    ? [
+                          "The following files and folders are being watched:",
+                          ...pathArg.map(p => "\n‣ " + p)
+                      ].join("\n")
+                    : `Watching ${projectApplication.root}.`;
+
                 output.log({
                     type: "deploy",
-                    message: [
-                        "The following files and folders are being watched:",
-                        ...pathArg.map(p => "‣ " + p)
-                    ].join("\n")
+                    message
                 });
             }
 
-            const pulumi = await getPulumi({
-                execa: {
-                    cwd: projectApplication.root
-                }
-            });
+            const pulumi = await getPulumi({ projectApplication });
 
-            // We only watch "code/**/build" and "pulumi" folders.
             const watchCloudInfrastructure = pulumi.run({
                 command: "watch",
                 args: {
@@ -218,30 +331,32 @@ module.exports = async (inputs, context) => {
             });
 
             watchCloudInfrastructure.stdout.on("data", data => {
-                const line = data.toString();
+                const lines = data.toString().split("\n");
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    try {
+                        const [, , name, message] = line
+                            .match(/(.*)\[(.*)\] (.*)/)
+                            .map(item => item.trim());
 
-                try {
-                    const [, , name, message] = line
-                        .match(/(.*)\[(.*)\] (.*)/)
-                        .map(item => item.trim());
-
-                    if (name) {
-                        const coloredName = chalk.hex(getRandomColorForString(name)).bold(name);
+                        if (name) {
+                            const coloredName = chalk.hex(getRandomColorForString(name)).bold(name);
+                            output.log({
+                                type: "deploy",
+                                message: `${coloredName}: ${message}`
+                            });
+                        } else {
+                            output.log({
+                                type: "deploy",
+                                message
+                            });
+                        }
+                    } catch (e) {
                         output.log({
                             type: "deploy",
-                            message: `${coloredName}: ${message}`
-                        });
-                    } else {
-                        output.log({
-                            type: "deploy",
-                            message
+                            message: line
                         });
                     }
-                } catch (e) {
-                    output.log({
-                        type: "deploy",
-                        message: line
-                    });
                 }
             });
 
@@ -268,15 +383,36 @@ module.exports = async (inputs, context) => {
                 type: "deploy",
                 message: chalk.red(e.message)
             });
+
+            if (inputs.debug) {
+                output.log({
+                    type: "deploy",
+                    message: chalk.red(e.stack)
+                });
+            }
         }
     }
 
     if (inputs.build) {
-        await watchPackages({
-            inputs,
-            context,
-            output
-        });
+        try {
+            await watchPackages({
+                inputs,
+                context,
+                output
+            });
+        } catch (e) {
+            output.log({
+                type: "build",
+                message: chalk.red(e.message)
+            });
+
+            if (inputs.debug) {
+                output.log({
+                    type: "build",
+                    message: chalk.red(e.stack)
+                });
+            }
+        }
     }
 };
 

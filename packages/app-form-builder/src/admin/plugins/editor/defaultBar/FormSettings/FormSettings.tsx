@@ -7,7 +7,7 @@ import { Form } from "@webiny/form";
 import { Icon } from "@webiny/ui/Icon";
 import { ButtonPrimary } from "@webiny/ui/Button";
 import { List, ListItem, ListItemGraphic } from "@webiny/ui/List";
-import { useFormEditor } from "../../../../components/FormEditor/Context";
+import { useFormEditor } from "~/admin/components/FormEditor";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
 
 import { i18n } from "@webiny/app/i18n";
@@ -20,11 +20,11 @@ import {
     SimpleFormHeader
 } from "@webiny/app-admin/components/SimpleForm";
 import { Title, listItem, ListItemTitle, listStyle, TitleContent } from "./FormSettingsStyled";
-import { FbEditorFormSettingsPlugin } from "../../../../../types";
+import { FbEditorFormSettingsPlugin } from "~/types";
 
-type FormSettingsProps = {
+interface FormSettingsProps {
     onExited: () => void;
-};
+}
 
 const FormSettings = ({ onExited }: FormSettingsProps) => {
     const formEditorSettingsPlugins = plugins.byType<FbEditorFormSettingsPlugin>(
@@ -55,7 +55,7 @@ const FormSettings = ({ onExited }: FormSettingsProps) => {
                                 </ListItemGraphic>
                                 <TitleContent>
                                     <ListItemTitle>{pl.title}</ListItemTitle>
-                                    <Typography use={"subtitle2"}>{pl.description}</Typography>
+                                    <Typography use={"body2"}>{pl.description}</Typography>
                                 </TitleContent>
                             </ListItem>
                         ))}
@@ -86,7 +86,9 @@ const FormSettings = ({ onExited }: FormSettingsProps) => {
                                 </SimpleFormContent>
                                 <SimpleFormFooter>
                                     <ButtonPrimary
-                                        onClick={submit}
+                                        onClick={ev => {
+                                            submit(ev);
+                                        }}
                                     >{t`Save settings`}</ButtonPrimary>
                                 </SimpleFormFooter>
                             </SimpleForm>

@@ -1,44 +1,22 @@
 import React, { useCallback } from "react";
-import { useEventActionHandler } from "../../../hooks/useEventActionHandler";
-import { DeleteElementActionEvent } from "../../../recoil/actions";
-import { activeElementAtom, elementByIdSelector } from "../../../recoil/modules";
-import { plugins } from "@webiny/plugins";
-import { PbEditorPageElementPlugin } from "../../../../types";
-import { useRecoilValue } from "recoil";
+import { useActiveElement, useDeleteElement } from "~/editor";
 
-type DeleteActionPropsType = {
+interface DeleteActionPropsType {
     children: React.ReactElement;
-};
-const DeleteAction: React.FunctionComponent<DeleteActionPropsType> = ({ children }) => {
-    const eventActionHandler = useEventActionHandler();
-    const activeElementId = useRecoilValue(activeElementAtom);
-    const element = useRecoilValue(elementByIdSelector(activeElementId));
+}
+const DeleteAction = ({ children }: DeleteActionPropsType) => {
+    const [element] = useActiveElement();
+    const { deleteElement, canDeleteElement } = useDeleteElement();
 
-    if (!element) {
-        return null;
-    }
-
-    const onClick = useCallback(() => {
-        eventActionHandler.trigger(
-            new DeleteElementActionEvent({
-                element
-            })
-        );
-    }, [activeElementId]);
-
-    const plugin = plugins
-        .byType<PbEditorPageElementPlugin>("pb-editor-page-element")
-        .find(pl => pl.elementType === element.type);
-
-    if (!plugin) {
-        return null;
-    }
-
-    if (typeof plugin.canDelete === "function") {
-        if (!plugin.canDelete({ element })) {
-            return null;
+    const onClick = useCallback((): void => {
+        if (!element) {
+            return;
         }
-    }
+
+        if (canDeleteElement(element)) {
+            deleteElement(element);
+        }
+    }, [element?.id]);
 
     return React.cloneElement(children, { onClick });
 };

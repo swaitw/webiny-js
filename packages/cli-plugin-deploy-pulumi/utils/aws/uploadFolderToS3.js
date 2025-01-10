@@ -1,5 +1,6 @@
+const isString = require("lodash/isString");
 const fs = require("fs");
-const S3Client = require("aws-sdk/clients/s3");
+const { S3Client } = require("@webiny/aws-sdk/client-s3");
 const mime = require("mime");
 const chunk = require("lodash/chunk");
 const { relative } = require("path");
@@ -26,7 +27,9 @@ module.exports = async ({
     bucket,
     onFileUploadSuccess,
     onFileUploadError,
-    onFileUploadSkip
+    onFileUploadSkip,
+    acl = "public-read",
+    cacheControl = "max-age=31536000"
 }) => {
     const s3 = new S3Client({ region: process.env.AWS_REGION });
 
@@ -41,6 +44,10 @@ module.exports = async ({
     });
 
     const pathsChunks = chunk(paths, 20);
+
+    if (isString(cacheControl)) {
+        cacheControl = [{ pattern: /.*/, value: cacheControl }];
+    }
 
     for (let i = 0; i < pathsChunks.length; i++) {
         const chunk = pathsChunks[i];
@@ -83,8 +90,8 @@ module.exports = async ({
                                 .putObject({
                                     Bucket: bucket,
                                     Key: key,
-                                    ACL: "public-read",
-                                    CacheControl: "max-age=31536000",
+                                    ACL: acl,
+                                    CacheControl: cacheControl.find(x => x.pattern.test(key)).value,
                                     ContentType: mime.getType(path) || undefined,
                                     Body: fs.readFileSync(path),
                                     Metadata: {

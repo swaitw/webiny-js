@@ -1,7 +1,7 @@
-import { CmsGroup } from "~/types";
-import { useContentGqlHandler } from "../utils/useContentGqlHandler";
-import { useCategoryManageHandler } from "../utils/useCategoryManageHandler";
-import { useCategoryReadHandler } from "../utils/useCategoryReadHandler";
+import { CmsGroup, CmsModel } from "~/types";
+import { useGraphQLHandler } from "../testHelpers/useGraphQLHandler";
+import { useCategoryManageHandler } from "../testHelpers/useCategoryManageHandler";
+import { useCategoryReadHandler } from "../testHelpers/useCategoryReadHandler";
 import models from "./mocks/contentModels";
 
 describe("Endpoint access", () => {
@@ -35,13 +35,16 @@ describe("Endpoint access", () => {
         createContentModelMutation,
         updateContentModelMutation,
         createContentModelGroupMutation
-    } = useContentGqlHandler(manageOpts);
+    } = useGraphQLHandler(manageOpts);
 
     // This function is not directly within `beforeEach` as we don't always setup the same content model.
     // We call this function manually at the beginning of each test, where needed.
-    const setupContentModel = async (model = null) => {
+    const setupContentModel = async (model?: CmsModel) => {
         if (!model) {
             model = models.find(m => m.modelId === "category");
+            if (!model) {
+                throw new Error("Could not find model `category`.");
+            }
         }
         const [createCMG] = await createContentModelGroupMutation({
             data: {
@@ -58,6 +61,8 @@ describe("Endpoint access", () => {
             data: {
                 name: model.name,
                 modelId: model.modelId,
+                singularApiName: model.singularApiName,
+                pluralApiName: model.pluralApiName,
                 group: contentModelGroup.id
             }
         });
@@ -133,7 +138,8 @@ describe("Endpoint access", () => {
                 code: "SECURITY_NOT_AUTHORIZED",
                 data: {
                     reason: `Not allowed to access "manage" endpoint.`
-                }
+                },
+                stack: null
             }
         });
     });
@@ -191,7 +197,8 @@ describe("Endpoint access", () => {
                 code: "SECURITY_NOT_AUTHORIZED",
                 data: {
                     reason: `Not allowed to access "read" endpoint.`
-                }
+                },
+                stack: null
             }
         });
     });
@@ -249,7 +256,8 @@ describe("Endpoint access", () => {
                 code: "SECURITY_NOT_AUTHORIZED",
                 data: {
                     reason: `Not allowed to access "preview" endpoint.`
-                }
+                },
+                stack: null
             }
         });
     });

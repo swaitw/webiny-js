@@ -1,4 +1,4 @@
-const get = require("lodash.get");
+const get = require("lodash/get");
 const getWorkspaces = require("get-yarn-workspaces");
 const path = require("path");
 
@@ -22,24 +22,36 @@ module.exports = {
     },
     ignore: {
         src: [
-            "http",
-            "path",
-            "os",
-            "fs",
-            "util",
-            "events",
-            "crypto",
+            "~tests",
+            "~",
+            "async_hooks",
             "aws-sdk",
+            "buffer",
+            "child_process",
+            "crypto",
+            "events",
+            "follow-redirects",
+            "fs",
+            "http",
+            "https",
+            "inspector",
+            "node:fs",
+            "node:timers",
+            "node:path",
+            "os",
+            "path",
+            "readline",
+            "stream",
+            "util",
             "url",
-            "worker_threads",
-            "~"
+            "worker_threads"
         ],
         dependencies: [
             "@babel/runtime",
             // Packages below are defined as peerDependencies in many 3rd party packages
             // and make yarn go crazy with warnings. We define these packages as "dependencies"
             // in our own packages, but we don't directly use them:
-            "@emotion/core",
+            "@emotion/react",
             "@svgr/webpack",
             "@types/react",
             "@webiny/cli",

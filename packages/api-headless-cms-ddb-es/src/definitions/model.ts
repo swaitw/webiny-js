@@ -1,13 +1,13 @@
-import { Entity, Table } from "dynamodb-toolbox";
+import { Entity, Table } from "@webiny/db-dynamodb/toolbox";
 import { Attributes } from "~/types";
 
-export interface Params {
-    table: Table;
+export interface CreateModelEntityParams {
+    table: Table<string, string, string>;
     entityName: string;
     attributes: Attributes;
 }
 
-export const createModelEntity = (params: Params): Entity<any> => {
+export const createModelEntity = (params: CreateModelEntityParams): Entity<any> => {
     const { table, attributes, entityName } = params;
     return new Entity({
         name: entityName,
@@ -35,6 +35,14 @@ export const createModelEntity = (params: Params): Entity<any> => {
                 type: "string",
                 required: true
             },
+            singularApiName: {
+                type: "string",
+                required: true
+            },
+            pluralApiName: {
+                type: "string",
+                required: true
+            },
             locale: {
                 type: "string",
                 required: true
@@ -42,6 +50,9 @@ export const createModelEntity = (params: Params): Entity<any> => {
             group: {
                 type: "map",
                 required: true
+            },
+            icon: {
+                type: "string"
             },
             description: {
                 type: "string"
@@ -66,11 +77,22 @@ export const createModelEntity = (params: Params): Entity<any> => {
                 type: "list",
                 required: true
             },
+            tags: {
+                type: "list",
+                required: false,
+                default: []
+            },
             lockedFields: {
                 type: "list",
                 required: true
             },
             titleFieldId: {
+                type: "string"
+            },
+            descriptionFieldId: {
+                type: "string"
+            },
+            imageFieldId: {
                 type: "string"
             },
             tenant: {

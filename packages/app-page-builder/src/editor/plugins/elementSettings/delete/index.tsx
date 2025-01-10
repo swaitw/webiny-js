@@ -2,7 +2,7 @@ import React from "react";
 import { ReactComponent as DeleteIcon } from "../../../assets/icons/delete.svg";
 import DeleteAction from "./DeleteAction";
 import Action from "../components/Action";
-import { PbEditorPageElementSettingsPlugin } from "../../../../types";
+import { PbEditorPageElementSettingsPlugin } from "~/types";
 
 export default {
     name: "pb-editor-page-element-settings-delete",
@@ -11,7 +11,7 @@ export default {
         return (
             <DeleteAction>
                 <Action
-                    tooltip={"Delete element"}
+                    tooltip={"Delete selected"}
                     shortcut={["Backspace", "Delete"]}
                     icon={<DeleteIcon />}
                 />

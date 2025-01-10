@@ -1,29 +1,25 @@
 import React from "react";
-import HTML5Backend from "react-dnd-html5-backend";
+import { HTML5Backend } from "react-dnd-html5-backend";
 import { DndProvider } from "react-dnd";
-import { Editor } from "~/admin/components/ContentModelEditor/Editor";
+import { ContentModelEditor } from "~/admin/components/ContentModelEditor/ContentModelEditor";
 import { useRouter } from "@webiny/react-router";
 import { useCms } from "~/admin/hooks";
-import { ContentModelEditorProvider } from "~/admin/components/ContentModelEditor/Context";
-import Snackbar from "@webiny/app-admin/ui/views/AdminView/components/Snackbar";
-type QueryMatch = {
-    modelId?: string;
-};
-export default function ContentModelEditorView() {
-    const { match } = useRouter();
+import { ContentModelEditorProvider } from "~/admin/components/ContentModelEditor";
+
+const ContentModelEditorView = () => {
+    const { params } = useRouter();
     const { apolloClient } = useCms();
-    const { modelId } = match.params as QueryMatch;
-    if (!apolloClient) {
+
+    const modelId = params?.modelId as string | undefined;
+    if (!apolloClient || !modelId) {
         return null;
     }
     return (
         <ContentModelEditorProvider key={modelId} apolloClient={apolloClient} modelId={modelId}>
             <DndProvider backend={HTML5Backend}>
-                <Editor />
-                <div style={{ zIndex: 10, position: "absolute" }}>
-                    <Snackbar />
-                </div>
+                <ContentModelEditor />
             </DndProvider>
         </ContentModelEditorProvider>
     );
-}
+};
+export default ContentModelEditorView;

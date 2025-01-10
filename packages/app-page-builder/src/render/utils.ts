@@ -1,6 +1,7 @@
 import orderBy from "lodash/orderBy";
+import get from "lodash/get";
 import { plugins } from "@webiny/plugins";
-import { PbRenderResponsiveModePlugin } from "../types";
+import { PbElement, PbRenderResponsiveModePlugin } from "~/types";
 
 type ApplyStyle = ({
     fallbackMode,
@@ -10,7 +11,7 @@ type ApplyStyle = ({
     displayMode: string;
 }) => void;
 
-export const applyPerDeviceStyleWithFallback = (applyStyle: ApplyStyle) => {
+export const applyPerDeviceStyleWithFallback = (applyStyle: ApplyStyle): void => {
     // Get display modes
     const displayModeConfigs = plugins
         .byType<PbRenderResponsiveModePlugin>("pb-render-responsive-mode")
@@ -22,4 +23,22 @@ export const applyPerDeviceStyleWithFallback = (applyStyle: ApplyStyle) => {
         // Apply style
         applyStyle({ fallbackMode, displayMode });
     });
+};
+
+export const getElementsPropertiesValues = (
+    element: PbElement,
+    property: string,
+    values: Array<any> = []
+) => {
+    const value = get(element, property);
+
+    if (value) {
+        values.push(value);
+    }
+
+    for (const childElement of element.elements) {
+        getElementsPropertiesValues(childElement, property, values);
+    }
+
+    return values;
 };

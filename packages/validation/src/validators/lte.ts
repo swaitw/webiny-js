@@ -1,7 +1,7 @@
-import ValidationError from "./../validationError";
+import ValidationError from "~/validationError";
 
-export default (value: any, params: Array<string>) => {
-    if (!value) {
+export default (value: any, params?: string[]) => {
+    if (value === undefined || value === null || !params) {
         return;
     }
     value = value + "";

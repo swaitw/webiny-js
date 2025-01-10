@@ -24,32 +24,36 @@ import { useConfirmationDialog } from "@webiny/app-admin/hooks/useConfirmationDi
 import * as GQL from "./graphql";
 import { ReactComponent as AddIcon } from "@webiny/app-admin/assets/icons/add-18px.svg";
 import { ReactComponent as FilterIcon } from "@webiny/app-admin/assets/icons/filter-24px.svg";
-import { serializeSorters, deserializeSorters } from "../utils";
+import { deserializeSorters } from "../utils";
+import { ApiKey } from "~/types";
 
 const t = i18n.ns("app-security/admin/groups/data-list");
 
 const SORTERS = [
     {
         label: t`Newest to oldest`,
-        sorters: { createdOn: "desc" }
+        sorter: "createdOn_DESC"
     },
     {
         label: t`Oldest to newest`,
-        sorters: { createdOn: "asc" }
+        sorter: "createdOn_ASC"
     },
     {
         label: t`Name A-Z`,
-        sorters: { name: "asc" }
+        sorter: "name_ASC"
     },
     {
         label: t`Name Z-A`,
-        sorters: { name: "desc" }
+        sorter: "name_DESC"
     }
 ];
-
-const ApiKeysDataList = () => {
+export interface ApiKeysDataListProps {
+    // TODO @ts-refactor delete and go up the tree and sort it out
+    [key: string]: any;
+}
+export const ApiKeysDataList = () => {
     const [filter, setFilter] = useState("");
-    const [sort, setSort] = useState(serializeSorters(SORTERS[0].sorters));
+    const [sort, setSort] = useState<string>(SORTERS[0].sorter);
     const { history, location } = useRouter();
     const { showSnackbar } = useSnackbar();
     const { showConfirmation } = useConfirmationDialog({
@@ -57,7 +61,7 @@ const ApiKeysDataList = () => {
     });
 
     const filterAPIKey = useCallback(
-        ({ description, name }) => {
+        ({ description, name }: ApiKey) => {
             return (
                 (description && description.toLowerCase().includes(filter)) ||
                 name.toLowerCase().includes(filter)
@@ -67,27 +71,29 @@ const ApiKeysDataList = () => {
     );
 
     const sortKeys = useCallback(
-        list => {
+        (list: ApiKey[]) => {
             if (!sort) {
                 return list;
             }
-            const [[key, value]] = Object.entries(deserializeSorters(sort));
+            const [key, value] = deserializeSorters(sort);
             return orderBy(list, [key], [value]);
         },
         [sort]
     );
 
-    const { data: listResponse, loading: listLoading } = useQuery(GQL.LIST_API_KEYS);
+    const { data: listResponse, loading: listLoading } = useQuery<GQL.ListApiKeysResponse>(
+        GQL.LIST_API_KEYS
+    );
 
     const [deleteIt, { loading: deleteLoading }] = useMutation(GQL.DELETE_API_KEY, {
         refetchQueries: [{ query: GQL.LIST_API_KEYS }]
     });
 
-    const data = listLoading && !listResponse ? [] : listResponse.security.apiKeys.data;
+    const data = listLoading && !listResponse ? [] : listResponse?.security.apiKeys.data || [];
     const id = new URLSearchParams(location.search).get("id");
 
     const deleteItem = useCallback(
-        item => {
+        (item: ApiKey) => {
             showConfirmation(async () => {
                 const { data } = await deleteIt({
                     variables: item
@@ -114,9 +120,9 @@ const ApiKeysDataList = () => {
                 <Grid>
                     <Cell span={12}>
                         <Select value={sort} onChange={setSort} label={t`Sort by`}>
-                            {SORTERS.map(({ label, sorters }) => {
+                            {SORTERS.map(({ label, sorter }) => {
                                 return (
-                                    <option key={label} value={serializeSorters(sorters)}>
+                                    <option key={label} value={sorter}>
                                         {label}
                                     </option>
                                 );
@@ -160,7 +166,7 @@ const ApiKeysDataList = () => {
                 />
             }
         >
-            {({ data }) => (
+            {({ data }: { data: ApiKey[] }) => (
                 <ScrollList data-testid="default-data-list">
                     {data.map(item => (
                         <ListItem key={item.id} selected={item.id === id}>
@@ -188,5 +194,3 @@ const ApiKeysDataList = () => {
         </DataList>
     );
 };
-
-export default ApiKeysDataList;

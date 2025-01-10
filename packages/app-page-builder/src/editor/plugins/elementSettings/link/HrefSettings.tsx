@@ -5,7 +5,7 @@ import { Switch } from "@webiny/ui/Switch";
 import { Form } from "@webiny/form";
 import { validation } from "@webiny/validation";
 import { withActiveElement } from "~/editor/components";
-import { DelayedOnChange } from "~/editor/components/DelayedOnChange";
+import { DelayedOnChange } from "@webiny/ui/DelayedOnChange";
 import { useEventActionHandler } from "~/editor/hooks/useEventActionHandler";
 import { UpdateElementActionEvent } from "~/editor/recoil/actions";
 import { PbEditorPageElementSettingsRenderComponentProps, PbEditorElement } from "~/types";
@@ -26,12 +26,19 @@ const classes = {
     })
 };
 
-type LinkSettingsPropsType = {
+interface LinkSettingsFormData {
+    newTab?: boolean;
+    href?: string;
+}
+
+interface LinkSettingsPropsType {
     element: PbEditorElement;
-};
-const LinkSettingsComponent: React.FunctionComponent<
-    LinkSettingsPropsType & PbEditorPageElementSettingsRenderComponentProps
-> = ({ element, defaultAccordionValue }) => {
+}
+
+type LinkSettingsComponentProps = LinkSettingsPropsType &
+    PbEditorPageElementSettingsRenderComponentProps;
+
+const LinkSettingsComponent = ({ element, defaultAccordionValue }: LinkSettingsComponentProps) => {
     const handler = useEventActionHandler();
 
     const { href, newTab } = element.data?.link || {};
@@ -45,7 +52,7 @@ const LinkSettingsComponent: React.FunctionComponent<
         );
     };
 
-    const updateSettings = data => {
+    const updateSettings = (data: LinkSettingsFormData) => {
         // Skip update if nothing is change.
         if (data.newTab === newTab && data.href === href) {
             return;
@@ -68,10 +75,10 @@ const LinkSettingsComponent: React.FunctionComponent<
                                 <DelayedOnChange>
                                     {props => (
                                         <InputField
+                                            {...props}
                                             value={props.value || ""}
                                             onChange={props.onChange}
                                             placeholder={"https://webiny.com/blog"}
-                                            {...props}
                                         />
                                     )}
                                 </DelayedOnChange>

@@ -1,68 +1,63 @@
-const { green, red } = require("chalk");
-const { login, getPulumi, loadEnvVariables } = require("../utils");
-const { getProjectApplication } = require("@webiny/cli/utils");
-const path = require("path");
+const { createPulumiCommand } = require("../utils");
 
-module.exports = async (inputs, context) => {
-    const [, ...command] = inputs._;
-    const { env, folder } = inputs;
+module.exports = createPulumiCommand({
+    name: "pulumi",
+    createProjectApplicationWorkspace: false,
+    command: async ({ inputs, context, pulumi }) => {
+        const [, ...command] = inputs._;
+        const { env, folder, debug, variant } = inputs;
 
-    await loadEnvVariables(inputs, context);
+        if (env) {
+            debug && context.debug(`Environment provided - selecting %s Pulumi stack.`, env);
 
-    // Get project application metadata.
-    const projectApplication = getProjectApplication({
-        cwd: path.join(process.cwd(), inputs.folder)
-    });
+            let stackExists = true;
+            try {
+                const PULUMI_SECRETS_PROVIDER = process.env.PULUMI_SECRETS_PROVIDER;
+                const PULUMI_CONFIG_PASSPHRASE = process.env.PULUMI_CONFIG_PASSPHRASE;
 
-    await login(projectApplication);
-
-    const pulumi = await getPulumi({
-        execa: {
-            cwd: projectApplication.root
-        }
-    });
-
-    if (env) {
-        context.info(`Environment provided - selecting ${green(env)} Pulumi stack.`);
-
-        let stackExists = true;
-        try {
-            const PULUMI_SECRETS_PROVIDER = process.env.PULUMI_SECRETS_PROVIDER;
-            const PULUMI_CONFIG_PASSPHRASE = process.env.PULUMI_CONFIG_PASSPHRASE;
-
-            await pulumi.run({
-                command: ["stack", "select", env],
-                args: {
-                    secretsProvider: PULUMI_SECRETS_PROVIDER
-                },
-                execa: {
-                    env: {
-                        PULUMI_CONFIG_PASSPHRASE
+                await pulumi.run({
+                    command: ["stack", "select", env],
+                    args: {
+                        secretsProvider: PULUMI_SECRETS_PROVIDER
+                    },
+                    execa: {
+                        env: {
+                            PULUMI_CONFIG_PASSPHRASE
+                        }
                     }
-                }
-            });
-        } catch (e) {
-            stackExists = false;
-        }
+                });
+            } catch (e) {
+                stackExists = false;
+            }
 
-        if (!stackExists) {
-            throw new Error(
-                `Project application ${red(folder)} (${red(env)} environment) does not exist.`
-            );
-        }
-    }
-
-    context.info(`Running the following command in ${green(folder)} folder:`);
-    context.info(`${green("pulumi " + command.join(" "))}`);
-
-    return pulumi.run({
-        command,
-        execa: {
-            stdio: "inherit",
-            env: {
-                WEBINY_ENV: env,
-                WEBINY_PROJECT_NAME: context.project.name
+            if (!stackExists) {
+                throw new Error(
+                    `Project application ${context.error.hl(folder)} (${context.error.hl(
+                        env
+                    )} environment) does not exist.`
+                );
             }
         }
-    });
-};
+
+        if (debug) {
+            debug &&
+                context.debug(
+                    `Running the following command in %s folder: %s`,
+                    folder,
+                    "pulumi " + command.join(" ")
+                );
+        }
+
+        return pulumi.run({
+            command,
+            execa: {
+                stdio: "inherit",
+                env: {
+                    WEBINY_ENV: env,
+                    WEBINY_VARIANT: variant,
+                    WEBINY_PROJECT_NAME: context.project.name
+                }
+            }
+        });
+    }
+});

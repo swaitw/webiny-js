@@ -1,3 +1,7 @@
+import dynamoDbValueFilters from "@webiny/db-dynamodb/plugins/filters";
+import formSubmissionFields from "~/operations/submission/fields";
+import formFields from "~/operations/form/fields";
+import WebinyError from "@webiny/error";
 import { FormBuilderStorageOperationsFactory, ENTITIES } from "~/types";
 import { createTable } from "~/definitions/table";
 import { createFormEntity } from "~/definitions/form";
@@ -9,10 +13,7 @@ import { createSubmissionStorageOperations } from "~/operations/submission";
 import { createSettingsStorageOperations } from "~/operations/settings";
 import { createFormStorageOperations } from "~/operations/form";
 import { PluginsContainer } from "@webiny/plugins";
-import dynamoDbValueFilters from "@webiny/db-dynamodb/plugins/filters";
-import formSubmissionFields from "~/operations/submission/fields";
-import formFields from "~/operations/form/fields";
-import WebinyError from "@webiny/error";
+import { FormDynamoDbFieldPlugin, FormSubmissionDynamoDbFieldPlugin } from "~/plugins";
 
 const reservedFields = ["PK", "SK", "index", "data", "TYPE", "__type", "GSI1_PK", "GSI1_SK"];
 
@@ -25,8 +26,10 @@ const isReserved = (name: string): void => {
     });
 };
 
+export * from "./plugins";
+
 export const createFormBuilderStorageOperations: FormBuilderStorageOperationsFactory = params => {
-    const { attributes = {}, table: tableName, documentClient, plugins: pluginsInput } = params;
+    const { attributes, table: tableName, documentClient, plugins: userPlugins } = params;
 
     if (attributes) {
         Object.values(attributes).forEach(attrs => {
@@ -38,7 +41,7 @@ export const createFormBuilderStorageOperations: FormBuilderStorageOperationsFac
         /**
          * User defined plugins.
          */
-        pluginsInput || [],
+        userPlugins || [],
         /**
          * Form submission DynamoDB fields.
          */
@@ -66,27 +69,35 @@ export const createFormBuilderStorageOperations: FormBuilderStorageOperationsFac
         form: createFormEntity({
             entityName: ENTITIES.FORM,
             table,
-            attributes: attributes[ENTITIES.FORM]
+            attributes: attributes ? attributes[ENTITIES.FORM] : {}
         }),
         submission: createSubmissionEntity({
             entityName: ENTITIES.SUBMISSION,
             table,
-            attributes: attributes[ENTITIES.SUBMISSION]
+            attributes: attributes ? attributes[ENTITIES.SUBMISSION] : {}
         }),
         system: createSystemEntity({
             entityName: ENTITIES.SYSTEM,
             table,
-            attributes: attributes[ENTITIES.SYSTEM]
+            attributes: attributes ? attributes[ENTITIES.SYSTEM] : {}
         }),
         settings: createSettingsEntity({
             entityName: ENTITIES.SETTINGS,
             table,
-            attributes: attributes[ENTITIES.SETTINGS]
+            attributes: attributes ? attributes[ENTITIES.SETTINGS] : {}
         })
     };
 
     return {
-        upgrade: null,
+        beforeInit: async context => {
+            const types: string[] = [
+                FormDynamoDbFieldPlugin.type,
+                FormSubmissionDynamoDbFieldPlugin.type
+            ];
+            for (const type of types) {
+                plugins.mergeByType(context.plugins, type);
+            }
+        },
         getTable: () => table,
         getEntities: () => entities,
         ...createSystemStorageOperations({

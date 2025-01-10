@@ -1,29 +1,73 @@
-import * as utils from "./utils";
-import * as models from "./settings.models";
-import { Settings, FormBuilderContext, SettingsCRUD, FormBuilder } from "~/types";
+import {
+    FormBuilder,
+    FormBuilderContext,
+    OnSettingsAfterCreate,
+    OnSettingsAfterDelete,
+    OnSettingsAfterUpdate,
+    OnSettingsBeforeCreate,
+    OnSettingsBeforeDelete,
+    OnSettingsBeforeUpdate,
+    Settings,
+    SettingsCRUD
+} from "~/types";
 import WebinyError from "@webiny/error";
 import { Tenant } from "@webiny/api-tenancy/types";
 import { I18NLocale } from "@webiny/api-i18n/types";
 import { NotFoundError } from "@webiny/handler-graphql";
+import { createTopic } from "@webiny/pubsub";
+import { SettingsPermissions } from "./permissions/SettingsPermissions";
+import { createSettingsValidation, updateSettingsValidation } from "~/plugins/crud/settings.models";
+import { createZodError } from "@webiny/utils";
 
-export interface Params {
+export interface CreateSettingsCrudParams {
     getTenant: () => Tenant;
     getLocale: () => I18NLocale;
+    settingsPermissions: SettingsPermissions;
     context: FormBuilderContext;
 }
 
-export const createSettingsCrud = (params: Params): SettingsCRUD => {
-    const { getTenant, getLocale, context } = params;
+export const createSettingsCrud = (params: CreateSettingsCrudParams): SettingsCRUD => {
+    const { getTenant, getLocale, settingsPermissions } = params;
+
+    // create
+    const onSettingsBeforeCreate = createTopic<OnSettingsBeforeCreate>(
+        "formBuilder.onSettingsBeforeCreate"
+    );
+    const onSettingsAfterCreate = createTopic<OnSettingsAfterCreate>(
+        "formBuilder.onSettingsAfterCreate"
+    );
+
+    // update
+    const onSettingsBeforeUpdate = createTopic<OnSettingsBeforeUpdate>(
+        "formBuilder.onSettingsBeforeUpdate"
+    );
+    const onSettingsAfterUpdate = createTopic<OnSettingsAfterUpdate>(
+        "formBuilder.onSettingsAfterUpdate"
+    );
+
+    // delete
+    const onSettingsBeforeDelete = createTopic<OnSettingsBeforeDelete>(
+        "formBuilder.onSettingsBeforeDelete"
+    );
+    const onSettingsAfterDelete = createTopic<OnSettingsAfterDelete>(
+        "formBuilder.onSettingsAfterDelete"
+    );
 
     return {
+        onSettingsBeforeCreate,
+        onSettingsAfterCreate,
+        onSettingsBeforeUpdate,
+        onSettingsAfterUpdate,
+        onSettingsBeforeDelete,
+        onSettingsAfterDelete,
         async getSettings(this: FormBuilder, params) {
             const { auth, throwOnNotFound } = params || {};
 
             if (auth !== false) {
-                await utils.checkBaseSettingsPermissions(context);
+                await settingsPermissions.ensure();
             }
 
-            let settings: Settings = null;
+            let settings: Settings | null = null;
             try {
                 settings = await this.storageOperations.getSettings({
                     tenant: getTenant().id,
@@ -41,10 +85,12 @@ export const createSettingsCrud = (params: Params): SettingsCRUD => {
             return settings;
         },
         async createSettings(this: FormBuilder, input) {
-            const formBuilderSettings = new models.CreateDataModel().populate(input);
-            await formBuilderSettings.validate();
+            const validation = createSettingsValidation.safeParse(input);
+            if (!validation.success) {
+                throw createZodError(validation.error);
+            }
 
-            const data = await formBuilderSettings.toJSON();
+            const data = validation.data;
 
             const original = await this.getSettings({ auth: false });
             if (original) {
@@ -66,9 +112,16 @@ export const createSettingsCrud = (params: Params): SettingsCRUD => {
                 locale: getLocale().code
             };
             try {
-                return await this.storageOperations.createSettings({
+                await onSettingsBeforeCreate.publish({
                     settings
                 });
+                const result = await this.storageOperations.createSettings({
+                    settings
+                });
+                await onSettingsAfterCreate.publish({
+                    settings: result
+                });
+                return result;
             } catch (ex) {
                 throw new WebinyError(
                     ex.message || "Could not create settings.",
@@ -80,26 +133,30 @@ export const createSettingsCrud = (params: Params): SettingsCRUD => {
                 );
             }
         },
-        async updateSettings(this: FormBuilder, data) {
-            await utils.checkBaseSettingsPermissions(context);
-            const updatedData = new models.UpdateDataModel().populate(data);
-            await updatedData.validate();
+        async updateSettings(this: FormBuilder, input) {
+            await settingsPermissions.ensure();
 
-            const newSettings = await updatedData.toJSON({ onlyDirty: true });
+            const validation = updateSettingsValidation.safeParse(input);
+            if (!validation.success) {
+                throw createZodError(validation.error);
+            }
+
             const original = await this.getSettings();
             if (!original) {
                 throw new NotFoundError(`"Form Builder" settings not found!`);
             }
-
+            const data = validation.data;
             /**
              * Assign specific properties, just to be sure nothing else gets in the record.
              */
-            const settings: Settings = Object.keys(newSettings).reduce(
+            const settings = Object.keys(data).reduce<Settings>(
                 (collection, key) => {
-                    if (newSettings[key] === undefined) {
+                    // @ts-expect-error
+                    if (data[key] === undefined) {
                         return collection;
                     }
-                    collection[key] = newSettings[key];
+                    // @ts-expect-error
+                    collection[key] = data[key];
                     return collection;
                 },
                 {
@@ -109,10 +166,21 @@ export const createSettingsCrud = (params: Params): SettingsCRUD => {
                 }
             );
             try {
-                return await this.storageOperations.updateSettings({
+                await onSettingsBeforeUpdate.publish({
+                    original,
+                    settings
+                });
+                const result = await this.storageOperations.updateSettings({
                     settings,
                     original
                 });
+
+                await onSettingsAfterUpdate.publish({
+                    original,
+                    settings
+                });
+
+                return result;
             } catch (ex) {
                 throw new WebinyError(
                     ex.message || "Could not update settings.",
@@ -124,13 +192,23 @@ export const createSettingsCrud = (params: Params): SettingsCRUD => {
                 );
             }
         },
-
         async deleteSettings(this: FormBuilder) {
-            await utils.checkBaseSettingsPermissions(context);
-            const settings = await this.getSettings();
+            await settingsPermissions.ensure();
 
+            const settings = await this.getSettings();
+            if (!settings) {
+                return;
+            }
             try {
+                await onSettingsBeforeDelete.publish({
+                    settings
+                });
+
                 await this.storageOperations.deleteSettings({ settings });
+
+                await onSettingsAfterDelete.publish({
+                    settings
+                });
             } catch (ex) {
                 throw new WebinyError(
                     ex.message || "Could not delete settings.",

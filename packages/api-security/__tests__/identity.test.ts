@@ -1,11 +1,12 @@
-import { Security } from "~/types";
+import { Security, SecurityStorageOperations } from "~/types";
 import { createSecurity } from "~/createSecurity";
+import { getStorageOps } from "@webiny/project-utils/testing/environment";
 
 describe("identity test", () => {
     const tenant = "root";
-    // @ts-ignore
-    const { storageOperations } = __getStorageOperations();
-    let security: Security = null;
+    // @ts-expect-error
+    const { storageOperations } = getStorageOps<SecurityStorageOperations>("security");
+    let security: Security;
 
     beforeAll(async () => {
         security = await createSecurity({

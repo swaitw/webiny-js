@@ -1,22 +1,22 @@
 import * as React from "react";
-import { CmsEditorField } from "~/types";
+import { CmsModelField } from "~/types";
 import { BindComponentRenderProp } from "@webiny/form";
 import { Input as UiInput } from "@webiny/ui/Input";
 
-type TrailingIconType = {
+export interface TrailingIcon {
     icon: React.ReactNode;
     onClick: any;
-};
+}
 
-type Props = {
+export interface InputProps {
     step?: number;
     type?: string;
     bind: BindComponentRenderProp;
-    field: CmsEditorField;
-    trailingIcon?: TrailingIconType;
-};
+    field: CmsModelField;
+    trailingIcon?: TrailingIcon;
+}
 
-const Input = ({ bind, ...props }: Props) => {
+export const Input = ({ bind, ...props }: InputProps) => {
     return (
         <UiInput
             {...props}
@@ -29,11 +29,10 @@ const Input = ({ bind, ...props }: Props) => {
             }}
             label={props.field.label}
             placeholder={props.field.placeholderText}
-            description={props.field.helpText}
+            description={props.field.multipleValues ? undefined : props.field.helpText}
             type={props.type}
             trailingIcon={props.trailingIcon}
+            data-testid={`fr.input.${props.field.label}`}
         />
     );
 };
-
-export default Input;

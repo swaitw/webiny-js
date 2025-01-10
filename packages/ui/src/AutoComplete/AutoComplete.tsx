@@ -1,14 +1,14 @@
-import * as React from "react";
-import Downshift from "downshift";
-import { Input } from "../Input";
+import React from "react";
+import Downshift, { ControllerStateAndHelpers, PropGetters } from "downshift";
+import { Input } from "~/Input";
 import classNames from "classnames";
-import { Elevation } from "../Elevation";
-import { Typography } from "../Typography";
+import { Elevation } from "~/Elevation";
+import { Typography } from "~/Typography";
 import keycode from "keycode";
 import { autoCompleteStyle, suggestionList } from "./styles";
 import { AutoCompleteBaseProps } from "./types";
 import { getOptionValue, getOptionText, findInAliases } from "./utils";
-import { isEqual } from "lodash";
+import isEqual from "lodash/isEqual";
 import MaterialSpinner from "react-spinner-material";
 import { css } from "emotion";
 
@@ -32,37 +32,87 @@ export enum Placement {
     bottom = "bottom"
 }
 
-export type Props = AutoCompleteBaseProps & {
+export interface AutoCompleteProps extends Omit<AutoCompleteBaseProps, "onChange"> {
     /* Placement position of dropdown menu, can be either `top` or `bottom`. */
     placement?: Placement;
 
     /* A callback that is executed each time a value is changed. */
-    onChange?: (value: any, selection: any) => void;
+    onChange?: (value: any, selection?: any) => void;
 
     /* If true, will show a loading spinner on the right side of the input. */
     loading?: boolean;
-};
 
-type State = {
-    inputValue: string;
-};
+    /* A component that renders supporting UI in case of no result found. */
+    noResultFound?: React.ReactNode;
 
-function Spinner() {
-    return <MaterialSpinner size={24} spinnerColor={"#fa5723"} spinnerWidth={2} visible />;
+    // Size - small, medium or large
+    size?: "small" | "medium" | "large";
 }
 
-class AutoComplete extends React.Component<Props, State> {
-    static defaultProps = {
+interface State {
+    inputValue: string;
+}
+
+const Spinner = () => {
+    return (
+        <MaterialSpinner
+            size={24}
+            spinnerColor={"var(--mdc-theme-primary)"}
+            spinnerWidth={2}
+            visible
+        />
+    );
+};
+
+interface RenderOptionsParams
+    extends Omit<ControllerStateAndHelpers<any>, "getInputProps" | "openMenu"> {
+    options: AutoCompleteProps["options"];
+    placement?: Placement;
+}
+
+interface OptionsListProps {
+    placement?: Placement;
+    getMenuProps: PropGetters<Record<string, any>>["getMenuProps"];
+    children: React.ReactNode;
+}
+
+const OptionsList = ({ placement, getMenuProps, children }: OptionsListProps) => {
+    return (
+        <Elevation
+            z={1}
+            className={classNames({
+                [menuStyles]: placement === Placement.top
+            })}
+        >
+            <ul
+                className={classNames("autocomplete__options-list", listStyles)}
+                {...getMenuProps()}
+            >
+                {children}
+            </ul>
+        </Elevation>
+    );
+};
+
+class AutoComplete extends React.Component<AutoCompleteProps, State> {
+    static defaultProps: Partial<AutoCompleteProps> = {
         valueProp: "id",
         textProp: "name",
         options: [],
         placement: Placement.bottom,
+        /**
+         * We cast this as AutoComplete because renderItem() is executed via .call() where AutoComplete instance is assigned as this.
+         */
         renderItem(item: any) {
-            return <Typography use={"body2"}>{getOptionText(item, this.props)}</Typography>;
+            return (
+                <Typography use={"body2"}>
+                    {getOptionText(item, (this as unknown as AutoComplete).props)}
+                </Typography>
+            );
         }
     };
 
-    state = {
+    public override state: State = {
         inputValue: ""
     };
 
@@ -71,7 +121,7 @@ class AutoComplete extends React.Component<Props, State> {
      */
     downshift: any = React.createRef();
 
-    componentDidUpdate(previousProps: any) {
+    public override componentDidUpdate(previousProps: AutoCompleteProps) {
         const { value, options } = this.props;
         const { value: previousValue } = previousProps;
 
@@ -97,7 +147,7 @@ class AutoComplete extends React.Component<Props, State> {
     /**
      * Renders options - based on user's input. It will try to match input text with available options.
      */
-    renderOptions({
+    private renderOptions({
         options,
         isOpen,
         highlightedIndex,
@@ -105,9 +155,21 @@ class AutoComplete extends React.Component<Props, State> {
         getMenuProps,
         getItemProps,
         placement
-    }: any) {
+    }: RenderOptionsParams) {
         if (!isOpen) {
             return null;
+        }
+        /**
+         * Suggest user to start typing when there are no options available to choose from.
+         */
+        if (!this.state.inputValue && !options.length) {
+            return (
+                <OptionsList placement={placement} getMenuProps={getMenuProps}>
+                    <li>
+                        <Typography use={"body2"}>Start typing to find entry</Typography>
+                    </li>
+                </OptionsList>
+            );
         }
 
         const { renderItem } = this.props;
@@ -129,77 +191,63 @@ class AutoComplete extends React.Component<Props, State> {
 
         if (!filtered.length) {
             return (
-                <Elevation
-                    z={1}
-                    className={classNames({
-                        [menuStyles]: placement === Placement.top
-                    })}
-                >
-                    <ul
-                        className={classNames("autocomplete__options-list", listStyles)}
-                        {...getMenuProps()}
-                    >
-                        <li>
-                            <Typography use={"body2"}>No results.</Typography>
-                        </li>
-                    </ul>
-                </Elevation>
+                <OptionsList placement={placement} getMenuProps={getMenuProps}>
+                    <li>
+                        <Typography use={"body2"}>No results.</Typography>
+                        {this.props.noResultFound}
+                    </li>
+                </OptionsList>
             );
         }
 
         return (
-            <Elevation z={1} className={classNames({ [menuStyles]: placement === Placement.top })}>
-                <ul
-                    className={classNames("autocomplete__options-list", listStyles)}
-                    {...getMenuProps()}
-                >
-                    {filtered.map((item, index) => {
-                        const itemValue = getOptionValue(item, this.props);
+            <OptionsList placement={placement} getMenuProps={getMenuProps}>
+                {filtered.map((item, index) => {
+                    const itemValue = getOptionValue(item, this.props);
 
-                        // Base classes.
-                        const itemClassNames = {
-                            [suggestionList]: true,
-                            highlighted: highlightedIndex === index,
-                            selected: false
-                        };
+                    // Base classes.
+                    const itemClassNames = {
+                        [suggestionList]: true,
+                        highlighted: highlightedIndex === index,
+                        selected: false
+                    };
 
-                        // Add "selected" class if the item is selected.
-                        if (
-                            selectedItem &&
-                            getOptionValue(selectedItem, this.props) === itemValue
-                        ) {
-                            itemClassNames.selected = true;
-                        }
+                    // Add "selected" class if the item is selected.
+                    if (selectedItem && getOptionValue(selectedItem, this.props) === itemValue) {
+                        itemClassNames.selected = true;
+                    }
 
-                        // Render the item.
-                        return (
-                            <li
-                                key={itemValue}
-                                {...getItemProps({
-                                    index,
-                                    item,
-                                    className: classNames(itemClassNames)
-                                })}
-                            >
-                                {renderItem.call(this, item, index)}
-                            </li>
-                        );
-                    })}
-                </ul>
-            </Elevation>
+                    // Render the item.
+                    return (
+                        <li
+                            key={itemValue}
+                            {...getItemProps({
+                                index,
+                                item,
+                                className: classNames(itemClassNames)
+                            })}
+                        >
+                            {renderItem.call(this, item, index)}
+                        </li>
+                    );
+                })}
+            </OptionsList>
         );
     }
 
-    render() {
+    public override render() {
         const {
             className,
             options,
             onChange,
-            value, // eslint-disable-line
-            valueProp, // eslint-disable-line
-            textProp, // eslint-disable-line
+            value,
+            // valueProp,
+            // textProp,
             onInput,
-            validation = { isValid: null },
+            validation = {
+                isValid: null,
+                message: null
+            },
             placement,
             ...otherInputProps
         } = this.props;
@@ -207,9 +255,9 @@ class AutoComplete extends React.Component<Props, State> {
         // Downshift related props.
         const downshiftProps = {
             className: autoCompleteStyle,
-            itemToString: item => getOptionText(item, this.props),
+            itemToString: (item: any) => getOptionText(item, this.props),
             defaultSelectedItem: value,
-            onChange: selection => {
+            onChange: (selection: string) => {
                 if (!selection || !onChange) {
                     return;
                 }
@@ -222,7 +270,13 @@ class AutoComplete extends React.Component<Props, State> {
         };
 
         return (
-            <div className={classNames(autoCompleteStyle, className)}>
+            <div
+                className={classNames(
+                    autoCompleteStyle,
+                    this.props.size ? `webiny-ui-autocomplete--size-${this.props.size}` : null,
+                    className
+                )}
+            >
                 <Downshift {...downshiftProps} ref={this.downshift}>
                     {({ getInputProps, openMenu, ...rest }) => (
                         <div>
@@ -231,7 +285,8 @@ class AutoComplete extends React.Component<Props, State> {
                                     // This prop is above `otherInputProps` since it can be overridden by the user.
                                     trailingIcon: this.props.loading && <Spinner />,
                                     ...otherInputProps,
-                                    // @ts-ignore
+                                    // @ts-expect-error
+                                    size: this.props.size,
                                     validation,
                                     rawOnChange: true,
                                     onChange: ev => ev,
@@ -244,8 +299,12 @@ class AutoComplete extends React.Component<Props, State> {
                                         const keyCode: string = keycode(ev as unknown as Event);
 
                                         if (keyCode === "backspace") {
-                                            onChange(null);
-                                            setTimeout(() => openMenu(), 50);
+                                            setTimeout(() => {
+                                                if (onChange) {
+                                                    onChange(null);
+                                                    openMenu();
+                                                }
+                                            }, 50);
                                         }
                                     },
                                     onKeyUp: (ev: React.KeyboardEvent<HTMLInputElement>) => {
@@ -282,7 +341,11 @@ class AutoComplete extends React.Component<Props, State> {
                             />
                             {!otherInputProps.disabled &&
                                 !otherInputProps.readOnly &&
-                                this.renderOptions({ ...rest, options, placement })}
+                                this.renderOptions({
+                                    ...rest,
+                                    options,
+                                    placement
+                                })}
                         </div>
                     )}
                 </Downshift>

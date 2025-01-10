@@ -1,40 +1,65 @@
 import {
-    PageImportExportTask,
-    PageImportExportTaskStatus,
-    PageImportExportTaskStorageOperationsCreateParams,
-    PageImportExportTaskStorageOperationsCreateSubTaskParams,
-    PageImportExportTaskStorageOperationsDeleteParams,
-    PageImportExportTaskStorageOperationsGetParams,
-    PageImportExportTaskStorageOperationsGetSubTaskParams,
-    PageImportExportTaskStorageOperationsListParams,
-    PageImportExportTaskStorageOperationsListResponse,
-    PageImportExportTaskStorageOperationsListSubTaskParams,
-    PageImportExportTaskStorageOperationsListSubTaskResponse,
-    PageImportExportTaskStorageOperationsUpdateParams,
-    PageImportExportTaskStorageOperationsUpdateSubTaskParams,
-    PageImportExportTaskStorageOperationsUpdateTaskStatsParams
+    ImportExportTask,
+    ImportExportTaskStatus,
+    ImportExportTaskStorageOperationsCreateParams,
+    ImportExportTaskStorageOperationsCreateSubTaskParams,
+    ImportExportTaskStorageOperationsDeleteParams,
+    ImportExportTaskStorageOperationsGetParams,
+    ImportExportTaskStorageOperationsGetSubTaskParams,
+    ImportExportTaskStorageOperationsListParams,
+    ImportExportTaskStorageOperationsListResponse,
+    ImportExportTaskStorageOperationsListSubTaskParams,
+    ImportExportTaskStorageOperationsListSubTaskResponse,
+    ImportExportTaskStorageOperationsUpdateParams,
+    ImportExportTaskStorageOperationsUpdateSubTaskParams,
+    ImportExportTaskStorageOperationsUpdateTaskStatsParams
 } from "@webiny/api-page-builder-import-export/types";
-import { cleanupItem } from "@webiny/db-dynamodb/utils/cleanup";
 import WebinyError from "@webiny/error";
-import { queryAll, QueryAllParams } from "@webiny/db-dynamodb/utils/query";
+import { queryAllClean, QueryAllParams } from "@webiny/db-dynamodb/utils/query";
 import { createListResponse } from "@webiny/db-dynamodb/utils/listResponse";
 import { createTable } from "~/definitions/table";
-import { createPageImportExportTaskEntity } from "~/definitions/pageImportExportTaskEntity";
-import { CreateStorageOperations, PartitionKeyOptions } from "./types";
+import { createImportExportTaskEntity } from "~/definitions/importExportTaskEntity";
+import { CreateStorageOperations } from "./types";
+import { deleteItem, getClean, put, update } from "@webiny/db-dynamodb";
 
-// @ts-ignore
+interface PartitionKeyOptions {
+    tenant: string;
+    locale: string;
+    id?: string;
+}
+
+const PARENT_TASK_GSI1_PK = "PB#IE_TASKS";
+
+const createPartitionKey = ({ tenant, locale, id }: PartitionKeyOptions): string => {
+    return `T#${tenant}#L#${locale}#PB#IE_TASK#${id}`;
+};
+
+const createSortKey = (input: string): string => {
+    return `SUB#${input}`;
+};
+
+const createGsiPartitionKey = ({ tenant, locale, id }: PartitionKeyOptions): string => {
+    return `T#${tenant}#L#${locale}#PB#IE_TASK#${id}`;
+};
+
+const createGsiSortKey = (status: ImportExportTaskStatus, id: string): string => {
+    return `S#${status}#${id}`;
+};
+
+const createType = (): string => {
+    return "pb.importExportTask";
+};
+
 export const createStorageOperations: CreateStorageOperations = params => {
     const { table: tableName, documentClient, attributes = {} } = params;
 
     const table = createTable({ table: tableName, documentClient });
 
-    const entity = createPageImportExportTaskEntity({
-        entityName: "PageImportExportTask",
+    const entity = createImportExportTaskEntity({
+        entityName: "ImportExportTask",
         table,
         attributes
     });
-
-    const PARENT_TASK_GSI1_PK = "PB#IE_TASKS";
 
     return {
         getTable() {
@@ -43,45 +68,23 @@ export const createStorageOperations: CreateStorageOperations = params => {
         getEntity() {
             return entity;
         },
-        createPartitionKey({ tenant, locale, id }: PartitionKeyOptions): string {
-            return `T#${tenant}#L#${locale}#PB#IE_TASK#${id}`;
-        },
-
-        createSortKey(input: string): string {
-            return `SUB#${input}`;
-        },
-
-        createGsiPartitionKey({ tenant, locale, id }: PartitionKeyOptions): string {
-            return `T#${tenant}#L#${locale}#PB#IE_TASK#${id}`;
-        },
-
-        createGsiSortKey(status: PageImportExportTaskStatus, id: string): string {
-            return `S#${status}#${id}`;
-        },
-
-        createType(): string {
-            return "pb.pageImportExportTask";
-        },
-        async getTask(
-            params: PageImportExportTaskStorageOperationsGetParams
-        ): Promise<PageImportExportTask | null> {
+        async getTask(params: ImportExportTaskStorageOperationsGetParams) {
             const { where } = params;
 
             const keys = {
-                PK: this.createPartitionKey(where),
+                PK: createPartitionKey(where),
                 SK: "A"
             };
 
             try {
-                const result = await entity.get(keys);
-                if (!result || !result.Item) {
-                    return null;
-                }
-                return cleanupItem(entity, result.Item);
+                return await getClean<ImportExportTask>({
+                    entity,
+                    keys
+                });
             } catch (ex) {
                 throw new WebinyError(
-                    ex.message || "Could not load page element by given parameters.",
-                    ex.code || "PAGE_IMPORT_EXPORT_TASK_GET_ERROR",
+                    ex.message || "Could not load element by given parameters.",
+                    ex.code || "IMPORT_EXPORT_TASK_GET_ERROR",
                     {
                         where
                     }
@@ -90,28 +93,27 @@ export const createStorageOperations: CreateStorageOperations = params => {
         },
 
         async listTasks(
-            params: PageImportExportTaskStorageOperationsListParams
-        ): Promise<PageImportExportTaskStorageOperationsListResponse> {
-            const { limit } = params;
+            params: ImportExportTaskStorageOperationsListParams
+        ): Promise<ImportExportTaskStorageOperationsListResponse> {
+            const { limit = 100 } = params;
 
             const queryAllParams: QueryAllParams = {
                 entity: entity,
                 partitionKey: PARENT_TASK_GSI1_PK,
                 options: {
-                    beginsWith: "",
                     index: "GSI1",
                     limit: limit || undefined
                 }
             };
 
-            let results: PageImportExportTask[] = [];
+            let results: ImportExportTask[] = [];
 
             try {
-                results = await queryAll<PageImportExportTask>(queryAllParams);
+                results = await queryAllClean<ImportExportTask>(queryAllParams);
             } catch (ex) {
                 throw new WebinyError(
-                    ex.message || "Could not list page import export tasks by given parameters.",
-                    ex.code || "PAGE_IMPORT_EXPORT_TASKS_LIST_ERROR",
+                    ex.message || "Could not list import export tasks by given parameters.",
+                    ex.code || "IMPORT_EXPORT_TASKS_LIST_ERROR",
                     {
                         partitionKey: queryAllParams.partitionKey,
                         options: queryAllParams.options
@@ -119,25 +121,23 @@ export const createStorageOperations: CreateStorageOperations = params => {
                 );
             }
 
-            const items = results.map(item => cleanupItem<PageImportExportTask>(entity, item));
-
             // TODO: Implement sort and filter
 
             return createListResponse({
-                items: items,
+                items: results,
                 limit,
-                totalCount: items.length,
+                totalCount: results.length,
                 after: null
             });
         },
 
         async createTask(
-            params: PageImportExportTaskStorageOperationsCreateParams
-        ): Promise<PageImportExportTask> {
+            params: ImportExportTaskStorageOperationsCreateParams
+        ): Promise<ImportExportTask> {
             const { task } = params;
 
             const keys = {
-                PK: this.createPartitionKey({
+                PK: createPartitionKey({
                     tenant: task.tenant,
                     locale: task.locale,
                     id: task.id
@@ -148,30 +148,33 @@ export const createStorageOperations: CreateStorageOperations = params => {
             };
 
             try {
-                await entity.put({
-                    ...task,
-                    TYPE: this.createType(),
-                    ...keys
+                await put({
+                    entity,
+                    item: {
+                        ...task,
+                        TYPE: createType(),
+                        ...keys
+                    }
                 });
                 return task;
             } catch (ex) {
                 throw new WebinyError(
-                    ex.message || "Could not create pageImportExportTask.",
-                    ex.code || "PAGE_IMPORT_EXPORT_TASK_CREATE_ERROR",
+                    ex.message || "Could not create importExportTask.",
+                    ex.code || "IMPORT_EXPORT_TASK_CREATE_ERROR",
                     {
                         keys,
-                        pageImportExportTask: task
+                        importExportTask: task
                     }
                 );
             }
         },
 
         async updateTask(
-            params: PageImportExportTaskStorageOperationsUpdateParams
-        ): Promise<PageImportExportTask> {
+            params: ImportExportTaskStorageOperationsUpdateParams
+        ): Promise<ImportExportTask> {
             const { task, original } = params;
             const keys = {
-                PK: this.createPartitionKey({
+                PK: createPartitionKey({
                     tenant: task.tenant,
                     locale: task.locale,
                     id: task.id
@@ -182,16 +185,19 @@ export const createStorageOperations: CreateStorageOperations = params => {
             };
 
             try {
-                await entity.put({
-                    ...task,
-                    TYPE: this.createType(),
-                    ...keys
+                await put({
+                    entity,
+                    item: {
+                        ...task,
+                        TYPE: createType(),
+                        ...keys
+                    }
                 });
                 return task;
             } catch (ex) {
                 throw new WebinyError(
-                    ex.message || "Could not update pageImportExportTask.",
-                    ex.code || "PAGE_IMPORT_EXPORT_TASK_UPDATE_ERROR",
+                    ex.message || "Could not update importExportTask.",
+                    ex.code || "IMPORT_EXPORT_TASK_UPDATE_ERROR",
                     {
                         keys,
                         original,
@@ -202,11 +208,11 @@ export const createStorageOperations: CreateStorageOperations = params => {
         },
 
         async deleteTask(
-            params: PageImportExportTaskStorageOperationsDeleteParams
-        ): Promise<PageImportExportTask> {
+            params: ImportExportTaskStorageOperationsDeleteParams
+        ): Promise<ImportExportTask> {
             const { task } = params;
             const keys = {
-                PK: this.createPartitionKey({
+                PK: createPartitionKey({
                     tenant: task.tenant,
                     locale: task.locale,
                     id: task.id
@@ -215,12 +221,15 @@ export const createStorageOperations: CreateStorageOperations = params => {
             };
 
             try {
-                await entity.delete(keys);
+                await deleteItem({
+                    entity,
+                    keys
+                });
                 return task;
             } catch (ex) {
                 throw new WebinyError(
-                    ex.message || "Could not delete pageImportExportTask.",
-                    ex.code || "PAGE_IMPORT_EXPORT_TASK_DELETE_ERROR",
+                    ex.message || "Could not delete importExportTask.",
+                    ex.code || "IMPORT_EXPORT_TASK_DELETE_ERROR",
                     {
                         keys,
                         task: task
@@ -230,15 +239,15 @@ export const createStorageOperations: CreateStorageOperations = params => {
         },
 
         async updateTaskStats(
-            params: PageImportExportTaskStorageOperationsUpdateTaskStatsParams
-        ): Promise<PageImportExportTask> {
+            params: ImportExportTaskStorageOperationsUpdateTaskStatsParams
+        ): Promise<ImportExportTask> {
             const {
                 original,
                 input: { prevStatus, nextStatus }
             } = params;
 
             const keys = {
-                PK: this.createPartitionKey({
+                PK: createPartitionKey({
                     tenant: original.tenant,
                     locale: original.locale,
                     id: original.id
@@ -249,21 +258,24 @@ export const createStorageOperations: CreateStorageOperations = params => {
             };
 
             try {
-                await entity.update({
-                    TYPE: this.createType(),
-                    ...keys,
-                    stats: {
-                        $set: {
-                            [prevStatus]: { $add: -1 },
-                            [nextStatus]: { $add: 1 }
+                await update({
+                    entity,
+                    item: {
+                        TYPE: createType(),
+                        ...keys,
+                        stats: {
+                            $set: {
+                                [prevStatus]: { $add: -1 },
+                                [nextStatus]: { $add: 1 }
+                            }
                         }
                     }
                 });
                 return original;
             } catch (ex) {
                 throw new WebinyError(
-                    ex.message || "Could not update pageImportExportTask.",
-                    ex.code || "PAGE_IMPORT_EXPORT_TASK_UPDATE_ERROR",
+                    ex.message || "Could not update importExportTask.",
+                    ex.code || "IMPORT_EXPORT_TASK_UPDATE_ERROR",
                     {
                         keys,
                         original
@@ -273,8 +285,8 @@ export const createStorageOperations: CreateStorageOperations = params => {
         },
 
         async createSubTask(
-            params: PageImportExportTaskStorageOperationsCreateSubTaskParams
-        ): Promise<PageImportExportTask> {
+            params: ImportExportTaskStorageOperationsCreateSubTaskParams
+        ): Promise<ImportExportTask> {
             const { subTask } = params;
             const pkParams = {
                 tenant: subTask.tenant,
@@ -282,23 +294,26 @@ export const createStorageOperations: CreateStorageOperations = params => {
                 id: subTask.parent
             };
             const keys = {
-                PK: this.createPartitionKey(pkParams),
-                SK: this.createSortKey(subTask.id),
-                GSI1_PK: this.createGsiPartitionKey(pkParams),
-                GSI1_SK: this.createGsiSortKey(subTask.status, subTask.id)
+                PK: createPartitionKey(pkParams),
+                SK: createSortKey(subTask.id),
+                GSI1_PK: createGsiPartitionKey(pkParams),
+                GSI1_SK: createGsiSortKey(subTask.status, subTask.id)
             };
 
             try {
-                await entity.put({
-                    ...subTask,
-                    TYPE: this.createType(),
-                    ...keys
+                await put({
+                    entity,
+                    item: {
+                        ...subTask,
+                        TYPE: createType(),
+                        ...keys
+                    }
                 });
                 return subTask;
             } catch (ex) {
                 throw new WebinyError(
-                    ex.message || "Could not create pageImportExportSubTask.",
-                    ex.code || "CREATE_PAGE_IMPORT_EXPORT_SUB_TASK_ERROR",
+                    ex.message || "Could not create importExportSubTask.",
+                    ex.code || "CREATE_IMPORT_EXPORT_SUB_TASK_ERROR",
                     {
                         keys,
                         subTask: subTask
@@ -308,8 +323,8 @@ export const createStorageOperations: CreateStorageOperations = params => {
         },
 
         async updateSubTask(
-            params: PageImportExportTaskStorageOperationsUpdateSubTaskParams
-        ): Promise<PageImportExportTask> {
+            params: ImportExportTaskStorageOperationsUpdateSubTaskParams
+        ): Promise<ImportExportTask> {
             const { subTask, original } = params;
             const pkParams = {
                 tenant: subTask.tenant,
@@ -317,23 +332,26 @@ export const createStorageOperations: CreateStorageOperations = params => {
                 id: subTask.parent
             };
             const keys = {
-                PK: this.createPartitionKey(pkParams),
-                SK: this.createSortKey(subTask.id),
-                GSI1_PK: this.createGsiPartitionKey(pkParams),
-                GSI1_SK: this.createGsiSortKey(subTask.status, subTask.id)
+                PK: createPartitionKey(pkParams),
+                SK: createSortKey(subTask.id),
+                GSI1_PK: createGsiPartitionKey(pkParams),
+                GSI1_SK: createGsiSortKey(subTask.status, subTask.id)
             };
 
             try {
-                await entity.put({
-                    ...subTask,
-                    TYPE: this.createType(),
-                    ...keys
+                await put({
+                    entity,
+                    item: {
+                        ...subTask,
+                        TYPE: createType(),
+                        ...keys
+                    }
                 });
                 return subTask;
             } catch (ex) {
                 throw new WebinyError(
-                    ex.message || "Could not update pageImportExportSubTask.",
-                    ex.code || "UPDATE_PAGE_IMPORT_EXPORT_SUB_TASK_ERROR",
+                    ex.message || "Could not update importExportSubTask.",
+                    ex.code || "UPDATE_IMPORT_EXPORT_SUB_TASK_ERROR",
                     {
                         keys,
                         original,
@@ -343,29 +361,26 @@ export const createStorageOperations: CreateStorageOperations = params => {
             }
         },
 
-        async getSubTask(
-            params: PageImportExportTaskStorageOperationsGetSubTaskParams
-        ): Promise<PageImportExportTask | null> {
+        async getSubTask(params: ImportExportTaskStorageOperationsGetSubTaskParams) {
             const { where } = params;
 
             const keys = {
-                PK: this.createPartitionKey({
+                PK: createPartitionKey({
                     tenant: where.tenant,
                     locale: where.locale,
                     id: where.parent
                 }),
-                SK: this.createSortKey(where.id)
+                SK: createSortKey(where.id)
             };
             try {
-                const result = await entity.get(keys);
-                if (!result || !result.Item) {
-                    return null;
-                }
-                return cleanupItem(entity, result.Item);
+                return await getClean<ImportExportTask>({
+                    entity,
+                    keys
+                });
             } catch (ex) {
                 throw new WebinyError(
-                    ex.message || "Could not load page import export subTask by given parameters.",
-                    ex.code || "PAGE_IMPORT_EXPORT_TASK_GET_ERROR",
+                    ex.message || "Could not load import export subTask by given parameters.",
+                    ex.code || "IMPORT_EXPORT_TASK_GET_ERROR",
                     {
                         where
                     }
@@ -374,14 +389,14 @@ export const createStorageOperations: CreateStorageOperations = params => {
         },
 
         async listSubTasks(
-            params: PageImportExportTaskStorageOperationsListSubTaskParams
-        ): Promise<PageImportExportTaskStorageOperationsListSubTaskResponse> {
-            const { where, limit } = params;
+            params: ImportExportTaskStorageOperationsListSubTaskParams
+        ): Promise<ImportExportTaskStorageOperationsListSubTaskResponse> {
+            const { where, limit = 100 } = params;
 
             const { tenant, locale, parent, status } = where;
             const queryAllParams: QueryAllParams = {
                 entity: entity,
-                partitionKey: this.createGsiPartitionKey({
+                partitionKey: createGsiPartitionKey({
                     tenant,
                     locale,
                     id: parent
@@ -393,14 +408,14 @@ export const createStorageOperations: CreateStorageOperations = params => {
                 }
             };
 
-            let results: PageImportExportTask[] = [];
+            let results: ImportExportTask[] = [];
 
             try {
-                results = await queryAll<PageImportExportTask>(queryAllParams);
+                results = await queryAllClean<ImportExportTask>(queryAllParams);
             } catch (ex) {
                 throw new WebinyError(
-                    ex.message || "Could not list page import export tasks by given parameters.",
-                    ex.code || "LIST_PAGE_IMPORT_EXPORT_SUB_TASKS_ERROR",
+                    ex.message || "Could not list import export tasks by given parameters.",
+                    ex.code || "LIST_IMPORT_EXPORT_SUB_TASKS_ERROR",
                     {
                         partitionKey: queryAllParams.partitionKey,
                         options: queryAllParams.options
@@ -408,12 +423,10 @@ export const createStorageOperations: CreateStorageOperations = params => {
                 );
             }
 
-            const items = results.map(item => cleanupItem<PageImportExportTask>(entity, item));
-
             return createListResponse({
-                items: items,
+                items: results,
                 limit,
-                totalCount: items.length,
+                totalCount: results.length,
                 after: null
             });
         }

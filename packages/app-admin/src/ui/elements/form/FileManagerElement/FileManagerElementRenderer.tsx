@@ -3,7 +3,7 @@ import styled from "@emotion/styled";
 import { UIRenderer, UIRenderParams } from "~/ui/UIRenderer";
 import { FormElementMessage } from "@webiny/ui/FormElementMessage";
 import { FileManagerElement } from "~/ui/elements/form/FileManagerElement";
-import { FileManager } from "~/components";
+import { FileManager, FileManagerFileItem } from "~/base/ui/FileManager";
 import { FormFieldElementRenderProps } from "~/ui/elements/form/FormFieldElement";
 
 const ImageUploadWrapper = styled("div")({
@@ -34,7 +34,7 @@ export class FileManagerElementRenderer extends UIRenderer<
     FileManagerElement,
     FormFieldElementRenderProps
 > {
-    render({
+    public override render({
         element,
         props
     }: UIRenderParams<FileManagerElement, FormFieldElementRenderProps>): React.ReactNode {
@@ -53,8 +53,8 @@ export class FileManagerElementRenderer extends UIRenderer<
                 name={element.getName()}
                 validators={element.getValidators(props)}
                 defaultValue={element.getDefaultValue(props)}
-                beforeChange={(value, cb) => element.onBeforeChange(value, cb)}
-                afterChange={(value, form) => element.onAfterChange(value, form)}
+                beforeChange={(value: string, cb) => element.onBeforeChange(value, cb)}
+                afterChange={(value: string, form) => element.onAfterChange(value, form)}
             >
                 {({ value, onChange, validation }) => (
                     <ImageUploadWrapper>
@@ -65,24 +65,23 @@ export class FileManagerElementRenderer extends UIRenderer<
                         )}
 
                         <FileManager
-                            onChange={onChange}
-                            onChangePick={element.getOnChangePickAttributes()}
+                            onChange={(value: FileManagerFileItem | null) =>
+                                onChange(value ? { id: value.id, src: value.src } : null)
+                            }
                             accept={accept}
                             images={!accept}
                             maxSize={element.getMaxSize()}
-                            multipleMaxCount={element.getMultipleMaxCount()}
-                            multipleMaxSize={element.getMultipleMaxSize()}
-                        >
-                            {({ showFileManager }) =>
+                            render={({ showFileManager }) =>
                                 element.getEmptyStateElement().render({
                                     ...props,
                                     fileManagerElement: element,
                                     showFileManager,
                                     value,
-                                    onChange
+                                    onChange: (value: FileManagerFileItem | null) =>
+                                        onChange(value ? { id: value.id, src: value.src } : null)
                                 })
                             }
-                        </FileManager>
+                        />
 
                         {validation.isValid === false && (
                             <FormElementMessage error>{validation.message}</FormElementMessage>

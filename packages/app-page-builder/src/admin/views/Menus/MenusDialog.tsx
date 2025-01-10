@@ -18,6 +18,7 @@ import {
 } from "@webiny/ui/List";
 import { ButtonDefault } from "@webiny/ui/Button";
 import { LIST_MENUS } from "./graphql";
+import { PbMenu } from "~/types";
 
 const narrowDialog = css({
     ".mdc-dialog__surface": {
@@ -26,14 +27,25 @@ const narrowDialog = css({
     }
 });
 
-export type MenusDialogProps = {
+interface ListMenusResponse {
+    data: {
+        pageBuilder: {
+            menus: {
+                data: PbMenu[];
+            };
+        };
+    };
+    loading: boolean;
+}
+
+export interface MenusDialogProps {
     open: boolean;
     onClose: DialogOnClose;
-    onSelect: Function;
+    onSelect: (item: PbMenu) => void;
     children: any;
-};
+}
 
-const MenusDialog: React.FC<MenusDialogProps> = ({ open, onClose, onSelect, children }) => {
+const MenusDialog = ({ open, onClose, onSelect, children }: MenusDialogProps) => {
     const { history } = useRouter();
     return (
         <Dialog
@@ -47,7 +59,7 @@ const MenusDialog: React.FC<MenusDialogProps> = ({ open, onClose, onSelect, chil
             <DialogContent>
                 <List twoLine>
                     <Query query={LIST_MENUS}>
-                        {({ data, loading }) => {
+                        {({ data, loading }: ListMenusResponse) => {
                             if (loading) {
                                 return <span>Loading menus...</span>;
                             }

@@ -1,51 +1,18 @@
-import { Plugin } from "@webiny/plugins/types";
+import { Plugin, PluginCollection } from "@webiny/plugins/types";
 import {
+    CmsContext as BaseCmsContext,
     CmsEntry,
+    CmsEntryStorageOperations as BaseCmsEntryStorageOperations,
     CmsModel,
     CmsModelField,
     CmsModelFieldToGraphQLPlugin,
+    CmsModelFieldType,
     HeadlessCmsStorageOperations as BaseHeadlessCmsStorageOperations
 } from "@webiny/api-headless-cms/types";
-import { DynamoDBTypes, TableConstructor } from "dynamodb-toolbox/dist/classes/Table";
-import { DocumentClient } from "aws-sdk/clients/dynamodb";
-import {
-    EntityAttributeConfig,
-    EntityCompositeAttributes
-} from "dynamodb-toolbox/dist/classes/Entity";
+import { AttributeDefinition, Entity, Table, TableConstructor } from "@webiny/db-dynamodb/toolbox";
+import { DynamoDBDocument } from "@webiny/aws-sdk/client-dynamodb";
 import { Client } from "@elastic/elasticsearch";
-import { Entity, Table } from "dynamodb-toolbox";
 import { PluginsContainer } from "@webiny/plugins";
-
-/**
- * Arguments for ElasticsearchQueryBuilderValueSearchPlugin.
- *
- * @see ElasticsearchQueryBuilderValueSearchPlugin.transform
- */
-interface ElasticsearchQueryBuilderValueSearchPluginArgs {
-    field: CmsModelField;
-    value: any;
-}
-
-/**
- * A plugin definition for transforming the search value for Elasticsearch.
- *
- * @category Plugin
- * @category Elasticsearch
- */
-export interface ElasticsearchQueryBuilderValueSearchPlugin extends Plugin {
-    /**
-     * A plugin type.
-     */
-    type: "cms-elastic-search-query-builder-value-search";
-    /**
-     * A field type for plugin to target.
-     */
-    fieldType: string;
-    /**
-     * Transform value that is going to be searched for in the Elasticsearch.
-     */
-    transform: (args: ElasticsearchQueryBuilderValueSearchPluginArgs) => any;
-}
 
 /**
  * A definition of the entry that is being prepared for the Elasticsearch.
@@ -75,7 +42,7 @@ export interface CmsIndexEntry extends CmsEntry {
  * @category Elasticsearch
  * @category CmsEntry
  */
-interface CmsModelFieldToElasticsearchToParams {
+export interface CmsModelFieldToElasticsearchToParams {
     plugins: PluginsContainer;
     model: CmsModel;
     field: CmsModelField;
@@ -97,7 +64,7 @@ interface CmsModelFieldToElasticsearchToParams {
  * @category Elasticsearch
  * @category CmsEntry
  */
-interface CmsModelFieldToElasticsearchFromParams {
+export interface CmsModelFieldToElasticsearchFromParams {
     plugins: PluginsContainer;
     model: CmsModel;
     field: CmsModelField;
@@ -138,7 +105,7 @@ export interface CmsModelFieldToElasticsearchPlugin extends Plugin {
      * fieldType: "myField"
      * ```
      */
-    fieldType: string;
+    fieldType: CmsModelFieldType;
     /**
      * If you need to define a type when building an Elasticsearch query.
      * Check [dateTimeIndexing](https://github.com/webiny/webiny-js/blob/3074165701b8b45e5fc6ac2444caace7d04ada66/packages/api-headless-cms/src/content/plugins/es/indexing/dateTimeIndexing.ts) plugin for usage example.
@@ -147,7 +114,7 @@ export interface CmsModelFieldToElasticsearchPlugin extends Plugin {
      * unmappedType: "date"
      * ```
      */
-    unmappedType?: (field: CmsModelField) => string;
+    unmappedType?: (field: Pick<CmsModelField, "fieldId" | "type">) => string;
     /**
      * This is meant to do some transformation of the entry, preferably only to fieldType it was defined for. Nothing is stopping you to do anything you want to other fields, but try to separate field transformations.
      * It returns `Partial<CmsContentIndexEntryType>`. Always return a top-level property of the entry since it is merged via spread operator.
@@ -175,13 +142,10 @@ export interface CmsModelFieldToElasticsearchPlugin extends Plugin {
     fromIndex?: (params: CmsModelFieldToElasticsearchFromParams) => any;
 }
 
-export type AttributeDefinition = DynamoDBTypes | EntityAttributeConfig | EntityCompositeAttributes;
-
 export type Attributes = Record<string, AttributeDefinition>;
 
 export enum ENTITIES {
     SYSTEM = "CmsSystem",
-    SETTINGS = "CmsSettings",
     GROUPS = "CmsGroups",
     MODELS = "CmsModels",
     ENTRIES = "CmsEntries",
@@ -189,28 +153,42 @@ export enum ENTITIES {
 }
 
 export interface TableModifier {
-    (table: TableConstructor): TableConstructor;
+    (table: TableConstructor<string, string, string>): TableConstructor<string, string, string>;
 }
 
 export interface StorageOperationsFactoryParams {
-    documentClient: DocumentClient;
+    documentClient: DynamoDBDocument;
     elasticsearch: Client;
     table?: TableModifier;
     esTable?: TableModifier;
-    modelFieldToGraphQLPlugins: CmsModelFieldToGraphQLPlugin[];
     attributes?: Record<ENTITIES, Attributes>;
-    plugins?: Plugin[] | Plugin[][];
+    plugins?: PluginCollection;
 }
 
-export interface HeadlessCmsStorageOperations extends BaseHeadlessCmsStorageOperations {
-    getTable: () => Table;
-    getEsTable: () => Table;
+export interface CmsContext extends BaseCmsContext {
+    [key: string]: any;
+}
+
+export interface HeadlessCmsStorageOperations extends BaseHeadlessCmsStorageOperations<CmsContext> {
+    getTable: () => Table<string, string, string>;
+    getEsTable: () => Table<string, string, string>;
     getEntities: () => Record<
-        "system" | "settings" | "groups" | "models" | "entries" | "entriesEs",
+        "system" | "groups" | "models" | "entries" | "entriesEs",
         Entity<any>
     >;
 }
 
 export interface StorageOperationsFactory {
     (params: StorageOperationsFactoryParams): HeadlessCmsStorageOperations;
+}
+
+export interface CmsEntryStorageOperations extends BaseCmsEntryStorageOperations {
+    dataLoaders: DataLoadersHandlerInterface;
+}
+
+export interface DataLoadersHandlerInterfaceClearAllParams {
+    model: Pick<CmsModel, "tenant" | "locale">;
+}
+export interface DataLoadersHandlerInterface {
+    clearAll: (params?: DataLoadersHandlerInterfaceClearAllParams) => void;
 }

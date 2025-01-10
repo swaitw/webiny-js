@@ -5,6 +5,10 @@ import Downshift from "downshift";
 import { plugins } from "@webiny/plugins";
 import { AdminGlobalSearchPlugin, AdminGlobalSearchPreventHotkeyPlugin } from "~/types";
 import classnames from "classnames";
+/**
+ * Package react-hotkeyz does not have types.
+ */
+// @ts-expect-error
 import { Hotkeys } from "react-hotkeyz";
 
 // UI components
@@ -13,21 +17,22 @@ import { Elevation } from "@webiny/ui/Elevation";
 import SearchBarDropdown from "./SearchBarDropdown";
 
 // Icons
-import { ReactComponent as SearchIcon } from "./icons/round-search-24px.svg";
+import { ReactComponent as SearchIcon } from "@material-design-icons/svg/outlined/search.svg";
 
 // Local components
 import {
-    SearchBarWrapper,
-    SearchBarInputWrapper,
-    SearchShortcut,
-    searchBarInput,
     icon,
+    searchBarInput,
+    SearchBarInputWrapper,
+    SearchBarWrapper,
+    SearchShortcut,
     searchWrapper
 } from "./styled";
+import { makeDecoratable } from "~/index";
 
 type SearchBarProps = UseRouter;
 
-type SearchBarState = {
+export interface SearchBarState {
     active: boolean;
     searchTerm: { previous: string; current: string };
     plugins: {
@@ -35,10 +40,10 @@ type SearchBarState = {
         hotKeys: ReadonlyArray<AdminGlobalSearchPreventHotkeyPlugin>;
         current?: AdminGlobalSearchPlugin;
     };
-};
+}
 
 class SearchBar extends React.Component<SearchBarProps, SearchBarState> {
-    state = {
+    public override state: SearchBarState = {
         active: false,
         searchTerm: {
             previous: "",
@@ -60,19 +65,19 @@ class SearchBar extends React.Component<SearchBarProps, SearchBarState> {
     /**
      * Helps us trigger some of the downshift's methods (eg. clearSelection) and helps us to avoid adding state.
      */
-    downshift: any = React.createRef();
+    public readonly downshift: any = React.createRef();
 
     /**
      * At some point we must programmatically focus the input.
      */
-    input: any = React.createRef();
+    private readonly input = React.createRef<HTMLInputElement>();
 
     /**
      * Let's check if current route is defined in one of the registered plugins.
      * If so, then check current route query for search term and set it as default value of search input.
      * @param props
      */
-    constructor(props) {
+    constructor(props: SearchBarProps) {
         super(props);
         this.state.plugins.current = this.state.plugins.list.find(
             p => p.route === props.location.pathname
@@ -92,7 +97,7 @@ class SearchBar extends React.Component<SearchBarProps, SearchBarState> {
         }
     }
 
-    handleOpenHotkey = e => {
+    private readonly handleOpenHotkey = (e: React.KeyboardEvent): void => {
         for (let i = 0; i < this.state.plugins.hotKeys.length; i++) {
             const hotKey = this.state.plugins.hotKeys[i];
             if (hotKey.preventOpen(e)) {
@@ -101,6 +106,9 @@ class SearchBar extends React.Component<SearchBarProps, SearchBarState> {
         }
 
         e.preventDefault();
+        if (!this.input.current) {
+            return;
+        }
         this.input.current.focus();
     };
 
@@ -109,11 +117,11 @@ class SearchBar extends React.Component<SearchBarProps, SearchBarState> {
      * It also manages previous and current search terms and automatically highlighted item in dropdown.
      * @param plugin
      */
-    submitSearchTerm = plugin => {
+    public readonly submitSearchTerm = (plugin: AdminGlobalSearchPlugin): void => {
         this.setState(
             state => {
                 const newState = set(state, "searchTerm.previous", state.searchTerm.current);
-                return set(newState, "plugins.current", plugin) as any;
+                return set(newState, "plugins.current", plugin);
             },
             () => {
                 const query = new URLSearchParams();
@@ -143,14 +151,14 @@ class SearchBar extends React.Component<SearchBarProps, SearchBarState> {
         );
     };
 
-    cancelSearchTerm = () => {
+    private readonly cancelSearchTerm = (): void => {
         this.setState(state => {
             state.searchTerm.current = state.searchTerm.previous;
             return state;
         });
     };
 
-    render() {
+    public override render() {
         return (
             <Downshift ref={this.downshift} itemToString={item => item && item.label}>
                 {downshiftProps => {
@@ -161,7 +169,7 @@ class SearchBar extends React.Component<SearchBarProps, SearchBarState> {
                             <Hotkeys
                                 zIndex={10}
                                 keys={{
-                                    // @ts-ignore
+                                    // @ts-expect-error
                                     esc: () => document.activeElement.blur(),
                                     "/": this.handleOpenHotkey
                                 }}
@@ -204,7 +212,6 @@ class SearchBar extends React.Component<SearchBarProps, SearchBarState> {
                                                     ),
                                                     ref: this.input,
                                                     value: this.state.searchTerm.current,
-                                                    // @ts-ignore
                                                     onClick: openMenu,
                                                     onBlur: () => {
                                                         this.cancelSearchTerm();
@@ -246,4 +253,4 @@ const SearchBarContainer = () => {
     return <SearchBar {...routerProps} />;
 };
 
-export default SearchBarContainer;
+export default makeDecoratable("SearchBarContainer", SearchBarContainer);

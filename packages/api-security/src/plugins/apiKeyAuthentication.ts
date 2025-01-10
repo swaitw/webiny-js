@@ -1,7 +1,8 @@
-import { Context as HandlerContext } from "@webiny/handler/types";
-import { ContextPlugin } from "@webiny/handler/plugins/ContextPlugin";
+import { ContextPlugin } from "@webiny/api";
 import { SecurityContext } from "~/types";
-type Context = HandlerContext<SecurityContext>;
+import { TenancyContext } from "@webiny/api-tenancy/types";
+
+type Context = TenancyContext & SecurityContext;
 
 export interface Config {
     identityType?: string;
@@ -10,22 +11,28 @@ export interface Config {
 export default ({ identityType }: Config) => {
     return new ContextPlugin<Context>(context => {
         context.security.addAuthenticator(async token => {
-            if (!token.startsWith("a")) {
-                return;
+            if (typeof token !== "string" || !token.startsWith("a")) {
+                return null;
             }
 
-            const apiKey = await context.security.getApiKeyByToken(token);
+            const tenant = context.tenancy.getCurrentTenant();
 
-            if (apiKey) {
-                return {
-                    id: apiKey.id,
-                    displayName: apiKey.name,
-                    type: identityType || "api-key",
-                    // Add permissions directly to the identity so we don't have to load them
-                    // again when authorization kicks in.
-                    permissions: apiKey.permissions
-                };
+            const apiKey = await context.security
+                .getStorageOperations()
+                .getApiKeyByToken({ tenant: tenant.id, token });
+
+            if (!apiKey) {
+                return null;
             }
+
+            return {
+                id: apiKey.id,
+                displayName: apiKey.name,
+                type: identityType || "api-key",
+                // Add permissions directly to the identity so we don't have to load them
+                // again when authorization kicks in.
+                permissions: apiKey.permissions
+            };
         });
     });
 };

@@ -1,32 +1,15 @@
 import WebinyError from "@webiny/error";
 import { DataLoadersHandler } from "./dataLoaders";
-import {
+import type {
     CmsEntry,
-    CmsEntryStorageOperations,
-    CmsEntryStorageOperationsCreateParams,
-    CmsEntryStorageOperationsCreateRevisionFromParams,
-    CmsEntryStorageOperationsDeleteParams,
-    CmsEntryStorageOperationsDeleteRevisionParams,
-    CmsEntryStorageOperationsGetAllRevisionsParams,
-    CmsEntryStorageOperationsGetByIdsParams,
-    CmsEntryStorageOperationsGetLatestByIdsParams,
-    CmsEntryStorageOperationsGetLatestRevisionParams,
-    CmsEntryStorageOperationsGetParams,
-    CmsEntryStorageOperationsGetPreviousRevisionParams,
-    CmsEntryStorageOperationsGetPublishedByIdsParams,
-    CmsEntryStorageOperationsGetRevisionParams,
-    CmsEntryStorageOperationsGetRevisionsParams,
-    CmsEntryStorageOperationsListParams,
-    CmsEntryStorageOperationsPublishParams,
-    CmsEntryStorageOperationsRequestChangesParams,
-    CmsEntryStorageOperationsRequestReviewParams,
-    CmsEntryStorageOperationsUnpublishParams,
-    CmsEntryStorageOperationsUpdateParams,
+    CmsEntryListWhere,
+    CmsEntryUniqueValue,
     CmsModel,
-    CONTENT_ENTRY_STATUS
+    CmsStorageEntry,
+    StorageOperationsCmsModel
 } from "@webiny/api-headless-cms/types";
-import { Entity } from "dynamodb-toolbox";
-import { filterItems, buildModelFields, sortEntryItems, FilterItemFromStorage } from "./utils";
+import { CONTENT_ENTRY_STATUS } from "@webiny/api-headless-cms/types";
+import type { Entity } from "@webiny/db-dynamodb/toolbox";
 import {
     createGSIPartitionKey,
     createGSISortKey,
@@ -35,18 +18,29 @@ import {
     createPublishedSortKey,
     createRevisionSortKey
 } from "~/operations/entry/keys";
-import { batchWriteAll } from "@webiny/db-dynamodb/utils/batchWrite";
 import {
+    cleanupItem,
+    cleanupItems,
+    createEntityWriteBatch,
     queryAll,
     QueryAllParams,
     queryOne,
     QueryOneParams
-} from "@webiny/db-dynamodb/utils/query";
-import { cleanupItem, cleanupItems } from "@webiny/db-dynamodb/utils/cleanup";
-import { PluginsContainer } from "@webiny/plugins";
+} from "@webiny/db-dynamodb";
+import type { PluginsContainer } from "@webiny/plugins";
 import { decodeCursor, encodeCursor } from "@webiny/utils/cursor";
 import { zeroPad } from "@webiny/utils/zeroPad";
-import { StorageTransformPlugin } from "@webiny/api-headless-cms";
+import { StorageOperationsCmsModelPlugin, StorageTransformPlugin } from "@webiny/api-headless-cms";
+import type { FilterItemFromStorage } from "./filtering/types";
+import { createFields } from "~/operations/entry/filtering/createFields";
+import { filter, sort } from "~/operations/entry/filtering";
+import type { CmsEntryStorageOperations } from "~/types";
+import {
+    isDeletedEntryMetaField,
+    isEntryLevelEntryMetaField,
+    isRestoredEntryMetaField,
+    pickEntryMetaFields
+} from "@webiny/api-headless-cms/constants";
 
 const createType = (): string => {
     return "cms.entry";
@@ -58,25 +52,80 @@ const createPublishedType = (): string => {
     return `${createType()}.p`;
 };
 
-export interface Params {
+interface ConvertStorageEntryParams {
+    storageEntry: CmsStorageEntry;
+    model: StorageOperationsCmsModel;
+}
+
+const convertToStorageEntry = (params: ConvertStorageEntryParams): CmsStorageEntry => {
+    const { model, storageEntry } = params;
+
+    const values = model.convertValueKeyToStorage({
+        fields: model.fields,
+        values: storageEntry.values
+    });
+    return {
+        ...storageEntry,
+        values
+    };
+};
+
+const convertFromStorageEntry = (params: ConvertStorageEntryParams): CmsStorageEntry => {
+    const { model, storageEntry } = params;
+
+    const values = model.convertValueKeyFromStorage({
+        fields: model.fields,
+        values: storageEntry.values
+    });
+    return {
+        ...storageEntry,
+        values
+    };
+};
+
+const MAX_LIST_LIMIT = 1000000;
+
+export interface CreateEntriesStorageOperationsParams {
     entity: Entity<any>;
     plugins: PluginsContainer;
 }
-export const createEntriesStorageOperations = (params: Params): CmsEntryStorageOperations => {
+
+export const createEntriesStorageOperations = (
+    params: CreateEntriesStorageOperationsParams
+): CmsEntryStorageOperations => {
     const { entity, plugins } = params;
+
+    let storageOperationsCmsModelPlugin: StorageOperationsCmsModelPlugin | undefined;
+    const getStorageOperationsCmsModelPlugin = () => {
+        if (storageOperationsCmsModelPlugin) {
+            return storageOperationsCmsModelPlugin;
+        }
+        storageOperationsCmsModelPlugin = plugins.oneByType<StorageOperationsCmsModelPlugin>(
+            StorageOperationsCmsModelPlugin.type
+        );
+        return storageOperationsCmsModelPlugin;
+    };
+
+    const getStorageOperationsModel = (model: CmsModel): StorageOperationsCmsModel => {
+        const plugin = getStorageOperationsCmsModelPlugin();
+        return plugin.getModel(model);
+    };
 
     const dataLoaders = new DataLoadersHandler({
         entity
     });
 
-    const storageTransformPlugins = plugins
-        .byType<StorageTransformPlugin>(StorageTransformPlugin.type)
-        .reduce((collection, plugin) => {
-            collection[plugin.fieldType] = plugin;
-            return collection;
-        }, {} as Record<string, StorageTransformPlugin>);
+    const createStorageTransformCallable = (
+        model: StorageOperationsCmsModel
+    ): FilterItemFromStorage => {
+        // Cache StorageTransformPlugin to optimize execution.
+        const storageTransformPlugins = plugins
+            .byType<StorageTransformPlugin>(StorageTransformPlugin.type)
+            .reduce((collection, plugin) => {
+                collection[plugin.fieldType] = plugin;
+                return collection;
+            }, {} as Record<string, StorageTransformPlugin>);
 
-    const createStorageTransformCallable = (model: CmsModel): FilterItemFromStorage => {
         return (field, value) => {
             const plugin: StorageTransformPlugin = storageTransformPlugins[field.type];
             if (!plugin) {
@@ -86,7 +135,7 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
                 model,
                 field,
                 value,
-                getStoragePlugin(fieldType: string): StorageTransformPlugin<any> {
+                getStoragePlugin(fieldType: string): StorageTransformPlugin {
                     return storageTransformPlugins[fieldType] || storageTransformPlugins["*"];
                 },
                 plugins
@@ -94,39 +143,70 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
         };
     };
 
-    const create = async (model: CmsModel, args: CmsEntryStorageOperationsCreateParams) => {
-        const { entry, storageEntry } = args;
+    const create: CmsEntryStorageOperations["create"] = async (initialModel, params) => {
+        const { entry, storageEntry: initialStorageEntry } = params;
+        const model = getStorageOperationsModel(initialModel);
 
-        const partitionKey = createPartitionKey(entry);
+        const partitionKey = createPartitionKey({
+            id: entry.id,
+            locale: model.locale,
+            tenant: model.tenant
+        });
+
+        const isPublished = entry.status === "published";
+
+        const locked = isPublished ? true : entry.locked;
+
+        const storageEntry = convertToStorageEntry({
+            model,
+            storageEntry: initialStorageEntry
+        });
         /**
          * We need to:
          *  - create new main entry item
-         *  - create new or update latest entry item
+         *  - create new or update the latest entry item
          */
-        const items = [
-            entity.putBatch({
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...storageEntry,
+                    locked,
+                    PK: partitionKey,
+                    SK: createRevisionSortKey(entry),
+                    TYPE: createType(),
+                    GSI1_PK: createGSIPartitionKey(model, "A"),
+                    GSI1_SK: createGSISortKey(storageEntry)
+                },
+                {
+                    ...storageEntry,
+                    locked,
+                    PK: partitionKey,
+                    SK: createLatestSortKey(),
+                    TYPE: createLatestType(),
+                    GSI1_PK: createGSIPartitionKey(model, "L"),
+                    GSI1_SK: createGSISortKey(storageEntry)
+                }
+            ]
+        });
+
+        /**
+         * We need to create published entry if
+         */
+        if (isPublished) {
+            entityBatch.put({
                 ...storageEntry,
+                locked,
                 PK: partitionKey,
-                SK: createRevisionSortKey(entry),
-                TYPE: createType(),
-                GSI1_PK: createGSIPartitionKey(model, "A"),
-                GSI1_SK: createGSISortKey(storageEntry)
-            }),
-            entity.putBatch({
-                ...storageEntry,
-                PK: partitionKey,
-                SK: createLatestSortKey(),
+                SK: createPublishedSortKey(),
                 TYPE: createLatestType(),
-                GSI1_PK: createGSIPartitionKey(model, "L"),
+                GSI1_PK: createGSIPartitionKey(model, "P"),
                 GSI1_SK: createGSISortKey(storageEntry)
-            })
-        ];
+            });
+        }
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
             dataLoaders.clearAll({
                 model
             });
@@ -141,44 +221,91 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
             );
         }
 
-        return storageEntry;
+        return initialStorageEntry;
     };
 
-    const createRevisionFrom = async (
-        model: CmsModel,
-        params: CmsEntryStorageOperationsCreateRevisionFromParams
+    const createRevisionFrom: CmsEntryStorageOperations["createRevisionFrom"] = async (
+        initialModel,
+        params
     ) => {
-        const { originalEntry, entry, storageEntry, latestEntry } = params;
+        const { entry, storageEntry: initialStorageEntry } = params;
+        const model = getStorageOperationsModel(initialModel);
 
-        const partitionKey = createPartitionKey(storageEntry);
+        const partitionKey = createPartitionKey({
+            id: entry.id,
+            locale: model.locale,
+            tenant: model.tenant
+        });
+
+        const storageEntry = convertToStorageEntry({
+            storageEntry: initialStorageEntry,
+            model
+        });
+
         /**
          * We need to:
          *  - create the main entry item
-         *  - update the last entry item to a current one
+         *  - update the latest entry item to the current one
+         *  - if the entry's status was set to "published":
+         *      - update the published entry item to the current one
+         *      - unpublish previously published revision (if any)
          */
-        const items = [
-            entity.putBatch({
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...storageEntry,
+                    PK: partitionKey,
+                    SK: createRevisionSortKey(storageEntry),
+                    TYPE: createType(),
+                    GSI1_PK: createGSIPartitionKey(model, "A"),
+                    GSI1_SK: createGSISortKey(storageEntry)
+                },
+                {
+                    ...storageEntry,
+                    PK: partitionKey,
+                    SK: createLatestSortKey(),
+                    TYPE: createLatestType(),
+                    GSI1_PK: createGSIPartitionKey(model, "L"),
+                    GSI1_SK: createGSISortKey(storageEntry)
+                }
+            ]
+        });
+
+        const isPublished = entry.status === "published";
+        if (isPublished) {
+            entityBatch.put({
                 ...storageEntry,
                 PK: partitionKey,
-                SK: createRevisionSortKey(storageEntry),
-                TYPE: createType(),
-                GSI1_PK: createGSIPartitionKey(model, "A"),
+                SK: createPublishedSortKey(),
+                TYPE: createPublishedType(),
+                GSI1_PK: createGSIPartitionKey(model, "P"),
                 GSI1_SK: createGSISortKey(storageEntry)
-            }),
-            entity.putBatch({
-                ...storageEntry,
-                PK: partitionKey,
-                SK: createLatestSortKey(),
-                TYPE: createLatestType(),
-                GSI1_PK: createGSIPartitionKey(model, "L"),
-                GSI1_SK: createGSISortKey(storageEntry)
-            })
-        ];
-        try {
-            await batchWriteAll({
-                table: entity.table,
-                items
             });
+
+            // Unpublish previously published revision (if any).
+            const [publishedRevisionStorageEntry] = await dataLoaders.getPublishedRevisionByEntryId(
+                {
+                    model,
+                    ids: [entry.id]
+                }
+            );
+
+            if (publishedRevisionStorageEntry) {
+                entityBatch.put({
+                    ...publishedRevisionStorageEntry,
+                    PK: partitionKey,
+                    SK: createRevisionSortKey(publishedRevisionStorageEntry),
+                    TYPE: createType(),
+                    status: CONTENT_ENTRY_STATUS.UNPUBLISHED,
+                    GSI1_PK: createGSIPartitionKey(model, "A"),
+                    GSI1_SK: createGSISortKey(publishedRevisionStorageEntry)
+                });
+            }
+        }
+
+        try {
+            await entityBatch.execute();
             dataLoaders.clearAll({
                 model
             });
@@ -188,8 +315,6 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
                 ex.code || "CREATE_REVISION_ERROR",
                 {
                     error: ex,
-                    originalEntry,
-                    latestEntry,
                     entry,
                     storageEntry
                 }
@@ -198,64 +323,125 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
         /**
          * There are no modifications on the entry created so just return the data.
          */
-        return storageEntry;
+        return initialStorageEntry;
     };
 
-    const update = async (model: CmsModel, params: CmsEntryStorageOperationsUpdateParams) => {
-        const { originalEntry, entry, storageEntry } = params;
-        const partitionKey = createPartitionKey(originalEntry);
+    const update: CmsEntryStorageOperations["update"] = async (initialModel, params) => {
+        const { entry, storageEntry: initialStorageEntry } = params;
+        const model = getStorageOperationsModel(initialModel);
 
-        const items = [];
+        const partitionKey = createPartitionKey({
+            id: entry.id,
+            locale: model.locale,
+            tenant: model.tenant
+        });
+
+        const isPublished = entry.status === "published";
+        const locked = isPublished ? true : entry.locked;
+
+        const storageEntry = convertToStorageEntry({
+            model,
+            storageEntry: initialStorageEntry
+        });
         /**
          * We need to:
          *  - update the current entry
          *  - update the latest entry if the current entry is the latest one
          */
-        items.push(
-            entity.putBatch({
+
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
+                    ...storageEntry,
+                    locked,
+                    PK: partitionKey,
+                    SK: createRevisionSortKey(storageEntry),
+                    TYPE: createType(),
+                    GSI1_PK: createGSIPartitionKey(model, "A"),
+                    GSI1_SK: createGSISortKey(storageEntry)
+                }
+            ]
+        });
+
+        if (isPublished) {
+            entityBatch.put({
                 ...storageEntry,
+                locked,
                 PK: partitionKey,
-                SK: createRevisionSortKey(storageEntry),
-                TYPE: createType(),
-                GSI1_PK: createGSIPartitionKey(model, "A"),
+                SK: createPublishedSortKey(),
+                TYPE: createPublishedType(),
+                GSI1_PK: createGSIPartitionKey(model, "P"),
                 GSI1_SK: createGSISortKey(storageEntry)
-            })
-        );
+            });
+        }
 
         /**
-         * We need the latest entry to update it as well if neccessary.
+         * We need the latest entry to update it as well if necessary.
          */
         const latestStorageEntry = await getLatestRevisionByEntryId(model, entry);
 
-        if (latestStorageEntry && latestStorageEntry.id === entry.id) {
-            items.push(
-                entity.putBatch({
+        if (latestStorageEntry) {
+            const updatingLatestRevision = latestStorageEntry.id === entry.id;
+            if (updatingLatestRevision) {
+                entityBatch.put({
                     ...storageEntry,
+                    locked,
                     PK: partitionKey,
                     SK: createLatestSortKey(),
                     TYPE: createLatestType(),
                     GSI1_PK: createGSIPartitionKey(model, "L"),
                     GSI1_SK: createGSISortKey(entry)
-                })
-            );
+                });
+            } else {
+                /**
+                 * If not updating latest revision, we still want to update the latest revision's
+                 * entry-level meta fields to match the current revision's entry-level meta fields.
+                 */
+                const updatedEntryLevelMetaFields = pickEntryMetaFields(
+                    entry,
+                    isEntryLevelEntryMetaField
+                );
+
+                /**
+                 * First we update the regular DynamoDB table. Two updates are needed:
+                 * - one for the actual revision record
+                 * - one for the latest record
+                 */
+                entityBatch.put({
+                    ...latestStorageEntry,
+                    ...updatedEntryLevelMetaFields,
+                    PK: partitionKey,
+                    SK: createRevisionSortKey(latestStorageEntry),
+                    TYPE: createType(),
+                    GSI1_PK: createGSIPartitionKey(model, "A"),
+                    GSI1_SK: createGSISortKey(latestStorageEntry)
+                });
+
+                entityBatch.put({
+                    ...latestStorageEntry,
+                    ...updatedEntryLevelMetaFields,
+                    PK: partitionKey,
+                    SK: createLatestSortKey(),
+                    TYPE: createLatestType(),
+                    GSI1_PK: createGSIPartitionKey(model, "L"),
+                    GSI1_SK: createGSISortKey(latestStorageEntry)
+                });
+            }
         }
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
             dataLoaders.clearAll({
                 model
             });
-            return storageEntry;
+            return initialStorageEntry;
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not update entry.",
                 ex.code || "UPDATE_ERROR",
                 {
                     error: ex,
-                    originalEntry,
                     entry,
                     latestStorageEntry
                 }
@@ -263,18 +449,160 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
         }
     };
 
-    const deleteEntry = async (model: CmsModel, params: CmsEntryStorageOperationsDeleteParams) => {
-        const { entry } = params;
-
+    const move: CmsEntryStorageOperations["move"] = async (initialModel, id, folderId) => {
+        /**
+         * We need to:
+         * - load all the revisions of the entry, including published and latest
+         * - update all the revisions (published and latest ) of the entry with new folderId
+         */
+        const model = getStorageOperationsModel(initialModel);
+        /**
+         * First we need to load all the revisions and published / latest entry.
+         */
         const queryAllParams: QueryAllParams = {
             entity,
-            partitionKey: createPartitionKey(entry),
+            partitionKey: createPartitionKey({
+                id,
+                locale: model.locale,
+                tenant: model.tenant
+            }),
+            options: {
+                gte: " "
+            }
+        };
+        const records = await queryAll<CmsEntry>(queryAllParams);
+        /**
+         * Then create the batch writes for the DynamoDB, with the updated folderId.
+         */
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: records.map(item => {
+                return {
+                    ...item,
+                    location: {
+                        ...item.location,
+                        folderId
+                    }
+                };
+            })
+        });
+
+        /**
+         * And finally write it...
+         */
+        try {
+            await entityBatch.execute();
+        } catch (ex) {
+            throw WebinyError.from(ex, {
+                message: "Could not move records to a new folder.",
+                data: {
+                    id,
+                    folderId
+                }
+            });
+        }
+    };
+
+    const moveToBin: CmsEntryStorageOperations["moveToBin"] = async (
+        initialModel,
+        params
+    ): Promise<void> => {
+        const { entry, storageEntry: initialStorageEntry } = params;
+        const model = getStorageOperationsModel(initialModel);
+
+        /**
+         * First we need to load all the revisions and published / latest entries.
+         */
+        const queryAllParams: QueryAllParams = {
+            entity,
+            partitionKey: createPartitionKey({
+                id: entry.id,
+                locale: model.locale,
+                tenant: model.tenant
+            }),
             options: {
                 gte: " "
             }
         };
 
-        let records = [];
+        let records: Awaited<ReturnType<typeof queryAll<CmsEntry>>> = [];
+        try {
+            records = await queryAll<CmsEntry>(queryAllParams);
+        } catch (ex) {
+            throw new WebinyError(
+                ex.message || "Could not load all records.",
+                ex.code || "LOAD_ALL_RECORDS_ERROR",
+                {
+                    error: ex,
+                    id: entry.id
+                }
+            );
+        }
+        if (records.length === 0) {
+            return;
+        }
+
+        const storageEntry = convertToStorageEntry({
+            model,
+            storageEntry: initialStorageEntry
+        });
+
+        /**
+         * Let's pick the `deleted` meta fields from the storage entry.
+         */
+        const updatedDeletedMetaFields = pickEntryMetaFields(storageEntry, isDeletedEntryMetaField);
+
+        /**
+         * Then create the batch writes for the DynamoDB, with the updated data.
+         */
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: records.map(record => {
+                return {
+                    ...record,
+                    ...updatedDeletedMetaFields,
+                    wbyDeleted: storageEntry.wbyDeleted,
+                    location: storageEntry.location,
+                    binOriginalFolderId: storageEntry.binOriginalFolderId
+                };
+            })
+        });
+        /**
+         * And finally write it...
+         */
+        try {
+            await entityBatch.execute();
+        } catch (ex) {
+            throw new WebinyError(
+                ex.message || "Could not move the entry to the bin.",
+                ex.code || "MOVE_ENTRY_TO_BIN_ERROR",
+                {
+                    error: ex,
+                    entry,
+                    storageEntry
+                }
+            );
+        }
+    };
+
+    const deleteEntry: CmsEntryStorageOperations["delete"] = async (initialModel, params) => {
+        const { entry } = params;
+        const id = entry.id || entry.entryId;
+        const model = getStorageOperationsModel(initialModel);
+
+        const queryAllParams: QueryAllParams = {
+            entity,
+            partitionKey: createPartitionKey({
+                id,
+                locale: model.locale,
+                tenant: model.tenant
+            }),
+            options: {
+                gte: " "
+            }
+        };
+
+        let records: Awaited<ReturnType<typeof queryAll<CmsEntry>>> = [];
         try {
             records = await queryAll(queryAllParams);
         } catch (ex) {
@@ -283,22 +611,23 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
                 ex.code || "LOAD_ALL_RECORDS_ERROR",
                 {
                     error: ex,
-                    entry
+                    id
                 }
             );
         }
-        const items = records.map(item => {
-            return entity.deleteBatch({
-                PK: item.PK,
-                SK: item.SK
-            });
+
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            delete: records.map(item => {
+                return {
+                    PK: item.PK,
+                    SK: item.SK
+                };
+            })
         });
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
             dataLoaders.clearAll({
                 model
             });
@@ -309,165 +638,372 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
                 {
                     error: ex,
                     partitionKey: queryAllParams.partitionKey,
-                    entry
+                    id
                 }
             );
         }
     };
 
-    const deleteRevision = async (
-        model: CmsModel,
-        params: CmsEntryStorageOperationsDeleteRevisionParams
-    ) => {
-        const { entryToDelete, entryToSetAsLatest, storageEntryToSetAsLatest } = params;
-        const partitionKey = createPartitionKey(entryToDelete);
+    const restoreFromBin: CmsEntryStorageOperations["restoreFromBin"] = async (
+        initialModel,
+        params
+    ): Promise<CmsStorageEntry> => {
+        const { entry, storageEntry: initialStorageEntry } = params;
+        const model = getStorageOperationsModel(initialModel);
 
-        const items = [
-            entity.deleteBatch({
-                PK: partitionKey,
-                SK: createRevisionSortKey(entryToDelete)
+        /**
+         * First we need to load all the revisions and published / latest entries.
+         */
+        const queryAllParams: QueryAllParams = {
+            entity,
+            partitionKey: createPartitionKey({
+                id: entry.id,
+                locale: model.locale,
+                tenant: model.tenant
+            }),
+            options: {
+                gte: " "
+            }
+        };
+
+        let records: Awaited<ReturnType<typeof queryAll<CmsEntry>>> = [];
+        try {
+            records = await queryAll<CmsEntry>(queryAllParams);
+        } catch (ex) {
+            throw new WebinyError(
+                ex.message || "Could not load all records.",
+                ex.code || "LOAD_ALL_RECORDS_ERROR",
+                {
+                    error: ex,
+                    id: entry.id
+                }
+            );
+        }
+        if (records.length === 0) {
+            return initialStorageEntry;
+        }
+
+        const storageEntry = convertToStorageEntry({
+            model,
+            storageEntry: initialStorageEntry
+        });
+
+        /**
+         * Let's pick the `restored` meta fields from the storage entry.
+         */
+        const updatedRestoredMetaFields = pickEntryMetaFields(
+            storageEntry,
+            isRestoredEntryMetaField
+        );
+
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: records.map(record => {
+                return {
+                    ...record,
+                    ...updatedRestoredMetaFields,
+                    wbyDeleted: storageEntry.wbyDeleted,
+                    location: storageEntry.location,
+                    binOriginalFolderId: storageEntry.binOriginalFolderId
+                };
             })
-        ];
+        });
 
-        const publishedStorageEntry = await getPublishedRevisionByEntryId(model, entryToDelete);
+        /**
+         * And finally write it...
+         */
+        try {
+            await entityBatch.execute();
+
+            dataLoaders.clearAll({
+                model
+            });
+
+            return initialStorageEntry;
+        } catch (ex) {
+            throw new WebinyError(
+                ex.message || "Could not restore the entry from the bin.",
+                ex.code || "RESTORE_ENTRY_ERROR",
+                {
+                    error: ex,
+                    entry,
+                    storageEntry
+                }
+            );
+        }
+    };
+
+    const deleteRevision: CmsEntryStorageOperations["deleteRevision"] = async (
+        initialModel,
+        params
+    ) => {
+        const { entry, latestEntry, latestStorageEntry: initialLatestStorageEntry } = params;
+
+        const model = getStorageOperationsModel(initialModel);
+
+        const partitionKey = createPartitionKey({
+            id: entry.id,
+            locale: model.locale,
+            tenant: model.tenant
+        });
+
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            delete: [
+                {
+                    PK: partitionKey,
+                    SK: createRevisionSortKey(entry)
+                }
+            ]
+        });
+
+        const publishedStorageEntry = await getPublishedRevisionByEntryId(model, entry);
 
         /**
          * If revision we are deleting is the published one as well, we need to delete those records as well.
          */
-        if (publishedStorageEntry && entryToDelete.id === publishedStorageEntry.id) {
-            items.push(
-                entity.deleteBatch({
-                    PK: partitionKey,
-                    SK: createPublishedSortKey()
-                })
-            );
+        if (publishedStorageEntry && entry.id === publishedStorageEntry.id) {
+            entityBatch.delete({
+                PK: partitionKey,
+                SK: createPublishedSortKey()
+            });
         }
-        if (storageEntryToSetAsLatest) {
-            items.push(
-                entity.putBatch({
-                    ...storageEntryToSetAsLatest,
-                    PK: partitionKey,
-                    SK: createLatestSortKey(),
-                    TYPE: createLatestType(),
-                    GSI1_PK: createGSIPartitionKey(model, "L"),
-                    GSI1_SK: createGSISortKey(storageEntryToSetAsLatest)
-                })
-            );
+
+        if (initialLatestStorageEntry) {
+            const latestStorageEntry = convertToStorageEntry({
+                storageEntry: initialLatestStorageEntry,
+                model
+            });
+            entityBatch.put({
+                ...latestStorageEntry,
+                PK: partitionKey,
+                SK: createLatestSortKey(),
+                TYPE: createLatestType(),
+                GSI1_PK: createGSIPartitionKey(model, "L"),
+                GSI1_SK: createGSISortKey(latestStorageEntry)
+            });
+
+            // Do an update on the latest revision. We need to update the latest revision's
+            // entry-level meta fields to match the previous revision's entry-level meta fields.
+            entityBatch.put({
+                ...latestStorageEntry,
+                PK: partitionKey,
+                SK: createRevisionSortKey(initialLatestStorageEntry),
+                TYPE: createType(),
+                GSI1_PK: createGSIPartitionKey(model, "A"),
+                GSI1_SK: createGSISortKey(initialLatestStorageEntry)
+            });
         }
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            entityBatch.execute();
+
             dataLoaders.clearAll({
                 model
             });
         } catch (ex) {
             throw new WebinyError(ex.message, ex.code, {
                 error: ex,
-                entryToDelete,
-                entryToSetAsLatest
+                entry,
+                latestEntry
             });
         }
     };
-    const getAllRevisionsByIds = async (
-        model: CmsModel,
-        params: CmsEntryStorageOperationsGetAllRevisionsParams
+
+    const deleteMultipleEntries: CmsEntryStorageOperations["deleteMultipleEntries"] = async (
+        initialModel,
+        params
     ) => {
-        return await dataLoaders.getAllEntryRevisions({
+        const { entries } = params;
+        const model = getStorageOperationsModel(initialModel);
+        /**
+         * First we need all the revisions of the entries we want to delete.
+         */
+        const revisions = await dataLoaders.getAllEntryRevisions({
             model,
-            ids: params.ids
+            ids: entries
         });
+        /**
+         * Then we need to construct the queries for all the revisions and entries.
+         */
+
+        const entityBatch = createEntityWriteBatch({
+            entity
+        });
+
+        for (const id of entries) {
+            const partitionKey = createPartitionKey({
+                id,
+                locale: model.locale,
+                tenant: model.tenant
+            });
+            entityBatch.delete({
+                PK: partitionKey,
+                SK: "L"
+            });
+            entityBatch.delete({
+                PK: partitionKey,
+                SK: "P"
+            });
+        }
+        /**
+         * Exact revisions of all the entries
+         */
+        for (const revision of revisions) {
+            entityBatch.delete({
+                PK: createPartitionKey({
+                    id: revision.id,
+                    locale: model.locale,
+                    tenant: model.tenant
+                }),
+                SK: createRevisionSortKey({
+                    version: revision.version
+                })
+            });
+        }
+
+        await entityBatch.execute();
     };
 
-    const getLatestRevisionByEntryId = async (
-        model: CmsModel,
-        params: CmsEntryStorageOperationsGetLatestRevisionParams
+    const getLatestRevisionByEntryId: CmsEntryStorageOperations["getLatestRevisionByEntryId"] =
+        async (initialModel, params) => {
+            const model = getStorageOperationsModel(initialModel);
+
+            const items = await dataLoaders.getLatestRevisionByEntryId({
+                model,
+                ids: [params.id]
+            });
+            const item = items.shift() || null;
+            if (!item) {
+                return null;
+            }
+            return convertFromStorageEntry({
+                storageEntry: item,
+                model
+            });
+        };
+    const getPublishedRevisionByEntryId: CmsEntryStorageOperations["getPublishedRevisionByEntryId"] =
+        async (initialModel, params) => {
+            const model = getStorageOperationsModel(initialModel);
+
+            const items = await dataLoaders.getPublishedRevisionByEntryId({
+                model,
+                ids: [params.id]
+            });
+            const item = items.shift() || null;
+            if (!item) {
+                return null;
+            }
+            return convertFromStorageEntry({
+                storageEntry: item,
+                model
+            });
+        };
+
+    const getRevisionById: CmsEntryStorageOperations["getRevisionById"] = async (
+        initialModel,
+        params
     ) => {
-        const result = await dataLoaders.getLatestRevisionByEntryId({
+        const model = getStorageOperationsModel(initialModel);
+
+        const items = await dataLoaders.getRevisionById({
             model,
             ids: [params.id]
         });
-        if (result.length === 0) {
+        const item = items.shift() || null;
+        if (!item) {
             return null;
         }
-        return result.shift();
+        return convertFromStorageEntry({
+            storageEntry: item,
+            model
+        });
     };
-    const getPublishedRevisionByEntryId = async (
-        model: CmsModel,
-        params: CmsEntryStorageOperationsGetLatestRevisionParams
+
+    const getRevisions: CmsEntryStorageOperations["getRevisions"] = async (
+        initialModel,
+        params
     ) => {
-        const result = await dataLoaders.getPublishedRevisionByEntryId({
+        const model = getStorageOperationsModel(initialModel);
+
+        const items = await dataLoaders.getAllEntryRevisions({
             model,
             ids: [params.id]
         });
-        if (result.length === 0) {
-            return null;
-        }
-        return result.shift();
-    };
 
-    const getRevisionById = async (
-        model: CmsModel,
-        params: CmsEntryStorageOperationsGetRevisionParams
-    ) => {
-        const result = await dataLoaders.getRevisionById({
-            model,
-            ids: [params.id]
-        });
-        if (result.length === 0) {
-            return null;
-        }
-        return result.shift();
-    };
-
-    const getRevisions = async (
-        model: CmsModel,
-        params: CmsEntryStorageOperationsGetRevisionsParams
-    ) => {
-        return await dataLoaders.getAllEntryRevisions({
-            model,
-            ids: [params.id]
+        return items.map(item => {
+            return convertFromStorageEntry({
+                storageEntry: item,
+                model
+            });
         });
     };
 
-    const getByIds = async (model: CmsModel, params: CmsEntryStorageOperationsGetByIdsParams) => {
-        return dataLoaders.getRevisionById({
+    const getByIds: CmsEntryStorageOperations["getByIds"] = async (initialModel, params) => {
+        const model = getStorageOperationsModel(initialModel);
+
+        const items = await dataLoaders.getRevisionById({
             model,
             ids: params.ids
         });
-    };
 
-    const getLatestByIds = async (
-        model: CmsModel,
-        params: CmsEntryStorageOperationsGetLatestByIdsParams
-    ) => {
-        return dataLoaders.getLatestRevisionByEntryId({
-            model,
-            ids: params.ids
+        return items.map(item => {
+            return convertFromStorageEntry({
+                storageEntry: item,
+                model
+            });
         });
     };
 
-    const getPublishedByIds = async (
-        model: CmsModel,
-        params: CmsEntryStorageOperationsGetPublishedByIdsParams
+    const getLatestByIds: CmsEntryStorageOperations["getLatestByIds"] = async (
+        initialModel,
+        params
     ) => {
-        return dataLoaders.getPublishedRevisionByEntryId({
+        const model = getStorageOperationsModel(initialModel);
+
+        const items = await dataLoaders.getLatestRevisionByEntryId({
             model,
             ids: params.ids
         });
+
+        return items.map(item => {
+            return convertFromStorageEntry({
+                storageEntry: item,
+                model
+            });
+        });
     };
 
-    const getPreviousRevision = async (
-        model: CmsModel,
-        params: CmsEntryStorageOperationsGetPreviousRevisionParams
+    const getPublishedByIds: CmsEntryStorageOperations["getPublishedByIds"] = async (
+        initialModel,
+        params
     ) => {
-        const { tenant, locale, entryId, version } = params;
+        const model = getStorageOperationsModel(initialModel);
+
+        const items = await dataLoaders.getPublishedRevisionByEntryId({
+            model,
+            ids: params.ids
+        });
+
+        return items.map(item => {
+            return convertFromStorageEntry({
+                storageEntry: item,
+                model
+            });
+        });
+    };
+
+    const getPreviousRevision: CmsEntryStorageOperations["getPreviousRevision"] = async (
+        initialModel,
+        params
+    ) => {
+        const model = getStorageOperationsModel(initialModel);
+
+        const { entryId, version } = params;
         const queryParams: QueryOneParams = {
             entity,
             partitionKey: createPartitionKey({
-                tenant,
-                locale,
+                tenant: model.tenant,
+                locale: model.locale,
                 id: entryId
             }),
             options: {
@@ -492,7 +1028,14 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
         try {
             const result = await queryOne<CmsEntry>(queryParams);
 
-            return cleanupItem(entity, result);
+            const storageEntry = cleanupItem(entity, result);
+            if (!storageEntry) {
+                return null;
+            }
+            return convertFromStorageEntry({
+                storageEntry,
+                model
+            });
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not get previous version of given entry.",
@@ -508,11 +1051,21 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
         }
     };
 
-    const list = async (model: CmsModel, params: CmsEntryStorageOperationsListParams) => {
-        const { limit: initialLimit = 10, where: originalWhere, after, sort } = params;
-        const limit = initialLimit <= 0 || initialLimit >= 100 ? 100 : initialLimit;
+    const list: CmsEntryStorageOperations["list"] = async (initialModel, params) => {
+        const model = getStorageOperationsModel(initialModel);
 
-        const type = originalWhere.published ? "P" : "L";
+        const {
+            limit: initialLimit = 10,
+            where: initialWhere,
+            after,
+            sort: sortBy,
+            fields,
+            search
+        } = params;
+        const limit =
+            initialLimit <= 0 || initialLimit >= MAX_LIST_LIMIT ? MAX_LIST_LIMIT : initialLimit;
+
+        const type = initialWhere.published ? "P" : "L";
 
         const queryAllParams: QueryAllParams = {
             entity,
@@ -522,9 +1075,9 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
                 gte: " "
             }
         };
-        let records = [];
+        let storageEntries: CmsStorageEntry[] = [];
         try {
-            records = await queryAll(queryAllParams);
+            storageEntries = await queryAll<CmsStorageEntry>(queryAllParams);
         } catch (ex) {
             throw new WebinyError(ex.message, "QUERY_ENTRIES_ERROR", {
                 error: ex,
@@ -532,7 +1085,7 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
                 options: queryAllParams.options
             });
         }
-        if (records.length === 0) {
+        if (storageEntries.length === 0) {
             return {
                 hasMoreItems: false,
                 totalCount: 0,
@@ -540,45 +1093,73 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
                 items: []
             };
         }
-        const where: CmsEntryStorageOperationsListParams["where"] = {
-            ...originalWhere
+        const where: Partial<CmsEntryListWhere> = {
+            ...initialWhere
         };
         delete where["published"];
         delete where["latest"];
-        delete where["locale"];
-        delete where["tenant"];
         /**
-         * We need a object containing field, transformers and paths.
+         * We need an object containing field, transformers and paths.
          * Just build it here and pass on into other methods that require it to avoid mapping multiple times.
          */
-        const modelFields = buildModelFields({
+        const modelFields = createFields({
             plugins,
-            model
+            fields: model.fields
         });
+
+        const fromStorage = createStorageTransformCallable(model);
+        /**
+         * Let's transform records from storage ones to regular ones, so we do not need to do it later.
+         *
+         * This is always being done, but at least its in parallel.
+         */
+        const records = await Promise.all(
+            storageEntries.map(async storageEntry => {
+                const entry = convertFromStorageEntry({
+                    storageEntry,
+                    model
+                });
+
+                for (const field of model.fields) {
+                    entry.values[field.fieldId] = await fromStorage(
+                        field,
+                        entry.values[field.fieldId]
+                    );
+                }
+
+                return entry as CmsEntry;
+            })
+        );
         /**
          * Filter the read items via the code.
          * It will build the filters out of the where input and transform the values it is using.
          */
-        const filteredItems = await filterItems({
+        const filteredItems = filter({
             items: records,
             where,
             plugins,
             fields: modelFields,
-            fromStorage: createStorageTransformCallable(model)
+            fullTextSearch: {
+                term: search,
+                fields: fields || []
+            }
         });
 
         const totalCount = filteredItems.length;
+
         /**
          * Sorting is also done via the code.
          * It takes the sort input and sorts by it via the lodash sortBy method.
          */
-        const sortedItems = sortEntryItems({
+        const sortedItems = sort({
+            model,
+            plugins,
             items: filteredItems,
-            sort,
+            sort: sortBy,
             fields: modelFields
         });
 
-        const start = decodeCursor(after) || 0;
+        const start = parseInt((decodeCursor(after) as string) || "0") || 0;
         const hasMoreItems = totalCount > start + limit;
         const end = limit > totalCount + start + limit ? undefined : start + limit;
         const slicedItems = sortedItems.slice(start, end);
@@ -586,7 +1167,7 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
          * Although we do not need a cursor here, we will use it as such to keep it standardized.
          * Number is simply encoded.
          */
-        const cursor = totalCount > start + limit ? encodeCursor(start + limit) : null;
+        const cursor = encodeCursor(`${start + limit}`);
         return {
             hasMoreItems,
             totalCount,
@@ -595,193 +1176,92 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
         };
     };
 
-    const get = async (model: CmsModel, params: CmsEntryStorageOperationsGetParams) => {
+    const get: CmsEntryStorageOperations["get"] = async (initialModel, params) => {
+        const model = getStorageOperationsModel(initialModel);
+
         const { items } = await list(model, {
             ...params,
             limit: 1
         });
-        if (items.length === 0) {
-            return null;
-        }
-        return items.shift();
+        return items.shift() || null;
     };
 
-    const requestChanges = async (
-        model: CmsModel,
-        params: CmsEntryStorageOperationsRequestChangesParams
-    ) => {
-        const { entry, storageEntry, originalEntry } = params;
+    const publish: CmsEntryStorageOperations["publish"] = async (initialModel, params) => {
+        const { entry, storageEntry: initialStorageEntry } = params;
+        const model = getStorageOperationsModel(initialModel);
 
-        const partitionKey = createPartitionKey(entry);
-
-        /**
-         * We need to:
-         *  - update the existing entry
-         *  - update latest version - if existing entry is the latest version
-         */
-        const items = [
-            entity.putBatch({
-                ...storageEntry,
-                TYPE: createType(),
-                PK: partitionKey,
-                SK: createRevisionSortKey(entry),
-                GSI1_PK: createGSIPartitionKey(model, "A"),
-                GSI1_SK: createGSISortKey(entry)
-            })
-        ];
+        const partitionKey = createPartitionKey({
+            id: entry.id,
+            locale: model.locale,
+            tenant: model.tenant
+        });
 
         /**
-         * We need the latest entry to see if something needs to be updated along side the request changes one.
+         * We need the latest and published entries to see if something needs to be updated alongside the publishing one.
          */
-        const latestStorageEntry = await getLatestRevisionByEntryId(model, entry);
-
-        if (latestStorageEntry.id === entry.id) {
-            items.push(
-                entity.putBatch({
-                    ...storageEntry,
-                    PK: partitionKey,
-                    SK: createLatestSortKey(),
-                    TYPE: createLatestType(),
-                    GSI1_PK: createGSIPartitionKey(model, "L"),
-                    GSI1_SK: createGSISortKey(entry)
-                })
-            );
-        }
-
-        try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
-            dataLoaders.clearAll({
-                model
-            });
-        } catch (ex) {
+        const initialLatestStorageEntry = await getLatestRevisionByEntryId(model, entry);
+        if (!initialLatestStorageEntry) {
             throw new WebinyError(
-                ex.message || "Could not execute the request changes batch.",
-                ex.code || "REQUEST_CHANGES_ERROR",
-                {
-                    entry,
-                    originalEntry
-                }
+                `Could not publish entry. Could not load latest ("L") record.`,
+                "PUBLISH_ERROR",
+                { entry }
             );
         }
-        return entry;
-    };
 
-    const requestReview = async (
-        model: CmsModel,
-        params: CmsEntryStorageOperationsRequestReviewParams
-    ) => {
-        const { entry, storageEntry, originalEntry } = params;
+        const initialPublishedStorageEntry = await getPublishedRevisionByEntryId(model, entry);
 
-        const partitionKey = createPartitionKey(entry);
-        /**
-         * We need to:
-         *  - update existing entry
-         *  - update latest entry - if existing entry is the latest entry
-         */
-        const items = [
-            entity.putBatch({
-                ...storageEntry,
-                TYPE: createType(),
-                PK: partitionKey,
-                SK: createRevisionSortKey(entry),
-                GSI1_PK: createGSIPartitionKey(model, "A"),
-                GSI1_SK: createGSISortKey(entry)
-            })
-        ];
+        const storageEntry = convertToStorageEntry({
+            model,
+            storageEntry: initialStorageEntry
+        });
 
-        /**
-         * We need the latest entry to see if something needs to be updated along side the request review one.
-         */
-        const latestStorageEntry = await getLatestRevisionByEntryId(model, entry);
-
-        if (latestStorageEntry.id === entry.id) {
-            items.push(
-                entity.putBatch({
+        // 1. Update REV# and P records with new data.
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            put: [
+                {
                     ...storageEntry,
                     PK: partitionKey,
-                    SK: createLatestSortKey(),
-                    TYPE: createLatestType(),
-                    GSI1_PK: createGSIPartitionKey(model, "L"),
+                    SK: createRevisionSortKey(entry),
+                    TYPE: createType(),
+                    GSI1_PK: createGSIPartitionKey(model, "A"),
                     GSI1_SK: createGSISortKey(entry)
-                })
-            );
-        }
-
-        try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
-            dataLoaders.clearAll({
-                model
-            });
-            return entry;
-        } catch (ex) {
-            throw new WebinyError(
-                ex.message || "Could not execute request review batch.",
-                ex.code || "REQUEST_REVIEW_ERROR",
+                },
                 {
-                    entry,
-                    storageEntry,
-                    originalEntry
-                }
-            );
-        }
-    };
-
-    const publish = async (model: CmsModel, params: CmsEntryStorageOperationsPublishParams) => {
-        const { entry, storageEntry } = params;
-
-        const partitionKey = createPartitionKey(entry);
-
-        /**
-         * We need the latest and published entries to see if something needs to be updated along side the publishing one.
-         */
-        const latestStorageEntry = await getLatestRevisionByEntryId(model, entry);
-        const publishedStorageEntry = await getPublishedRevisionByEntryId(model, entry);
-        /**
-         * We need to update:
-         *  - current entry revision sort key
-         *  - published sort key
-         *  - latest sort key - if entry updated is actually latest
-         *  - previous published entry to unpublished status - if any previously published entry
-         */
-        const items = [
-            entity.putBatch({
-                ...storageEntry,
-                PK: partitionKey,
-                SK: createRevisionSortKey(entry),
-                TYPE: createType(),
-                GSI1_PK: createGSIPartitionKey(model, "A"),
-                GSI1_SK: createGSISortKey(entry)
-            }),
-            entity.putBatch({
-                ...storageEntry,
-                PK: partitionKey,
-                SK: createPublishedSortKey(),
-                TYPE: createPublishedType(),
-                GSI1_PK: createGSIPartitionKey(model, "P"),
-                GSI1_SK: createGSISortKey(entry)
-            })
-        ];
-        if (entry.id === latestStorageEntry.id) {
-            items.push(
-                entity.putBatch({
                     ...storageEntry,
                     PK: partitionKey,
-                    SK: createLatestSortKey(),
-                    TYPE: createLatestType(),
-                    GSI1_PK: createGSIPartitionKey(model, "L"),
+                    SK: createPublishedSortKey(),
+                    TYPE: createPublishedType(),
+                    GSI1_PK: createGSIPartitionKey(model, "P"),
                     GSI1_SK: createGSISortKey(entry)
-                })
-            );
-        }
-        if (publishedStorageEntry) {
-            items.push(
-                entity.putBatch({
+                }
+            ]
+        });
+
+        // 2. When it comes to the latest record, we need to perform a couple of different
+        // updates, based on whether the entry being published is the latest revision or not.
+        const publishedRevisionId = initialPublishedStorageEntry?.id;
+        const publishingLatestRevision = entry.id === initialLatestStorageEntry.id;
+
+        if (publishingLatestRevision) {
+            // 2.1 If we're publishing the latest revision, we first need to update the L record.
+            entityBatch.put({
+                ...storageEntry,
+                PK: partitionKey,
+                SK: createLatestSortKey(),
+                TYPE: createLatestType(),
+                GSI1_PK: createGSIPartitionKey(model, "L"),
+                GSI1_SK: createGSISortKey(entry)
+            });
+
+            // 2.2 Additionally, if we have a previously published entry, we need to mark it as unpublished.
+            if (publishedRevisionId && publishedRevisionId !== entry.id) {
+                const publishedStorageEntry = convertToStorageEntry({
+                    storageEntry: initialPublishedStorageEntry,
+                    model
+                });
+
+                entityBatch.put({
                     ...publishedStorageEntry,
                     PK: partitionKey,
                     SK: createRevisionSortKey(publishedStorageEntry),
@@ -789,84 +1269,194 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
                     status: CONTENT_ENTRY_STATUS.UNPUBLISHED,
                     GSI1_PK: createGSIPartitionKey(model, "A"),
                     GSI1_SK: createGSISortKey(publishedStorageEntry)
-                })
+                });
+            }
+        } else {
+            // 2.3 If the published revision is not the latest one, the situation is a bit
+            // more complex. We first need to update the L and REV# records with the new
+            // values of *only entry-level* meta fields.
+            const updatedEntryLevelMetaFields = pickEntryMetaFields(
+                entry,
+                isEntryLevelEntryMetaField
             );
+
+            const latestStorageEntry = convertToStorageEntry({
+                storageEntry: initialLatestStorageEntry,
+                model
+            });
+
+            // 2.3.1 Update L record. Apart from updating the entry-level meta fields, we also need
+            //    to change the status from "published" to "unpublished" (if the status is set to "published").
+            let latestRevisionStatus = latestStorageEntry.status;
+            if (latestRevisionStatus === CONTENT_ENTRY_STATUS.PUBLISHED) {
+                latestRevisionStatus = CONTENT_ENTRY_STATUS.UNPUBLISHED;
+            }
+
+            const latestStorageEntryFields = {
+                ...latestStorageEntry,
+                ...updatedEntryLevelMetaFields,
+                status: latestRevisionStatus
+            };
+
+            entityBatch.put({
+                ...latestStorageEntryFields,
+                PK: partitionKey,
+                SK: createLatestSortKey(),
+                TYPE: createLatestType(),
+                GSI1_PK: createGSIPartitionKey(model, "L"),
+                GSI1_SK: createGSISortKey(latestStorageEntry)
+            });
+
+            // 2.3.2 Update REV# record.
+            entityBatch.put({
+                ...latestStorageEntryFields,
+                PK: partitionKey,
+                SK: createRevisionSortKey(latestStorageEntry),
+                TYPE: createType(),
+                GSI1_PK: createGSIPartitionKey(model, "A"),
+                GSI1_SK: createGSISortKey(latestStorageEntry)
+            });
+
+            // 2.3.3 Finally, if we got a published entry, but it wasn't the latest one, we need to take
+            //    an extra step and mark it as unpublished.
+            const publishedRevisionDifferentFromLatest =
+                publishedRevisionId && publishedRevisionId !== latestStorageEntry.id;
+            if (publishedRevisionDifferentFromLatest) {
+                const publishedStorageEntry = convertToStorageEntry({
+                    storageEntry: initialPublishedStorageEntry,
+                    model
+                });
+
+                entityBatch.put({
+                    ...publishedStorageEntry,
+                    PK: partitionKey,
+                    SK: createRevisionSortKey(publishedStorageEntry),
+                    TYPE: createType(),
+                    status: CONTENT_ENTRY_STATUS.UNPUBLISHED,
+                    GSI1_PK: createGSIPartitionKey(model, "A"),
+                    GSI1_SK: createGSISortKey(publishedStorageEntry)
+                });
+            }
         }
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
             dataLoaders.clearAll({
                 model
             });
-            return entry;
+            return initialStorageEntry;
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not execute the publishing batch.",
                 ex.code || "PUBLISH_ERROR",
                 {
                     entry,
-                    latestStorageEntry,
-                    publishedStorageEntry
+                    latestStorageEntry: initialLatestStorageEntry,
+                    publishedStorageEntry: initialPublishedStorageEntry
                 }
             );
         }
     };
 
-    const unpublish = async (model: CmsModel, params: CmsEntryStorageOperationsUnpublishParams) => {
-        const { entry, storageEntry } = params;
+    const unpublish: CmsEntryStorageOperations["unpublish"] = async (initialModel, params) => {
+        const { entry, storageEntry: initialStorageEntry } = params;
+        const model = getStorageOperationsModel(initialModel);
 
-        const partitionKey = createPartitionKey(entry);
+        const partitionKey = createPartitionKey({
+            id: entry.id,
+            locale: model.locale,
+            tenant: model.tenant
+        });
+
+        const storageEntry = convertToStorageEntry({
+            storageEntry: initialStorageEntry,
+            model
+        });
         /**
          * We need to:
          *  - delete currently published entry
          *  - update current entry revision with new data
-         *  - update latest entry status - if entry being unpublished is latest
+         *  - update the latest entry status - if entry being unpublished is latest
          */
-        const items = [
-            entity.deleteBatch({
-                PK: partitionKey,
-                SK: createPublishedSortKey()
-            }),
-            entity.putBatch({
-                ...storageEntry,
-                PK: partitionKey,
-                SK: createRevisionSortKey(entry),
-                TYPE: createType(),
-                GSI1_PK: createGSIPartitionKey(model, "A"),
-                GSI1_SK: createGSISortKey(entry)
-            })
-        ];
+        const entityBatch = createEntityWriteBatch({
+            entity,
+            delete: [
+                {
+                    PK: partitionKey,
+                    SK: createPublishedSortKey()
+                }
+            ],
+            put: [
+                {
+                    ...storageEntry,
+                    PK: partitionKey,
+                    SK: createRevisionSortKey(entry),
+                    TYPE: createType(),
+                    GSI1_PK: createGSIPartitionKey(model, "A"),
+                    GSI1_SK: createGSISortKey(entry)
+                }
+            ]
+        });
 
         /**
-         * We need the latest entry to see if something needs to be updated along side the unpublishing one.
+         * We need the latest entry to see if something needs to be updated alongside the unpublishing one.
          */
-        const latestStorageEntry = await getLatestRevisionByEntryId(model, entry);
+        const initialLatestStorageEntry = await getLatestRevisionByEntryId(model, entry);
 
-        if (entry.id === latestStorageEntry.id) {
-            items.push(
-                entity.putBatch({
+        if (initialLatestStorageEntry) {
+            const unpublishingLatestRevision = entry.id === initialLatestStorageEntry.id;
+            if (unpublishingLatestRevision) {
+                entityBatch.put({
                     ...storageEntry,
                     PK: partitionKey,
                     SK: createLatestSortKey(),
                     TYPE: createLatestType(),
                     GSI1_PK: createGSIPartitionKey(model, "L"),
                     GSI1_SK: createGSISortKey(entry)
-                })
-            );
+                });
+            } else {
+                const latestStorageEntry = convertToStorageEntry({
+                    storageEntry: initialLatestStorageEntry,
+                    model
+                });
+
+                // If the unpublished revision is not the latest one, we still need to
+                // update the latest record with the new values of entry-level meta fields.
+                const updatedEntryLevelMetaFields = pickEntryMetaFields(
+                    entry,
+                    isEntryLevelEntryMetaField
+                );
+
+                // 1. Update actual revision record.
+                entityBatch.put({
+                    ...latestStorageEntry,
+                    ...updatedEntryLevelMetaFields,
+                    PK: partitionKey,
+                    SK: createRevisionSortKey(latestStorageEntry),
+                    TYPE: createType(),
+                    GSI1_PK: createGSIPartitionKey(model, "A"),
+                    GSI1_SK: createGSISortKey(latestStorageEntry)
+                });
+
+                // 2. Update latest record.
+                entityBatch.put({
+                    ...latestStorageEntry,
+                    ...updatedEntryLevelMetaFields,
+                    PK: partitionKey,
+                    SK: createLatestSortKey(),
+                    TYPE: createLatestType(),
+                    GSI1_PK: createGSIPartitionKey(model, "L"),
+                    GSI1_SK: createGSISortKey(latestStorageEntry)
+                });
+            }
         }
 
         try {
-            await batchWriteAll({
-                table: entity.table,
-                items
-            });
+            await entityBatch.execute();
             dataLoaders.clearAll({
                 model
             });
-            return storageEntry;
+            return initialStorageEntry;
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not execute unpublish batch.",
@@ -879,26 +1469,74 @@ export const createEntriesStorageOperations = (params: Params): CmsEntryStorageO
         }
     };
 
+    const getUniqueFieldValues: CmsEntryStorageOperations["getUniqueFieldValues"] = async (
+        model,
+        params
+    ) => {
+        const { where, fieldId } = params;
+
+        const field = model.fields.find(f => f.fieldId === fieldId);
+        if (!field) {
+            throw new WebinyError(
+                `Could not find field with given "fieldId" value.`,
+                "FIELD_NOT_FOUND",
+                {
+                    fieldId
+                }
+            );
+        }
+
+        const { items } = await list(model, {
+            where,
+            limit: MAX_LIST_LIMIT
+        });
+
+        const result: Record<string, CmsEntryUniqueValue> = {};
+        for (const item of items) {
+            const fieldValue = item.values[field.fieldId] as string[] | string | undefined;
+            if (!fieldValue) {
+                continue;
+            }
+            const values = Array.isArray(fieldValue) ? fieldValue : [fieldValue];
+            if (values.length === 0) {
+                continue;
+            }
+            for (const value of values) {
+                result[value] = {
+                    value,
+                    count: (result[value]?.count || 0) + 1
+                };
+            }
+        }
+
+        return Object.values(result)
+            .sort((a, b) => (a.value > b.value ? 1 : b.value > a.value ? -1 : 0))
+            .sort((a, b) => b.count - a.count);
+    };
+
     return {
         create,
         createRevisionFrom,
         update,
+        move,
         delete: deleteEntry,
+        moveToBin,
+        restoreFromBin,
         deleteRevision,
+        deleteMultipleEntries,
         getPreviousRevision,
         getPublishedByIds,
         getLatestByIds,
         getByIds,
         getRevisionById,
         getPublishedRevisionByEntryId,
-        getAllRevisionsByIds,
         getLatestRevisionByEntryId,
         get,
         getRevisions,
-        requestChanges,
-        requestReview,
         publish,
         list,
-        unpublish
+        unpublish,
+        dataLoaders,
+        getUniqueFieldValues
     };
 };

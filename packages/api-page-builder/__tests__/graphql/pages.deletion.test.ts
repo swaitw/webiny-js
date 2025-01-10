@@ -1,25 +1,17 @@
 import useGqlHandler from "./useGqlHandler";
-import { waitPage } from "./utils/waitPage";
 
 jest.setTimeout(100000);
 
 describe("deleting pages", () => {
     const handler = useGqlHandler();
 
-    const {
-        getPage,
-        createCategory,
-        createPage,
-        deletePage,
-        listPages,
-        listPublishedPages,
-        publishPage,
-        until
-    } = handler;
+    const { getPage, createPage, deletePage, listPages, listPublishedPages, publishPage, until } =
+        handler;
 
-    let p1v1, p1v2, p1v3, category;
+    let p1v1: any, p1v2: any, p1v3: any, category;
 
     beforeEach(async () => {
+        const { createCategory } = useGqlHandler();
         category = await createCategory({
             data: {
                 slug: `slug`,
@@ -32,20 +24,17 @@ describe("deleting pages", () => {
         p1v1 = await createPage({ category: category.slug }).then(
             ([res]) => res.data.pageBuilder.createPage.data
         );
-        await waitPage(handler, p1v1);
 
         p1v2 = await createPage({ from: p1v1.id }).then(([res]) => {
             return res.data.pageBuilder.createPage.data;
         });
-        await waitPage(handler, p1v2);
 
         p1v3 = await createPage({ from: p1v2.id }).then(
             ([res]) => res.data.pageBuilder.createPage.data
         );
-        await waitPage(handler, p1v3);
     });
 
-    test("deleting v1 page should delete all related DB / index entries", async () => {
+    test("deleting page via `pid` should delete all related DB / index entries", async () => {
         await publishPage({ id: p1v3.id });
         await until(
             () =>
@@ -65,13 +54,13 @@ describe("deleting pages", () => {
             }
         );
 
-        await deletePage({ id: p1v1.id }).then(([res]) => {
+        await deletePage({ id: p1v1.pid }).then(([res]) => {
             expect(res.data.pageBuilder.deletePage).toMatchObject({
                 error: null,
                 data: {
                     latestPage: null,
                     page: {
-                        version: 1
+                        version: 3
                     }
                 }
             });
@@ -83,14 +72,14 @@ describe("deleting pages", () => {
                 return res.data.pageBuilder.listPages.data.length === 0;
             },
             {
-                name: "list all pages after deleting p1v1"
+                name: "list all pages after deleting the page via pid"
             }
         );
         await until(
             listPublishedPages,
             ([res]) => res.data.pageBuilder.listPublishedPages.data.length === 0,
             {
-                name: "list published pages after deleting p1v1"
+                name: "list published pages after deleting the page via pid"
             }
         );
     });
@@ -183,10 +172,10 @@ describe("deleting pages", () => {
                             publishedOn: expect.stringMatching(/20/),
                             revisions: [
                                 {
-                                    id: p1v1.id,
+                                    id: p1v3.id,
                                     locked: false,
                                     status: "draft",
-                                    version: 1
+                                    version: 3
                                 },
                                 {
                                     id: p1v2.id,
@@ -195,10 +184,10 @@ describe("deleting pages", () => {
                                     version: 2
                                 },
                                 {
-                                    id: p1v3.id,
+                                    id: p1v1.id,
                                     locked: false,
                                     status: "draft",
-                                    version: 3
+                                    version: 1
                                 }
                             ]
                         },
@@ -274,5 +263,28 @@ describe("deleting pages", () => {
         );
 
         expect(page.revisions.length).toBe(2);
+    });
+
+    test("deleting all revisions should delete all related DB / index entries", async () => {
+        await deletePage({ id: p1v3.id });
+        await deletePage({ id: p1v2.id });
+        await deletePage({ id: p1v1.id });
+
+        await until(
+            () => listPages({}),
+            ([res]) => {
+                return res.data.pageBuilder.listPages.data.length === 0;
+            },
+            {
+                name: "list all pages after deleting p1 via pid"
+            }
+        );
+        await until(
+            listPublishedPages,
+            ([res]) => res.data.pageBuilder.listPublishedPages.data.length === 0,
+            {
+                name: "list published pages after deleting p1 via pid"
+            }
+        );
     });
 });

@@ -1,390 +1,145 @@
-import * as React from "react";
-import _ from "lodash";
-import set from "lodash/fp/set";
-import { createBind } from "./Bind";
-import { linkState } from "./linkState";
-import { BindComponent } from "./Bind";
-import ValidationError from "./ValidationError";
+import React, { useEffect, useImperativeHandle, useMemo, useRef } from "react";
+import { observer } from "mobx-react-lite";
+import lodashNoop from "lodash/noop";
+import isEqual from "lodash/isEqual";
+import { Bind } from "./Bind";
+import { FormProps, GenericFormData } from "~/types";
+import { FormContext } from "./FormContext";
+import { FormPresenter } from "./FormPresenter";
+import { FormAPI } from "./FormApi";
 
-export type FormRenderPropParamsSubmit = (event?: React.SyntheticEvent<any, any>) => Promise<void>;
+type Callbacks<T extends GenericFormData = GenericFormData> = Pick<
+    FormProps<T>,
+    "onChange" | "onInvalid"
+>;
 
-export type FormSetValue = (name: string, value: any) => void;
+function FormInner<T extends GenericFormData = GenericFormData>(
+    props: FormProps<T>,
+    ref: React.ForwardedRef<any>
+) {
+    const dataRef = useRef(props.data);
+    const callbacksRef = useRef<Callbacks<T>>({
+        onChange: props.onChange,
+        onInvalid: props.onInvalid
+    });
 
-export type FormRenderPropParams = {
-    data: { [key: string]: any };
-    form: Form;
-    submit: FormRenderPropParamsSubmit;
-    Bind: BindComponent;
-    setValue: FormSetValue;
-};
-
-export type FormRenderProp = (params: FormRenderPropParams) => React.ReactElement;
-
-export type FormData = { [key: string]: any };
-
-export type Validation = { [key: string]: any };
-
-export type FormOnSubmit = (data: FormData, form?: Form) => void;
-
-export type FormProps = {
-    invalidFields?: { [key: string]: any };
-    data?: FormData;
-    disabled?: boolean | Function;
-    validateOnFirstSubmit?: boolean;
-    submitOnEnter?: boolean;
-    onSubmit?: FormOnSubmit;
-    onInvalid?: () => void;
-    onChange?: FormOnSubmit;
-    children: FormRenderProp;
-};
-
-/**
- * Use when creating standalone form components which receives props from the parent Bind component.
- */
-export interface FormComponentProps {
-    validation?: {
-        /* Is form element's value valid? */
-        isValid: boolean;
-        /* Error message if value is not valid. */
-        message: string;
-        /* Any validation result returned by the validator. */
-        results?: { [key: string]: any };
-    };
-
-    /* Provided by <Form> component to perform validation when value has changed. */
-    validate?: () => Promise<boolean | any>;
-
-    /* Form component's value. */
-    value?: any;
-
-    /* A callback that is executed each time a value is changed. */
-    onChange?: (value: any) => void;
-}
-
-type State = {
-    data: FormData;
-    originalData: FormData;
-    wasSubmitted: boolean;
-    validation: Validation;
-};
-
-export class Form extends React.Component<FormProps, State> {
-    static defaultProps = {
-        data: {},
-        disabled: false,
-        validateOnFirstSubmit: false,
-        onSubmit: null
-    };
-
-    state = {
-        data: this.props.data || {},
-        originalData: this.props.data || {},
-        wasSubmitted: false,
-        validation: {}
-    };
-
-    isValid = null;
-    inputs = {};
-    lastRender = [];
-    validateFns = {};
-    onChangeFns = {};
-    Bind = createBind(this);
-
-    static getDerivedStateFromProps({ data, invalidFields = {} }: FormProps, state: State) {
-        // If we received new `data`, overwrite current `data` in the state
-        if (!_.isEqual(state.originalData, data)) {
-            return { data, originalData: data, validation: {} };
-        }
-
-        // Check for validation errors
-        let validation = _.cloneDeep(state.validation);
-        if (_.isPlainObject(invalidFields) && Object.keys(invalidFields).length) {
-            _.each(invalidFields, (message, name) => {
-                validation = {
-                    ...validation,
-                    [name]: {
-                        isValid: false,
-                        message
-                    }
-                };
-            });
-        }
-
-        // Return new state only if something has changed
-        return !_.isEqual(validation, state.validation) ? { validation } : null;
-    }
-
-    get data() {
-        return this.state.data;
-    }
-
-    static executeValidators = async (
-        value: any,
-        validators: Function | Array<Function>,
-        formData: Object = {}
-    ): Promise<any> => {
-        validators = Array.isArray(validators) ? [...validators] : [validators];
-
-        const results = {};
-        for (let i = 0; i < validators.length; i++) {
-            const validator = validators[i];
-            try {
-                await Promise.resolve(validator(value, formData))
-                    .then(result => {
-                        if (result instanceof Error) {
-                            throw result;
-                        }
-                        results[i] = result;
-                    })
-                    .catch(e => {
-                        throw new ValidationError(e.message, value);
-                    });
-            } catch (e) {
-                throw new ValidationError(e.message, value);
-            }
-        }
-
-        return results;
-    };
-
-    componentDidUpdate() {
-        Object.keys(this.inputs).forEach(name => {
-            if (!this.lastRender.includes(name)) {
-                delete this.inputs[name];
-                this.setState((state: State) => {
-                    const validation = { ...state.validation };
-                    delete validation[name];
-                    return { validation };
-                });
-            }
-        });
-    }
-
-    onInvalid = () => {
-        if (typeof this.props.onInvalid === "function") {
-            this.props.onInvalid();
-        }
-    };
-
-    /**
-     * MAIN FORM ACTION METHODS
-     */
-    submit = (event?: React.SyntheticEvent<any, any>): Promise<any> => {
-        // If event is present - prevent default behaviour
-        if (event && event.preventDefault) {
-            event.preventDefault();
-        }
-
-        this.setState({ wasSubmitted: true });
-
-        return this.validate().then(valid => {
-            if (valid) {
-                let { data } = this.state;
-
-                // Make sure all current inputs have a value in the model (defaultValues do not exist in form data)
-                const inputNames = Object.keys(this.inputs);
-                inputNames.forEach(name => {
-                    const defaultValue = this.inputs[name].defaultValue;
-                    if (!_.has(data, name) && typeof defaultValue !== "undefined") {
-                        data = set(name, defaultValue, data);
-                    }
-                });
-
-                if (this.props.onSubmit) {
-                    return this.props.onSubmit(data, this);
+    const presenter = useMemo(() => {
+        const presenter = new FormPresenter<T>();
+        presenter.init({
+            data: (props.data || {}) as T,
+            onChange: data => {
+                if (typeof callbacksRef.current.onChange === "function") {
+                    callbacksRef.current.onChange(data, formApi);
                 }
-                return;
+            },
+            onInvalid: (...args) => {
+                if (typeof callbacksRef.current.onInvalid === "function") {
+                    callbacksRef.current.onInvalid(...args);
+                }
             }
-            return this.onInvalid();
         });
-    };
+        return presenter;
+    }, []);
 
-    validate = async () => {
-        const { data = {}, validation = {} } = this.state;
-        const promises = Object.keys(this.inputs).map(async (name): Promise<boolean> => {
-            const { validators } = this.inputs[name];
-            if (!validators || validators.length === 0) {
-                return true;
-            }
-            const hasValue = !!data[name];
-            const isInputValid = validation[name] ? validation[name].isValid : undefined;
-            const shouldValidate = !hasValue || (hasValue && isInputValid !== true);
-            if (!shouldValidate) {
-                return true;
-            }
-            if (isInputValid) {
-                return true;
-            }
-            const result = await this.validateInput(name);
-            if (result === false) {
-                return false;
-            }
-            return true;
+    const formApi = useMemo(() => {
+        return new FormAPI(presenter, {
+            onSubmit: props.onSubmit ?? lodashNoop,
+            isFormDisabled: props.disabled ?? false,
+            validateOnFirstSubmit: props.validateOnFirstSubmit ?? true
         });
+    }, [presenter]);
 
-        const results = await Promise.all(promises);
-        // all values must be true to pass the validation
-        return results.every(value => value === true);
-    };
+    useEffect(() => {
+        formApi.setOptions({
+            onSubmit: props.onSubmit ?? lodashNoop,
+            isFormDisabled: props.disabled ?? false,
+            validateOnFirstSubmit: props.validateOnFirstSubmit ?? true
+        });
+    }, [props.onSubmit, props.disabled, props.validateOnFirstSubmit]);
 
-    validateInput = async (name: string) => {
-        // Want to know why this nonsense is here?
-        // When you have a <Tabs> component which has an <Input>, and you try to switch tabs
-        // while your input is focused, Tabs end up in an eternal switching loop.
-        // I know this is a `webiny-form` package and has nothing to do with
-        // who uses it from the outside, but there is no time to come up with a better solution :(
-        await new Promise(res => setTimeout(res, 10));
-
-        // Proceed with validation...
-        if ((this.props.validateOnFirstSubmit && !this.state.wasSubmitted) || !this.inputs[name]) {
-            return Promise.resolve(null);
-        }
-        const value = _.get(this.state.data, name, this.inputs[name].defaultValue);
-        const { validators } = this.inputs[name];
-        const hasValidators = _.keys(validators).length;
-
-        // Validate input
-        const formData = {
-            inputs: this.inputs,
-            data: { ...this.state.data }
+    useEffect(() => {
+        callbacksRef.current = {
+            onChange: props.onChange,
+            onInvalid: props.onInvalid
         };
+    }, [props.onChange, props.onInvalid]);
 
-        this.setState(state => ({
-            ...state,
-            validation: {
-                ...state.validation,
-                [name]: {
-                    ...state.validation[name],
-                    isValidating: true
-                }
-            }
-        }));
+    useEffect(() => {
+        presenter.setInvalidFields(props.invalidFields || {});
+    }, [props.invalidFields]);
 
-        return Promise.resolve(Form.executeValidators(value, validators, formData))
-            .then(validationResults => {
-                const isValid = hasValidators ? (value === null ? null : true) : null;
-
-                this.setState(state => ({
-                    ...state,
-                    validation: {
-                        ...state.validation,
-                        [name]: {
-                            isValid,
-                            message: null,
-                            results: validationResults
-                        }
-                    }
-                }));
-
-                return validationResults;
-            })
-            .catch(validationError => {
-                // Set component state to reflect validation error
-                this.setState(state => ({
-                    ...state,
-                    validation: {
-                        ...state.validation,
-                        [name]: {
-                            isValid: false,
-                            message: validationError.getMessage(),
-                            results: false
-                        }
-                    }
-                }));
-
-                return false;
-            });
-    };
-
-    getOnChangeFn = ({
-        name,
-        beforeChange,
-        afterChange
-    }: {
-        name: string;
-        beforeChange: any;
-        afterChange: any;
-    }) => {
-        if (!this.onChangeFns[name]) {
-            const linkStateChange = linkState(this, `data.${name}`);
-
-            const baseOnChange = (newValue, cb) => {
-                // When linkState is done processing the value change...
-                return linkStateChange(newValue, cb).then(value => {
-                    // call the Form onChange with updated data
-                    if (typeof this.props.onChange === "function") {
-                        this.props.onChange({ ...this.state.data }, this);
-                    }
-
-                    // Execute onAfterChange
-                    afterChange && afterChange(value, this);
-
-                    return value;
-                });
-            };
-
-            const onChange = beforeChange
-                ? newValue => beforeChange(newValue, baseOnChange)
-                : baseOnChange;
-
-            this.onChangeFns[name] = onChange;
+    useEffect(() => {
+        // We only set form's data if props.data has changed.
+        if (isEqual(dataRef.current, props.data)) {
+            return;
         }
 
-        return this.onChangeFns[name];
-    };
+        // Set the new form data.
+        presenter.setData(props.data as T);
 
-    getValidateFn = (name: string) => {
-        if (!this.validateFns[name]) {
-            this.validateFns[name] = () => this.validateInput(name);
-        }
+        // Keep the new props.data for future comparison.
+        dataRef.current = props.data;
+    }, [props.data]);
 
-        return this.validateFns[name];
-    };
+    useImperativeHandle(ref, () => ({
+        validate: () => formApi.validate(),
+        submit: formApi.submit
+    }));
 
-    setValue = (name: string, value: any) => {
-        this.onChangeFns[name](value);
-    };
+    const vm = presenter.vm;
 
-    reset = () => {
-        this.setState({ data: _.cloneDeep(this.state.originalData) });
-    };
-
-    __onKeyDown = (e: React.KeyboardEvent<any>) => {
-        const { submitOnEnter = false } = this.props;
+    const __onKeyDown = (e: React.KeyboardEvent<any>) => {
+        const { submitOnEnter = false } = props;
         if (
             (submitOnEnter || e.metaKey || e.ctrlKey) &&
             e.key === "Enter" &&
             !e.isDefaultPrevented()
         ) {
             // Need to blur current target in case of input fields to trigger validation
-            // @ts-ignore
-            e.target && e.target.blur();
             e.preventDefault();
             e.stopPropagation();
-            // Fire submit with a small delay to allow input validation to complete.
-            // Not an ideal solution but works fine at this point. Will revisit this later.
-            setTimeout(() => this.submit(), 100);
+            formApi.submit();
         }
     };
 
-    render() {
-        const children = this.props.children;
-        if (!_.isFunction(children)) {
-            throw new Error("Form must have a function as its only child!");
-        }
-
-        this.lastRender = [];
-
-        return React.createElement(
-            "webiny-form-container",
-            { onKeyDown: this.__onKeyDown },
-            children({
-                data: _.cloneDeep(this.state.data),
-                setValue: this.setValue,
-                form: this,
-                submit: this.submit,
-                Bind: this.Bind
-            })
-        );
+    const children = props.children;
+    if (typeof children !== "function") {
+        throw new Error("Form must have a function as its only child!");
     }
+
+    const formContext = useMemo(() => {
+        return {
+            ...formApi,
+            isPristine: vm.isPristine,
+            data: vm.data
+        };
+    }, [vm.data, vm.invalidFields]);
+
+    return (
+        <FormContext.Provider value={formContext}>
+            {React.createElement(
+                "webiny-form-container",
+                {
+                    onKeyDown: __onKeyDown,
+                    "data-testid": props["data-testid"],
+                    "data-pristine": formApi.isPristine
+                },
+                children({
+                    data: formApi.data,
+                    setValue: formApi.setValue,
+                    form: formApi,
+                    submit: formApi.submit,
+                    Bind
+                })
+            )}
+        </FormContext.Provider>
+    );
 }
+
+export const Form = observer(
+    React.forwardRef(FormInner) as <T extends GenericFormData = GenericFormData>(
+        props: FormProps<T> & { ref?: React.ForwardedRef<any> }
+    ) => ReturnType<typeof FormInner<T>>
+);
+
+Form.displayName = "Form";

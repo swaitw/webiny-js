@@ -1,19 +1,29 @@
-import { Table } from "dynamodb-toolbox";
-import configurations from "~/operations/configurations";
-import { PbContext } from "@webiny/api-page-builder/graphql/types";
-import { getTable } from "@webiny/db-dynamodb/utils/table";
-import { getDocumentClient } from "@webiny/db-dynamodb/utils/documentClient";
+import { Table } from "@webiny/db-dynamodb/toolbox";
+import { DynamoDBDocument } from "@webiny/aws-sdk/client-dynamodb";
+import { TableConstructor } from "@webiny/db-dynamodb/toolbox";
+import { TableModifier } from "~/types";
 
-export interface Params {
-    context: PbContext;
+interface Params {
+    table?: TableModifier;
+    documentClient: DynamoDBDocument;
 }
-
-export const defineTable = (params: Params): Table => {
-    const { context } = params;
-    return new Table({
-        name: configurations.db().table || getTable(context),
+export const createTable = ({ table, documentClient }: Params): Table<string, string, string> => {
+    const tableConfig: TableConstructor<string, string, string> = {
+        name: process.env.DB_PAGE_BUILDER || (process.env.DB_TABLE as string),
         partitionKey: "PK",
         sortKey: "SK",
-        DocumentClient: getDocumentClient(context)
-    });
+        DocumentClient: documentClient,
+        indexes: {
+            GSI1: {
+                partitionKey: "GSI1_PK",
+                sortKey: "GSI1_SK"
+            }
+        },
+        autoExecute: true,
+        autoParse: true
+    };
+
+    const config = typeof table === "function" ? table(tableConfig) : tableConfig;
+
+    return new Table(config);
 };

@@ -4,7 +4,7 @@ import { FieldPlugin } from "~/plugins/definitions/FieldPlugin";
 
 interface Info {
     sorters: string[];
-    orders: string[];
+    orders: (boolean | "asc" | "desc")[];
 }
 
 interface Response {
@@ -55,14 +55,14 @@ interface Params<T> {
     /**
      * Sort options. For example: ["id_ASC"]
      */
-    sort: string[];
+    sort?: string[];
     /**
      * Fields we can sort by.
      */
     fields?: FieldPlugin[];
 }
 
-export const sortItems = <T extends any = any>(params: Params<T>): T[] => {
+export function sortItems<T = any>(params: Params<T>): T[] {
     const { items, sort: initialSort = [], fields = [] } = params;
     /**
      * Skip sorting if nothing was passed to sort by or nothing to sort.
@@ -96,4 +96,4 @@ export const sortItems = <T extends any = any>(params: Params<T>): T[] => {
     }
 
     return lodashOrderBy(items, info.sorters, info.orders);
-};
+}

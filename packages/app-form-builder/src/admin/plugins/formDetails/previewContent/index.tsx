@@ -6,7 +6,7 @@ import FormPreview from "./FormPreview";
 import Header from "./Header";
 import { CircularProgress } from "@webiny/ui/Progress";
 import { i18n } from "@webiny/app/i18n";
-import { FbFormDetailsPluginRenderParams, FbFormDetailsPluginType } from "../../../../types";
+import { FbFormDetailsPluginRenderParams, FbFormDetailsPluginType } from "~/types";
 
 const t = i18n.namespace("FormsApp.FormDetails.PreviewContent");
 
@@ -22,11 +22,11 @@ const RenderBlock = styled("div")({
 const PreviewContentTab = (props: FbFormDetailsPluginRenderParams) => {
     const [revisionId, setRevisionId] = useState<string>();
 
-    useEffect(() => {
+    useEffect((): void => {
         if (!props.revisions.length) {
             return;
         }
-        setRevisionId(props.revisions[0].id);
+        setRevisionId(props.form.id);
     }, [props.form.id, props.revisions.length]);
 
     const revision = props.revisions.find(item => item.id === revisionId);

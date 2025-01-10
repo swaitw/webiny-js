@@ -6,12 +6,12 @@ import set from "lodash/set";
 import get from "lodash/get";
 import { plugins } from "@webiny/plugins";
 import { Tooltip } from "@webiny/ui/Tooltip";
-import { Form } from "@webiny/form";
+import { Form, FormOnSubmit } from "@webiny/form";
 import {
     PbEditorPageElementSettingsRenderComponentProps,
     PbEditorElement,
     PbEditorResponsiveModePlugin
-} from "../../../../types";
+} from "~/types";
 import { useEventActionHandler } from "../../../hooks/useEventActionHandler";
 import { UpdateElementActionEvent } from "../../../recoil/actions";
 import {
@@ -25,6 +25,7 @@ import { classes } from "../components/StyledComponents";
 import Accordion from "../components/Accordion";
 import Wrapper from "../components/Wrapper";
 import SpacingPicker from "../components/SpacingPicker";
+import { Validator } from "@webiny/validation/types";
 
 const rightCellStyle = css({
     justifySelf: "end"
@@ -68,9 +69,9 @@ enum HeightUnits {
     auto = "auto"
 }
 
-const validateHeight = (value: string | undefined) => {
+const validateHeight: Validator = (value: string | undefined) => {
     if (!value) {
-        return null;
+        return true;
     }
     const parsedValue = parseInt(value);
 
@@ -97,17 +98,15 @@ const validateHeight = (value: string | undefined) => {
 
 const DATA_NAMESPACE = "data.settings.height";
 
-const Settings: React.FunctionComponent<PbEditorPageElementSettingsRenderComponentProps> = ({
-    defaultAccordionValue
-}) => {
+const Settings = ({ defaultAccordionValue }: PbEditorPageElementSettingsRenderComponentProps) => {
     const { displayMode } = useRecoilValue(uiAtom);
     const handler = useEventActionHandler();
     const activeElementId = useRecoilValue(activeElementAtom);
     const element = useRecoilValue(elementWithChildrenByIdSelector(activeElementId));
-    const updateSettings = async (data, form) => {
+    const updateSettings: FormOnSubmit = async (data, form) => {
         const valid = await form.validate();
         if (!valid) {
-            return;
+            return null;
         }
 
         const newElement: PbEditorElement = merge(
@@ -124,11 +123,18 @@ const Settings: React.FunctionComponent<PbEditorPageElementSettingsRenderCompone
         );
     };
 
-    const { config: activeDisplayModeConfig } = React.useMemo(() => {
+    const memoizedResponsiveModePlugin = React.useMemo(() => {
         return plugins
             .byType<PbEditorResponsiveModePlugin>("pb-editor-responsive-mode")
             .find(pl => pl.config.displayMode === displayMode);
     }, [displayMode]);
+
+    const { config: activeDisplayModeConfig } = memoizedResponsiveModePlugin || {
+        config: {
+            displayMode: null,
+            icon: null
+        }
+    };
 
     const settings = React.useMemo(() => {
         const fallbackValue = applyFallbackDisplayMode(displayMode, mode =>
@@ -147,27 +153,37 @@ const Settings: React.FunctionComponent<PbEditorPageElementSettingsRenderCompone
                 </Tooltip>
             }
         >
-            <Form data={settings} onChange={updateSettings}>
-                {({ Bind }) => (
-                    <Wrapper
-                        label={"Height"}
-                        containerClassName={classes.simpleGrid}
-                        rightCellClassName={rightCellStyle}
-                    >
-                        <Bind name={"value"} validators={validateHeight}>
-                            {({ value, onChange, validation }) => (
-                                <SpacingPicker
-                                    value={value}
-                                    onChange={onChange}
-                                    validation={validation}
-                                    options={heightUnitOptions}
-                                    className={spacingPickerStyle}
-                                    useDefaultStyle={false}
-                                />
-                            )}
-                        </Bind>
-                    </Wrapper>
-                )}
+            <Form<{ value: unknown }>
+                data={settings}
+                onChange={(data, form) => {
+                    if (!form) {
+                        return;
+                    }
+                    return updateSettings(data, form);
+                }}
+            >
+                {({ Bind }) => {
+                    return (
+                        <Wrapper
+                            label={"Height"}
+                            containerClassName={classes.simpleGrid}
+                            rightCellClassName={rightCellStyle}
+                        >
+                            <Bind name={"value"} validators={validateHeight}>
+                                {({ value, onChange, validation }) => (
+                                    <SpacingPicker
+                                        value={value || ""}
+                                        onChange={onChange}
+                                        validation={validation}
+                                        options={heightUnitOptions}
+                                        className={spacingPickerStyle}
+                                        useDefaultStyle={false}
+                                    />
+                                )}
+                            </Bind>
+                        </Wrapper>
+                    );
+                }}
             </Form>
         </Accordion>
     );

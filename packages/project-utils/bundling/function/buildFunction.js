@@ -1,16 +1,21 @@
 const formatWebpackMessages = require("react-dev-utils/formatWebpackMessages");
-const { getDuration } = require("../../utils");
-const chalk = require("chalk");
+const { getProjectApplication } = require("@webiny/cli/utils");
 
-module.exports = options => {
-    const duration = getDuration();
-    const path = require("path");
+module.exports = async options => {
+    const { overrides, logs, cwd, debug } = options;
 
-    const { overrides, logs, cwd } = options;
+    let projectApplication;
+    try {
+        projectApplication = getProjectApplication({ cwd });
+    } catch {
+        // No need to do anything.
+    }
 
-    logs && console.log(`Compiling ${chalk.green(path.basename(cwd))}...`);
-
-    let webpackConfig = require("./createBuildConfig")(options);
+    let webpackConfig = require("./webpack.config")({
+        production: !debug,
+        projectApplication,
+        ...options
+    });
 
     // Customize Webpack config.
     if (typeof overrides.webpack === "function") {
@@ -18,8 +23,9 @@ module.exports = options => {
     }
 
     const webpack = require("webpack");
+
     return new Promise(async (resolve, reject) => {
-        return webpack(webpackConfig).run(async (err, stats) => {
+        webpack(webpackConfig).run(async (err, stats) => {
             let messages = {};
 
             if (err) {
@@ -28,7 +34,9 @@ module.exports = options => {
                     warnings: []
                 });
 
-                return reject(new Error(messages.errors.join("\n\n")));
+                const errorMessages = messages.errors.join("\n\n");
+                console.error(errorMessages);
+                return reject(new Error(errorMessages));
             }
 
             if (stats.hasErrors()) {
@@ -47,10 +55,14 @@ module.exports = options => {
                 if (messages.errors.length > 1) {
                     messages.errors.length = 1;
                 }
-                return reject(new Error(messages.errors.join("\n\n")));
+
+                const errorMessages = messages.errors.join("\n\n");
+                console.error(errorMessages);
+                reject(new Error(errorMessages));
+                return;
             }
 
-            logs && console.log(`Compiled successfully in ${chalk.green(duration()) + "s"}.`);
+            logs && console.log(`Compiled successfully.`);
             resolve();
         });
     });

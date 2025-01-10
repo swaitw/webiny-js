@@ -79,17 +79,20 @@ const classes = {
         "&.collapsed": {
             maxHeight: 0,
             transition: "max-height 0.35s cubic-bezier(0, 1, 0, 1)"
+        },
+        ".accordion-content": {
+            paddingBottom: 10
         }
     })
 };
 
-type AccordionProps = {
+interface AccordionProps {
     title: string;
-    children: ReactElement;
-    action?: ReactElement;
+    action?: ReactElement | null;
     icon?: ReactElement;
     defaultValue?: boolean;
-};
+    children: React.ReactNode;
+}
 
 const Accordion = ({ title, children, action, icon, defaultValue = false }: AccordionProps) => {
     const [isOpen, setOpen] = useState(defaultValue);
@@ -103,11 +106,13 @@ const Accordion = ({ title, children, action, icon, defaultValue = false }: Acco
             >
                 <div className="accordion-header--left">
                     <div className={"accordion-title"}>
-                        <Typography use={"subtitle1"}>{title}</Typography>
+                        <Typography use={"subtitle1"} tag={"span"}>
+                            {title}
+                        </Typography>
                     </div>
                 </div>
                 <div className="accordion-header--right">
-                    <div className={"action-container"}>{action}</div>
+                    {action && <div className={"action-container"}>{action}</div>}
                     <div className={"icon-container"}>{icon}</div>
                 </div>
             </div>
@@ -117,5 +122,5 @@ const Accordion = ({ title, children, action, icon, defaultValue = false }: Acco
         </div>
     );
 };
-
-export default React.memo(Accordion);
+const MemoizedAccordion: React.ComponentType<AccordionProps> = React.memo(Accordion);
+export default MemoizedAccordion;

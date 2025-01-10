@@ -1,45 +1,60 @@
 import React, { createContext, useCallback, useEffect, useState } from "react";
+import { ThemeProvider } from "@emotion/react";
 import {
+    AssignStylesCallback,
+    ElementStylesCallback,
+    GetElementAttributes,
+    GetElementStyles,
+    GetRenderers,
+    GetStyles,
     PageElementsContextValue,
     PageElementsProviderProps,
-    ElementStylesCallback,
-    StylesCallback,
-    ThemeStylesCallback,
-    GetElementClassNames,
-    GetElementStyles,
-    GetThemeStyles,
-    GetThemeClassNames,
-    GetStyles,
-    GetClassNames,
-    AssignStylesCallback,
+    SetAssignStylesCallback,
     SetElementStylesCallback,
-    SetThemeStylesCallback,
     SetStylesCallback,
-    SetAssignStylesCallback
+    StylesCallback
 } from "~/types";
-import { css, cx } from "@emotion/css";
 import {
-    setUsingPageElements,
+    defaultElementAttributesCallback,
     defaultElementStylesCallback,
-    defaultThemeStylesCallback,
-    defaultStylesCallback
+    defaultStylesCallback,
+    setUsingPageElements
 } from "~/utils";
 
-export const PageElementsContext = createContext(null);
+export const PageElementsContext = createContext<PageElementsContextValue>(
+    null as unknown as PageElementsContextValue
+);
 
-export const PageElementsProvider: React.FC<PageElementsProviderProps> = ({
+export const PageElementsProvider = ({
     children,
     theme,
     renderers = {},
-    modifiers
-}) => {
-    // Styles-related callback customization.
+    modifiers,
+    beforeRenderer = null,
+    afterRenderer = null,
+    loaderCache
+}: PageElementsProviderProps) => {
+    // Attributes-related callbacks.
+    const getElementAttributes = useCallback<GetElementAttributes>(
+        element => {
+            return defaultElementAttributesCallback({
+                element,
+                theme,
+                renderers,
+                modifiers,
+                beforeRenderer,
+                afterRenderer,
+                loaderCache
+            });
+        },
+        [theme]
+    );
+
+    // Styles-related callbacks.
     const [customAssignStylesCallback, setCustomAssignStylesCallback] =
-        useState<AssignStylesCallback>(null);
+        useState<AssignStylesCallback>();
     const [customElementStylesCallback, setCustomElementStylesCallback] =
         useState<ElementStylesCallback>();
-    const [customThemeStylesCallback, setCustomThemeStylesCallback] =
-        useState<ThemeStylesCallback>();
     const [customStylesCallback, setCustomStylesCallback] = useState<StylesCallback>();
 
     const setAssignStylesCallback = useCallback<SetAssignStylesCallback>(callback => {
@@ -48,10 +63,6 @@ export const PageElementsProvider: React.FC<PageElementsProviderProps> = ({
 
     const setElementStylesCallback = useCallback<SetElementStylesCallback>(callback => {
         setCustomElementStylesCallback(() => callback);
-    }, []);
-
-    const setThemeStylesCallback = useCallback<SetThemeStylesCallback>(callback => {
-        setCustomThemeStylesCallback(() => callback);
     }, []);
 
     const setStylesCallback = useCallback<SetStylesCallback>(callback => {
@@ -68,39 +79,13 @@ export const PageElementsProvider: React.FC<PageElementsProviderProps> = ({
                 theme,
                 renderers,
                 modifiers,
-                assignStyles: customAssignStylesCallback
+                assignStyles: customAssignStylesCallback,
+                beforeRenderer,
+                afterRenderer,
+                loaderCache
             });
         },
-        [customElementStylesCallback, customAssignStylesCallback]
-    );
-
-    const getElementClassNames = useCallback<GetElementClassNames>(
-        element => {
-            return getElementStyles(element).map(item => css(item));
-        },
-        [getElementStyles]
-    );
-
-    const getThemeStyles = useCallback<GetThemeStyles>(
-        getStyles => {
-            const callback = customThemeStylesCallback || defaultThemeStylesCallback;
-            return callback({
-                getStyles,
-                theme,
-                renderers,
-                modifiers,
-                assignStyles: customAssignStylesCallback
-            });
-        },
-        [customThemeStylesCallback, customAssignStylesCallback]
-    );
-
-    const getThemeClassNames = useCallback<GetThemeClassNames>(
-        getStyles => {
-            const styles = getThemeStyles(getStyles);
-            return styles.map(item => css(item));
-        },
-        [getThemeStyles]
+        [theme, customElementStylesCallback, customAssignStylesCallback]
     );
 
     const getStyles = useCallback<GetStyles>(
@@ -111,19 +96,18 @@ export const PageElementsProvider: React.FC<PageElementsProviderProps> = ({
                 theme,
                 renderers,
                 modifiers,
-                assignStyles: customAssignStylesCallback
+                assignStyles: customAssignStylesCallback,
+                beforeRenderer,
+                afterRenderer,
+                loaderCache
             });
         },
-        [customStylesCallback, customAssignStylesCallback]
+        [theme, customStylesCallback, customAssignStylesCallback]
     );
 
-    const getClassNames = useCallback<GetClassNames>(
-        customStyles => {
-            const styles = getStyles(customStyles);
-            return styles.map(item => css(item));
-        },
-        [getStyles]
-    );
+    const getRenderers = useCallback<GetRenderers>(() => {
+        return typeof renderers === "function" ? renderers() : renderers;
+    }, []);
 
     // Provides a way to check whether the `PageElementsProvider` React component was mounted or not,
     // in a non-React context. In React contexts, it's strongly recommended the value of `usePageElements`
@@ -134,24 +118,23 @@ export const PageElementsProvider: React.FC<PageElementsProviderProps> = ({
         theme,
         renderers,
         modifiers,
+        getRenderers,
+        getElementAttributes,
         getElementStyles,
-        getElementClassNames,
-        getThemeStyles,
-        getThemeClassNames,
         getStyles,
-        getClassNames,
-        combineClassNames: cx,
         setAssignStylesCallback,
         setElementStylesCallback,
-        setThemeStylesCallback,
-        setStylesCallback
+        setStylesCallback,
+        beforeRenderer,
+        afterRenderer,
+        loaderCache
     };
 
-    return <PageElementsContext.Provider value={value}>{children}</PageElementsContext.Provider>;
+    return (
+        // We're passing an empty object just in case `theme` object is not provided.
+        // This can happen in multi-theme setups, where the theme is loaded asynchronously.
+        <ThemeProvider theme={theme || {}}>
+            <PageElementsContext.Provider value={value}>{children}</PageElementsContext.Provider>
+        </ThemeProvider>
+    );
 };
-
-export const PageElementsConsumer = ({ children }) => (
-    <PageElementsContext.Consumer>
-        {props => React.cloneElement(children, props)}
-    </PageElementsContext.Consumer>
-);

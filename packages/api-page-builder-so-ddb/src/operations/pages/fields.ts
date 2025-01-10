@@ -1,12 +1,15 @@
 import { PageDynamoDbFieldPlugin } from "~/plugins/definitions/PageDynamoDbFieldPlugin";
 
-export default () => [
+export const createPageFields = (): PageDynamoDbFieldPlugin[] => [
     new PageDynamoDbFieldPlugin({
         field: "id"
     }),
     new PageDynamoDbFieldPlugin({
         field: "title",
         path: "titleLC"
+    }),
+    new PageDynamoDbFieldPlugin({
+        field: "path"
     }),
     new PageDynamoDbFieldPlugin({
         field: "snippet",
@@ -44,13 +47,5 @@ export default () => [
         field: "tags",
         path: "settings.general.tags",
         sortable: false
-    }),
-    new PageDynamoDbFieldPlugin({
-        field: "listLatest",
-        path: "visibility.list.latest"
-    }),
-    new PageDynamoDbFieldPlugin({
-        field: "listPublished",
-        path: "visibility.list.published"
     })
 ];

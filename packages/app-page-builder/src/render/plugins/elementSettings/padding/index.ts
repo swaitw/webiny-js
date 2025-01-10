@@ -1,9 +1,9 @@
-import { get } from "lodash";
+import get from "lodash/get";
 import kebabCase from "lodash/kebabCase";
 import { PbRenderElementStylePlugin } from "../../../../types";
 import { applyPerDeviceStyleWithFallback } from "../../../utils";
 
-const validateSpacingValue = value => {
+const validateSpacingValue = (value: string): string => {
     const parsedValue = parseInt(value);
     if (Number.isNaN(parsedValue)) {
         return "0px";

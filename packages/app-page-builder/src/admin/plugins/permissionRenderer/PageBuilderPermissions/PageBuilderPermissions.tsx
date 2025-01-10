@@ -2,12 +2,20 @@ import React, { Fragment, useCallback, useMemo } from "react";
 import { Grid, Cell } from "@webiny/ui/Grid";
 import { Select } from "@webiny/ui/Select";
 import { i18n } from "@webiny/app/i18n";
-import { PermissionInfo, gridNoPaddingClass } from "@webiny/app-admin/components/Permissions";
+import {
+    CannotUseAaclAlert,
+    PermissionInfo,
+    gridNoPaddingClass
+} from "@webiny/app-admin/components/Permissions";
 import { Form } from "@webiny/form";
 import { Elevation } from "@webiny/ui/Elevation";
 import { Typography } from "@webiny/ui/Typography";
 import { Checkbox, CheckboxGroup } from "@webiny/ui/Checkbox";
 import CustomSection from "./CustomSection";
+import { useSecurity } from "@webiny/app-security";
+import { SecurityPermission } from "@webiny/app-security/types";
+import { PageBuilderSecurityPermission } from "~/types";
+import { AaclPermission } from "@webiny/app-admin";
 
 const t = i18n.ns("app-page-builder/admin/plugins/permissionRenderer");
 
@@ -17,19 +25,32 @@ const PAGE_BUILDER_SETTINGS_ACCESS = `${PAGE_BUILDER}.settings`;
 const FULL_ACCESS = "full";
 const NO_ACCESS = "no";
 const CUSTOM_ACCESS = "custom";
-const ENTITIES = ["category", "menu", "page"];
+const ENTITIES = ["category", "menu", "page", "template", "blockCategory", "block"];
 
-const pwOptions = [
+interface PwOptions {
+    id: string;
+    name: string;
+}
+const pwOptions: PwOptions[] = [
     { id: "p", name: t`Publish` },
-    { id: "u", name: t`Unpublish` },
-    { id: "r", name: t`Request review` },
-    { id: "c", name: t`Request changes` }
+    { id: "u", name: t`Unpublish` }
 ];
 
-export const PageBuilderPermissions = ({ value, onChange }) => {
+interface PageBuilderPermissionsProps {
+    value: SecurityPermission;
+    onChange: (value: SecurityPermission[]) => void;
+}
+export const PageBuilderPermissions = ({ value, onChange }: PageBuilderPermissionsProps) => {
+    const { getPermission } = useSecurity();
+
+    // We disable form elements for custom permissions if AACL cannot be used.
+    const cannotUseAAcl = useMemo(() => {
+        return !getPermission<AaclPermission>("aacl", true);
+    }, []);
+
     const onFormChange = useCallback(
-        formData => {
-            let newValue = [];
+        (formData: PageBuilderSecurityPermission) => {
+            let newValue: SecurityPermission[] = [];
             if (Array.isArray(value)) {
                 // Let's just filter out the `pb*` permission objects, it's easier to build new ones from scratch.
                 newValue = value.filter(item => !item.name.startsWith(PAGE_BUILDER));
@@ -54,7 +75,7 @@ export const PageBuilderPermissions = ({ value, onChange }) => {
                     formData[`${entity}AccessScope`] &&
                     formData[`${entity}AccessScope`] !== NO_ACCESS
                 ) {
-                    const permission: Record<string, any> = {
+                    const permission: PageBuilderSecurityPermission = {
                         name: `${PAGE_BUILDER}.${entity}`,
                         rwd: "r"
                     };
@@ -78,6 +99,16 @@ export const PageBuilderPermissions = ({ value, onChange }) => {
                     newValue.push(permission);
                 }
             });
+
+            // Unlink template functionality
+            if (formData.templateUnlink) {
+                newValue.push({ name: `${PAGE_BUILDER}.template.unlink` });
+            }
+
+            // Unlink block functionality
+            if (formData.blockUnlink) {
+                newValue.push({ name: `${PAGE_BUILDER}.block.unlink` });
+            }
 
             // Settings.
             if (formData.settingsAccessLevel === FULL_ACCESS) {
@@ -107,9 +138,11 @@ export const PageBuilderPermissions = ({ value, onChange }) => {
         }
 
         // We're dealing with custom permissions. Let's first prepare data for "categories", "menus", and "pages".
-        const formData: Record<string, any> = {
+        const formData = {
             accessLevel: CUSTOM_ACCESS,
-            settingsAccessLevel: NO_ACCESS
+            settingsAccessLevel: NO_ACCESS,
+            templateUnlink: false,
+            blockUnlink: false
         };
 
         ENTITIES.forEach(entity => {
@@ -137,6 +170,18 @@ export const PageBuilderPermissions = ({ value, onChange }) => {
             Object.assign(formData, data);
         });
 
+        // Set form data for unlink template functionality
+        const hasUnlinkTemplateAccess = permissions.find(
+            item => item.name === `${PAGE_BUILDER}.template.unlink`
+        );
+        formData.templateUnlink = hasUnlinkTemplateAccess;
+
+        //  Set form data for unlink block functionality
+        const hasUnlinkBlockAccess = permissions.find(
+            item => item.name === `${PAGE_BUILDER}.block.unlink`
+        );
+        formData.blockUnlink = hasUnlinkBlockAccess;
+
         // Finally, let's prepare data for Page Builder settings.
         const hasSettingsAccess = permissions.find(
             item => item.name === PAGE_BUILDER_SETTINGS_ACCESS
@@ -152,6 +197,13 @@ export const PageBuilderPermissions = ({ value, onChange }) => {
         <Form data={formData} onChange={onFormChange}>
             {({ data, Bind, setValue }) => (
                 <Fragment>
+                    <Grid className={gridNoPaddingClass}>
+                        <Cell span={12}>
+                            {data.accessLevel === "custom" && cannotUseAAcl && (
+                                <CannotUseAaclAlert />
+                            )}
+                        </Cell>
+                    </Grid>
                     <Grid className={gridNoPaddingClass}>
                         <Cell span={6}>
                             <PermissionInfo title={t`Access Level`} />
@@ -172,6 +224,7 @@ export const PageBuilderPermissions = ({ value, onChange }) => {
                                 data={data}
                                 Bind={Bind}
                                 setValue={setValue}
+                                disabled={cannotUseAAcl}
                                 entity={"category"}
                                 title={"Categories"}
                             />
@@ -179,6 +232,7 @@ export const PageBuilderPermissions = ({ value, onChange }) => {
                                 data={data}
                                 Bind={Bind}
                                 setValue={setValue}
+                                disabled={cannotUseAAcl}
                                 entity={"menu"}
                                 title={"Menus"}
                             />
@@ -187,6 +241,7 @@ export const PageBuilderPermissions = ({ value, onChange }) => {
                                 data={data}
                                 Bind={Bind}
                                 setValue={setValue}
+                                disabled={cannotUseAAcl}
                                 entity={"page"}
                                 title={"Pages"}
                             >
@@ -200,6 +255,7 @@ export const PageBuilderPermissions = ({ value, onChange }) => {
                                                 pwOptions.map(({ id, name }) => (
                                                     <Checkbox
                                                         disabled={
+                                                            cannotUseAAcl ||
                                                             !["full", "own"].includes(
                                                                 data.pageAccessScope
                                                             )
@@ -215,7 +271,39 @@ export const PageBuilderPermissions = ({ value, onChange }) => {
                                     </Bind>
                                 </Cell>
                             </CustomSection>
-
+                            <CustomSection
+                                data={data}
+                                Bind={Bind}
+                                setValue={setValue}
+                                entity={"template"}
+                                title={"Templates"}
+                            >
+                                <Cell span={12}>
+                                    <Bind name={"templateUnlink"}>
+                                        <Checkbox label="User is allowed to unlink a template" />
+                                    </Bind>
+                                </Cell>
+                            </CustomSection>
+                            <CustomSection
+                                data={data}
+                                Bind={Bind}
+                                setValue={setValue}
+                                entity={"blockCategory"}
+                                title={"Block categories"}
+                            />
+                            <CustomSection
+                                data={data}
+                                Bind={Bind}
+                                setValue={setValue}
+                                entity={"block"}
+                                title={"Block content"}
+                            >
+                                <Cell span={12}>
+                                    <Bind name={"blockUnlink"}>
+                                        <Checkbox label="User is allowed to unlink a block" />
+                                    </Bind>
+                                </Cell>
+                            </CustomSection>
                             <Elevation z={1} style={{ marginTop: 10 }}>
                                 <Grid>
                                     <Cell span={12}>
@@ -228,7 +316,10 @@ export const PageBuilderPermissions = ({ value, onChange }) => {
                                             </Cell>
                                             <Cell span={6} align={"middle"}>
                                                 <Bind name={"settingsAccessLevel"}>
-                                                    <Select label={t`Access Level`}>
+                                                    <Select
+                                                        label={t`Access Level`}
+                                                        disabled={cannotUseAAcl}
+                                                    >
                                                         <option
                                                             value={NO_ACCESS}
                                                         >{t`No access`}</option>

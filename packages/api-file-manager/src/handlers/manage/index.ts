@@ -1,17 +1,18 @@
 import path from "path";
-import S3 from "aws-sdk/clients/s3";
-import { HandlerPlugin } from "@webiny/handler/types";
-import { createHandler, getEnvironment } from "../utils";
-import managers from "../transform/managers";
+import { S3 } from "@webiny/aws-sdk/client-s3";
+import { getEnvironment } from "../utils";
+import { imageManager } from "./imageManager";
+import { S3EventHandler } from "@webiny/handler-aws";
 
-export default (): HandlerPlugin => ({
-    type: "handler",
-    name: "handler-download-file",
-    async handle(context) {
-        const event = context.invocationArgs;
+const managers = [imageManager];
 
-        const handler = createHandler(async event => {
-            const keys = [];
+/**
+ * This handler must be run through @webiny/handler-aws/s3
+ */
+export const createManageFilePlugins = () => {
+    return [
+        new S3EventHandler(async ({ event }) => {
+            const keys: string[] = [];
             for (let i = 0; i < event.Records.length; i++) {
                 const record = event.Records[i];
                 if (typeof record.s3.object.key === "string") {
@@ -19,32 +20,32 @@ export default (): HandlerPlugin => ({
                 }
             }
 
+            if (keys.length === 0) {
+                return;
+            }
+
             const { region } = getEnvironment();
             const s3 = new S3({ region });
 
-            for (let i = 0; i < keys.length; i++) {
-                const key = keys[i];
+            for (const key of keys) {
                 const extension = path.extname(key);
 
-                for (let j = 0; j < managers.length; j++) {
-                    const manager = managers[j];
+                for (const manager of managers) {
                     const canProcess = manager.canProcess({
-                        s3,
                         key,
                         extension
                     });
 
-                    if (canProcess) {
-                        await manager.process({
-                            s3,
-                            key,
-                            extension
-                        });
+                    if (!canProcess) {
+                        continue;
                     }
+                    await manager.process({
+                        s3,
+                        key,
+                        extension
+                    });
                 }
             }
-        });
-
-        return await handler(event);
-    }
-});
+        })
+    ];
+};

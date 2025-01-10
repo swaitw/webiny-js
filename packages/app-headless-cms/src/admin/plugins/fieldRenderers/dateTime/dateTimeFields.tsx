@@ -1,17 +1,17 @@
 import React from "react";
 import get from "lodash/get";
-import { CmsEditorFieldRendererPlugin } from "~/types";
+import DynamicSection from "../DynamicSection";
+import { CmsModelFieldRendererPlugin } from "~/types";
 import { i18n } from "@webiny/app/i18n";
 import { ReactComponent as DeleteIcon } from "~/admin/icons/close.svg";
-import DynamicSection from "../DynamicSection";
-import DateTimeWithoutTimezone from "./DateTimeWithoutTimezone";
-import DateTimeWithTimezone from "./DateTimeWithTimezone";
-import Time from "./Time";
-import Input from "./Input";
+import { DateTimeWithoutTimezone } from "./DateTimeWithoutTimezone";
+import { DateTimeWithTimezone } from "./DateTimeWithTimezone";
+import { DateOnly } from "./DateOnly";
+import { Time } from "./Time";
 
 const t = i18n.ns("app-headless-cms/admin/fields/date-time");
 
-const plugin: CmsEditorFieldRendererPlugin = {
+const plugin: CmsModelFieldRendererPlugin = {
     type: "cms-editor-field-renderer",
     name: "cms-editor-field-renderer-date-times",
     renderer: {
@@ -19,7 +19,7 @@ const plugin: CmsEditorFieldRendererPlugin = {
         name: t`Date/Time Inputs`,
         description: t`Renders inputs for various formats of dates and times.`,
         canUse({ field }) {
-            return (
+            return !!(
                 field.type === "datetime" &&
                 field.multipleValues &&
                 !get(field, "predefinedValues.enabled")
@@ -28,15 +28,17 @@ const plugin: CmsEditorFieldRendererPlugin = {
         render(props) {
             const { field } = props;
 
+            const fieldSettingsType = field.settings ? field.settings.type : null;
+
             return (
                 <DynamicSection {...props}>
                     {({ bind, index }) => {
-                        const trailingIcon = index > 0 && {
+                        const trailingIcon = {
                             icon: <DeleteIcon />,
                             onClick: () => bind.field.removeValue(index)
                         };
 
-                        if (field.settings.type === "dateTimeWithoutTimezone") {
+                        if (fieldSettingsType === "dateTimeWithoutTimezone") {
                             return (
                                 <DateTimeWithoutTimezone
                                     field={field}
@@ -45,7 +47,7 @@ const plugin: CmsEditorFieldRendererPlugin = {
                                 />
                             );
                         }
-                        if (field.settings.type === "dateTimeWithTimezone") {
+                        if (fieldSettingsType === "dateTimeWithTimezone") {
                             return (
                                 <DateTimeWithTimezone
                                     field={field}
@@ -54,7 +56,7 @@ const plugin: CmsEditorFieldRendererPlugin = {
                                 />
                             );
                         }
-                        if (field.settings.type === "time") {
+                        if (fieldSettingsType === "time") {
                             return (
                                 <Time
                                     field={{
@@ -64,14 +66,13 @@ const plugin: CmsEditorFieldRendererPlugin = {
                                             t` Value {number}`({ number: index + 1 })
                                     }}
                                     bind={bind.index}
-                                    label={t`Value {number}`({ number: index + 1 })}
                                     trailingIcon={trailingIcon}
                                 />
                             );
                         }
 
                         return (
-                            <Input
+                            <DateOnly
                                 bind={bind.index}
                                 field={{
                                     ...props.field,
@@ -79,7 +80,6 @@ const plugin: CmsEditorFieldRendererPlugin = {
                                         props.field.label +
                                         t` Value {number}`({ number: index + 1 })
                                 }}
-                                type={field.settings.type}
                                 trailingIcon={trailingIcon}
                             />
                         );

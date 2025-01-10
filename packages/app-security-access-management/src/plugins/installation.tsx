@@ -34,7 +34,10 @@ const INSTALL = gql`
     }
 `;
 
-const SecurityInstaller = ({ onInstalled }) => {
+interface SecurityInstallerProps {
+    onInstalled: () => void;
+}
+const SecurityInstaller = ({ onInstalled }: SecurityInstallerProps) => {
     const client = useApolloClient();
     const [error, setError] = useState(null);
 

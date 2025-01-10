@@ -1,11 +1,9 @@
 import React, { ReactElement } from "react";
 import { Plugin } from "@webiny/plugins/types";
 import { ApolloClient } from "apollo-client";
-import { ItemProps, MenuProps, SectionProps } from "~/ui/views/NavigationView/legacyMenu";
+import { ItemProps, MenuProps, SectionProps } from "~/plugins/MenuPlugin";
 
-type RenderParams = {
-    content: React.ReactNode;
-};
+export { Icon } from "~/components/IconPicker/types";
 
 export type AdminGlobalSearchPlugin = Plugin & {
     type: "admin-global-search";
@@ -22,33 +20,12 @@ export type AdminGlobalSearchPreventHotkeyPlugin = Plugin & {
     preventOpen(e: React.KeyboardEvent): boolean | void;
 };
 
-export type AdminDrawerFooterMenuPlugin = Plugin & {
-    type: "admin-drawer-footer-menu";
-    render(params: any): React.ReactElement;
-};
-
 /**
  * LEGACY TYPE. Only for backwards compatibility.
  */
 export type AdminMenuLogoPlugin = Plugin & {
     name: "admin-menu-logo";
     type: "admin-menu-logo";
-    render(): React.ReactElement;
-};
-
-export type AdminHeaderUserMenuPlugin = Plugin & {
-    type: "admin-header-user-menu";
-    render(): React.ReactElement;
-};
-
-export type AdminHeaderUserMenuHandlePlugin = Plugin & {
-    name: "admin-header-user-menu-handle";
-    type: "admin-header-user-menu-handle";
-    render(): React.ReactElement;
-};
-
-export type AdminHeaderUserMenuUserInfoPlugin = Plugin & {
-    type: "admin-header-user-menu-user-info";
     render(): React.ReactElement;
 };
 
@@ -66,35 +43,28 @@ export type AdminMenuPlugin = Plugin & {
     order?: number;
 };
 
-/**
- * Enables adding custom header elements to the right side of the top bar.
- * @see https://docs.webiny.com/docs/webiny-apps/admin/development/plugins-reference/app#admin-header-right
- */
-export type AdminHeaderRightPlugin = Plugin & {
-    type: "admin-header-right";
-    render(params: RenderParams): React.ReactNode;
-};
-
+export interface AdminFileManagerFileTypePluginRenderParams {
+    file: FileItem;
+}
 export type AdminFileManagerFileTypePlugin = Plugin & {
     type: "admin-file-manager-file-type";
-    types?: string[];
-    render({ file }): React.ReactNode;
+    types: string[];
+    render(params: AdminFileManagerFileTypePluginRenderParams): React.ReactNode;
     fileDetails?: {
-        actions: Array<React.FunctionComponent | React.Component>;
+        actions: Array<React.ComponentType | React.Component>;
     };
 };
 
+export interface AdminInstallationPluginRenderParams {
+    onInstalled: () => Promise<void>;
+}
 export type AdminInstallationPlugin = Plugin & {
     type: "admin-installation";
-    getInstalledVersion(params: { client: ApolloClient<object> }): Promise<string>;
+    getInstalledVersion(params: { client: ApolloClient<object> }): Promise<string | null>;
     title: string;
     dependencies?: string[];
     secure: boolean;
-    render({ onInstalled }): React.ReactNode;
-    upgrades?: {
-        version: string;
-        getComponent(): React.ComponentType<{ onInstalled: () => void }>;
-    }[];
+    render(params: AdminInstallationPluginRenderParams): React.ReactNode;
 };
 
 export type AdminAppPermissionRendererPlugin = Plugin & {
@@ -102,3 +72,53 @@ export type AdminAppPermissionRendererPlugin = Plugin & {
     system?: boolean;
     render(params: any): ReactElement;
 };
+
+import { SecurityPermission } from "@webiny/app-security/types";
+
+/**
+ * Represents a file as we receive from the GraphQL API.
+ */
+export interface FileItem {
+    id: string;
+    name: string;
+    key: string;
+    src: string;
+    size: number;
+    type: string;
+    tags: string[];
+    aliases: string[];
+    createdOn: string;
+    createdBy: {
+        id: string;
+        displayName: string;
+    };
+    savedOn: string;
+    savedBy: {
+        id: string;
+        displayName: string;
+    };
+    modifiedOn: string;
+    modifiedBy: {
+        id: string;
+        displayName: string;
+    };
+    location: {
+        folderId: string;
+    };
+    meta?: {
+        private?: boolean;
+        width?: number;
+        height?: number;
+    };
+    accessControl?: {
+        type: "public" | "private-authenticated";
+    };
+    extensions?: Record<string, any>;
+}
+
+export interface FileManagerSecurityPermission extends SecurityPermission {
+    rwd?: string;
+    own?: boolean;
+}
+
+export type ComponentWithChildren = React.ComponentType<{ children?: React.ReactNode }>;

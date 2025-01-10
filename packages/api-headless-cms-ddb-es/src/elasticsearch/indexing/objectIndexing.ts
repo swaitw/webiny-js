@@ -1,3 +1,13 @@
+/**
+ * TODO remove rawValue when field aliases and field types targeting will be active.
+ *
+ * Currently we use rawValue for the values that we do not want to be indexed.
+ * When field aliases and types in the value path will be active, we can target the keys directly.
+ *
+ * This change will be incompatible with the current systems so we will need to release a major version.
+ *
+ */
+
 import { CmsModelFieldToElasticsearchPlugin } from "~/types";
 import {
     CmsModel,
@@ -5,6 +15,7 @@ import {
     CmsModelFieldToGraphQLPlugin
 } from "@webiny/api-headless-cms/types";
 import { PluginsContainer } from "@webiny/plugins";
+import { getFieldIdentifiers } from "~/helpers";
 
 interface ProcessToIndex {
     (params: {
@@ -22,12 +33,21 @@ interface ProcessFromIndex {
     (params: {
         fields: CmsModelField[];
         value: Record<string, any>;
-        rawValue: Record<string, any>;
+        rawValue?: Record<string, any> | null;
         getFieldIndexPlugin: (fieldType: string) => CmsModelFieldToElasticsearchPlugin;
         getFieldTypePlugin: (fieldType: string) => CmsModelFieldToGraphQLPlugin;
         plugins: PluginsContainer;
         model: CmsModel;
     }): Record<string, any>;
+}
+
+interface ReducerValue {
+    value: {
+        [key: string]: string;
+    };
+    rawValue: {
+        [key: string]: string;
+    };
 }
 
 const processToIndex: ProcessToIndex = ({
@@ -39,24 +59,33 @@ const processToIndex: ProcessToIndex = ({
     plugins,
     model
 }) => {
-    const reducer = (values, field) => {
+    const reducer = (values: ReducerValue, field: CmsModelField) => {
         const plugin = getFieldIndexPlugin(field.type);
+        if (!plugin || !plugin.toIndex) {
+            return values;
+        }
+
+        const identifiers = getFieldIdentifiers(sourceValue, sourceRawValue, field);
+        if (!identifiers) {
+            return values;
+        }
+
         const { value, rawValue } = plugin.toIndex({
             model,
             field,
-            value: sourceValue[field.fieldId],
-            rawValue: sourceRawValue[field.fieldId],
+            value: sourceValue[identifiers.valueIdentifier || identifiers.rawValueIdentifier],
+            rawValue: sourceRawValue[identifiers.rawValueIdentifier || identifiers.valueIdentifier],
             getFieldIndexPlugin,
             getFieldTypePlugin,
             plugins
         });
 
         if (value !== undefined) {
-            values.value[field.fieldId] = value;
+            values.value[identifiers.valueIdentifier || identifiers.rawValueIdentifier] = value;
         }
-
         if (rawValue !== undefined) {
-            values.rawValue[field.fieldId] = rawValue;
+            values.rawValue[identifiers.rawValueIdentifier || identifiers.valueIdentifier] =
+                rawValue;
         }
 
         return values;
@@ -73,20 +102,30 @@ const processFromIndex: ProcessFromIndex = ({
     plugins,
     model
 }) => {
-    const reducer = (values, field) => {
+    const reducer = (values: Record<string, string>, field: CmsModelField) => {
         const plugin = getFieldIndexPlugin(field.type);
+        if (!plugin || !plugin.fromIndex) {
+            return values;
+        }
+        const identifiers = getFieldIdentifiers(sourceValue, sourceRawValue, field);
+        if (!identifiers) {
+            return values;
+        }
+
         const value = plugin.fromIndex({
             plugins,
             model,
             field,
-            value: sourceValue[field.fieldId],
-            rawValue: sourceRawValue[field.fieldId],
+            value: sourceValue[identifiers.valueIdentifier || identifiers.rawValueIdentifier],
+            rawValue: sourceRawValue
+                ? sourceRawValue[identifiers.rawValueIdentifier || identifiers.valueIdentifier]
+                : null,
             getFieldIndexPlugin,
             getFieldTypePlugin
         });
 
         if (value !== undefined) {
-            values[field.fieldId] = value;
+            values[identifiers.valueIdentifier || identifiers.rawValueIdentifier] = value;
         }
 
         return values;
@@ -94,6 +133,11 @@ const processFromIndex: ProcessFromIndex = ({
 
     return fields.reduce(reducer, {});
 };
+
+interface ToIndexMultipleFieldValue {
+    value: Record<string, string>[];
+    rawValue: Record<string, string>[];
+}
 
 export default (): CmsModelFieldToElasticsearchPlugin => ({
     type: "cms-model-field-to-elastic-search",
@@ -109,16 +153,18 @@ export default (): CmsModelFieldToElasticsearchPlugin => ({
         getFieldTypePlugin
     }) {
         if (!initialValue) {
-            return { value: null };
+            return {
+                value: null
+            };
         }
 
-        const fields = field.settings.fields as CmsModelField[];
+        const fields = (field.settings?.fields || []) as CmsModelField[];
 
         /**
          * In "object" field, value is either an object or an array of objects.
          */
         if (field.multipleValues) {
-            const result = {
+            const result: ToIndexMultipleFieldValue = {
                 value: [],
                 rawValue: []
             };
@@ -132,13 +178,9 @@ export default (): CmsModelFieldToElasticsearchPlugin => ({
                     plugins,
                     fields
                 });
-                if (Object.keys(value).length > 0) {
-                    result.value.push(value);
-                }
 
-                if (Object.keys(rawValue).length > 0) {
-                    result.rawValue.push(rawValue);
-                }
+                result.value.push(value);
+                result.rawValue.push(rawValue);
             }
 
             return {
@@ -162,7 +204,7 @@ export default (): CmsModelFieldToElasticsearchPlugin => ({
             return null;
         }
 
-        const fields = field.settings.fields as CmsModelField[];
+        const fields = field.settings?.fields || [];
 
         /**
          * In "object" field, value is either an object or an array of objects.
@@ -175,7 +217,7 @@ export default (): CmsModelFieldToElasticsearchPlugin => ({
              */
             const source = value || rawValue || [];
 
-            return source.map((_, index) =>
+            return source.map((_: any, index: number) =>
                 processFromIndex({
                     value: value ? value[index] || {} : {},
                     rawValue: rawValue ? rawValue[index] || {} : {},

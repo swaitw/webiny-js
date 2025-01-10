@@ -1,14 +1,12 @@
-import richTextStoragePlugin from "../../../../src/dynamoDb/storage/richText";
+import { createRichTextStorageTransformPlugin } from "~/dynamoDb/storage/richText";
+import { FromStorageParams, ToStorageParams } from "@webiny/api-headless-cms";
 
 const defaultArgs = {
     field: {
-        fieldId: "richTextFieldId"
+        storageId: "richTextFieldId"
     },
     model: {
         modelId: "richTextModel"
-    },
-    entry: {
-        savedOn: new Date()
     }
 };
 
@@ -51,12 +49,12 @@ const expectedCompressedValue =
 
 describe("richTextStoragePlugin", () => {
     test("toStorage should transform value for storage", async () => {
-        const plugin = richTextStoragePlugin();
+        const plugin = createRichTextStorageTransformPlugin();
 
         const result = await plugin.toStorage({
             ...defaultArgs,
             value: testValue
-        } as any);
+        } as unknown as ToStorageParams<any, any>);
 
         expect(result).toEqual({
             compression: "jsonpack",
@@ -69,12 +67,12 @@ describe("richTextStoragePlugin", () => {
             compression: "jsonpack",
             value: expectedCompressedValue
         };
-        const plugin = richTextStoragePlugin();
+        const plugin = createRichTextStorageTransformPlugin();
 
         const result = await plugin.fromStorage({
             ...defaultArgs,
             value
-        } as any);
+        } as unknown as FromStorageParams<any, any>);
 
         expect(result).toEqual(testValue);
     });

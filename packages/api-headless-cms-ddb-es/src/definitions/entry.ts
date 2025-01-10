@@ -1,12 +1,12 @@
-import { Entity, Table } from "dynamodb-toolbox";
+import { Entity, Table } from "@webiny/db-dynamodb/toolbox";
 import { Attributes } from "~/types";
 
-export interface Params {
-    table: Table;
+export interface CreateEntryEntityParams {
+    table: Table<string, string, string>;
     entityName: string;
     attributes: Attributes;
 }
-export const createEntryEntity = (params: Params): Entity<any> => {
+export const createEntryEntity = (params: CreateEntryEntityParams): Entity<any> => {
     const { table, entityName, attributes } = params;
     return new Entity({
         name: entityName,
@@ -38,25 +38,60 @@ export const createEntryEntity = (params: Params): Entity<any> => {
             id: {
                 type: "string"
             },
-            createdBy: {
-                type: "map"
-            },
+
+            /**
+             * Revision-level meta fields. 👇
+             */
+            revisionCreatedOn: { type: "string" },
+            revisionSavedOn: { type: "string" },
+            revisionModifiedOn: { type: "string" },
+            revisionDeletedOn: { type: "string" },
+            revisionRestoredOn: { type: "string" },
+            revisionFirstPublishedOn: { type: "string" },
+            revisionLastPublishedOn: { type: "string" },
+            revisionCreatedBy: { type: "map" },
+            revisionSavedBy: { type: "map" },
+            revisionModifiedBy: { type: "map" },
+            revisionDeletedBy: { type: "map" },
+            revisionRestoredBy: { type: "map" },
+            revisionFirstPublishedBy: { type: "map" },
+            revisionLastPublishedBy: { type: "map" },
+
+            /**
+             * Entry-level meta fields. 👇
+             */
+            createdOn: { type: "string" },
+            savedOn: { type: "string" },
+            modifiedOn: { type: "string" },
+            deletedOn: { type: "string" },
+            restoredOn: { type: "string" },
+            firstPublishedOn: { type: "string" },
+            lastPublishedOn: { type: "string" },
+            createdBy: { type: "map" },
+            savedBy: { type: "map" },
+            modifiedBy: { type: "map" },
+            deletedBy: { type: "map" },
+            restoredBy: { type: "map" },
+            firstPublishedBy: { type: "map" },
+            lastPublishedBy: { type: "map" },
+
+            /**
+             * Deprecated fields. 👇
+             */
             ownedBy: {
                 type: "map"
             },
-            createdOn: {
+            publishedOn: {
                 type: "string"
             },
-            savedOn: {
-                type: "string"
-            },
+
+            /**
+             * The rest. 👇
+             */
             modelId: {
                 type: "string"
             },
             locale: {
-                type: "string"
-            },
-            publishedOn: {
                 type: "string"
             },
             version: {
@@ -68,7 +103,19 @@ export const createEntryEntity = (params: Params): Entity<any> => {
             status: {
                 type: "string"
             },
+            location: {
+                type: "map"
+            },
+            wbyDeleted: {
+                type: "boolean"
+            },
+            binOriginalFolderId: {
+                type: "string"
+            },
             values: {
+                type: "map"
+            },
+            meta: {
                 type: "map"
             },
             ...(attributes || {})

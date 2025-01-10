@@ -1,7 +1,7 @@
-import { CmsModel, CmsGroup } from "~/types";
+import { CmsGroup, CmsModel } from "~/types";
 import models from "./mocks/contentModels";
-import { useContentGqlHandler } from "../utils/useContentGqlHandler";
-import { useBugManageHandler } from "../utils/useBugManageHandler";
+import { useGraphQLHandler } from "../testHelpers/useGraphQLHandler";
+import { useBugManageHandler } from "../testHelpers/useBugManageHandler";
 
 describe("predefined values", () => {
     const manageOpts = { path: "manage/en-US" };
@@ -10,7 +10,7 @@ describe("predefined values", () => {
         createContentModelMutation,
         updateContentModelMutation,
         createContentModelGroupMutation
-    } = useContentGqlHandler(manageOpts);
+    } = useGraphQLHandler(manageOpts);
 
     const setupContentModelGroup = async (): Promise<CmsGroup> => {
         const [createCMG] = await createContentModelGroupMutation({
@@ -26,14 +26,19 @@ describe("predefined values", () => {
 
     const setupBugModel = async (
         contentModelGroup: CmsGroup,
-        overrides: Record<string, any> = {}
+        overrides: (model: CmsModel) => Partial<CmsModel> = () => ({})
     ): Promise<CmsModel> => {
         const model = models.find(m => m.modelId === "bug");
+        if (!model) {
+            throw new Error(`Could not find model "bug".`);
+        }
         // Create initial record
         const [create] = await createContentModelMutation({
             data: {
                 name: model.name,
                 modelId: model.modelId,
+                singularApiName: model.singularApiName,
+                pluralApiName: model.pluralApiName,
                 group: contentModelGroup.id
             }
         });
@@ -48,7 +53,7 @@ describe("predefined values", () => {
             data: {
                 fields: model.fields,
                 layout: model.layout,
-                ...overrides
+                ...(overrides ? overrides(model) : {})
             }
         });
         return update.data.updateContentModel.data;
@@ -56,7 +61,7 @@ describe("predefined values", () => {
 
     test("should create an entry with predefined values selected", async () => {
         const contentModelGroup = await setupContentModelGroup();
-        await setupBugModel(contentModelGroup, {});
+        await setupBugModel(contentModelGroup);
 
         const { createBug } = useBugManageHandler({
             ...manageOpts
@@ -77,16 +82,18 @@ describe("predefined values", () => {
                     data: {
                         id: expect.any(String),
                         createdOn: expect.stringMatching(/^20/),
+                        modifiedOn: null,
                         savedOn: expect.stringMatching(/^20/),
                         createdBy: {
-                            id: "12345678",
+                            id: "id-12345678",
                             displayName: "John Doe",
                             type: "admin"
                         },
+                        lastPublishedOn: null,
+                        firstPublishedOn: null,
                         meta: {
                             locked: false,
                             modelId: "bug",
-                            publishedOn: null,
                             status: "draft",
                             title: "A hard debuggable bug",
                             version: 1
@@ -104,7 +111,7 @@ describe("predefined values", () => {
 
     test("should fail creating an entry with wrong predefined text value selected", async () => {
         const contentModelGroup = await setupContentModelGroup();
-        await setupBugModel(contentModelGroup, {});
+        await setupBugModel(contentModelGroup);
 
         const { createBug } = useBugManageHandler({
             ...manageOpts
@@ -128,8 +135,11 @@ describe("predefined values", () => {
                         code: "VALIDATION_FAILED",
                         data: [
                             {
+                                storageId: expect.stringMatching("text@"),
                                 fieldId: "bugType",
-                                error: "Value sent does not match any of the available predefined values."
+                                id: "bugType",
+                                error: "Value sent does not match any of the available predefined values.",
+                                parents: []
                             }
                         ]
                     }
@@ -140,7 +150,7 @@ describe("predefined values", () => {
 
     test("should fail creating an entry with wrong predefined number value selected", async () => {
         const contentModelGroup = await setupContentModelGroup();
-        await setupBugModel(contentModelGroup, {});
+        await setupBugModel(contentModelGroup);
 
         const { createBug } = useBugManageHandler({
             ...manageOpts
@@ -165,7 +175,10 @@ describe("predefined values", () => {
                         data: [
                             {
                                 fieldId: "bugValue",
-                                error: "Value sent does not match any of the available predefined values."
+                                id: "bugValue",
+                                storageId: expect.stringMatching("number@"),
+                                error: "Value sent does not match any of the available predefined values.",
+                                parents: []
                             }
                         ]
                     }
@@ -176,7 +189,7 @@ describe("predefined values", () => {
 
     test("should fail creating an entry with wrong predefined number and text values selected", async () => {
         const contentModelGroup = await setupContentModelGroup();
-        await setupBugModel(contentModelGroup, {});
+        await setupBugModel(contentModelGroup);
 
         const { createBug } = useBugManageHandler({
             ...manageOpts
@@ -201,11 +214,17 @@ describe("predefined values", () => {
                         data: [
                             {
                                 fieldId: "bugType",
-                                error: "Value sent does not match any of the available predefined values."
+                                id: "bugType",
+                                storageId: expect.stringMatching("text@"),
+                                error: "Value sent does not match any of the available predefined values.",
+                                parents: []
                             },
                             {
                                 fieldId: "bugValue",
-                                error: "Value sent does not match any of the available predefined values."
+                                id: "bugValue",
+                                storageId: expect.stringMatching("number@"),
+                                error: "Value sent does not match any of the available predefined values.",
+                                parents: []
                             }
                         ]
                     }
@@ -214,97 +233,130 @@ describe("predefined values", () => {
         });
     });
 
-    test("title should be a selected predefined text value label", async () => {
+    it("should be able to create an entry with default bug type value", async () => {
         const contentModelGroup = await setupContentModelGroup();
-        await setupBugModel(contentModelGroup, {
-            titleFieldId: "bugType"
-        });
+        const bugModel = await setupBugModel(contentModelGroup, () => ({
+            titleFieldId: "bugValue"
+        }));
 
         const { createBug } = useBugManageHandler({
             ...manageOpts
         });
 
-        const [response] = await createBug({
+        const [responseNothing] = await createBug({
             data: {
-                name: "A hard debuggable bug",
-                bugType: "critical",
-                bugValue: 2,
+                name: "A hard debuggable bug - none",
+                /**
+                 * do not send bug type at all
+                 */
+                bugValue: 3,
                 bugFixed: 3
             }
         });
 
-        expect(response).toEqual({
+        expect(responseNothing).toEqual({
             data: {
                 createBug: {
                     data: {
                         id: expect.any(String),
                         createdOn: expect.stringMatching(/^20/),
+                        modifiedOn: null,
                         savedOn: expect.stringMatching(/^20/),
                         createdBy: {
-                            id: "12345678",
+                            id: "id-12345678",
                             displayName: "John Doe",
                             type: "admin"
                         },
+                        lastPublishedOn: null,
+                        firstPublishedOn: null,
                         meta: {
                             locked: false,
                             modelId: "bug",
-                            publishedOn: null,
                             status: "draft",
-                            title: "Critical bug!",
+                            title: "A hard debuggable bug - none",
                             version: 1
                         },
-                        name: "A hard debuggable bug",
+                        name: "A hard debuggable bug - none",
                         bugType: "critical",
-                        bugValue: 2,
+                        bugValue: 3,
                         bugFixed: 3
                     },
                     error: null
                 }
             }
         });
-    });
-
-    test("title should be a selected predefined number value label", async () => {
-        const contentModelGroup = await setupContentModelGroup();
-        await setupBugModel(contentModelGroup, {
-            titleFieldId: "bugValue"
-        });
-
-        const { createBug } = useBugManageHandler({
-            ...manageOpts
-        });
-
-        const [response] = await createBug({
+        /**
+         * Lets update field default value to something else.
+         */
+        const fields = bugModel.fields.concat([]);
+        for (const field of fields) {
+            if (field.fieldId !== "bugType") {
+                continue;
+            }
+            if (!field.settings) {
+                field.settings = {};
+            }
+            field.settings.defaultValue = "when-you-have-time";
+        }
+        /**
+         * Make sure that content model is updated
+         */
+        const [updateBugModelResponse] = await updateContentModelMutation({
+            modelId: bugModel.modelId,
             data: {
-                name: "A hard debuggable bug",
-                bugType: "critical",
+                fields,
+                layout: bugModel.layout
+            }
+        });
+        expect(updateBugModelResponse).toEqual({
+            data: {
+                updateContentModel: {
+                    data: {
+                        ...bugModel,
+                        fields,
+                        savedOn: expect.stringMatching(/^20/)
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [responseUndefined] = await createBug({
+            data: {
+                name: "A hard debuggable bug - undefined",
+                /**
+                 * send a bug type as undefined
+                 */
+                bugType: undefined,
                 bugValue: 3,
                 bugFixed: 3
             }
         });
 
-        expect(response).toEqual({
+        expect(responseUndefined).toEqual({
             data: {
                 createBug: {
                     data: {
                         id: expect.any(String),
                         createdOn: expect.stringMatching(/^20/),
+                        modifiedOn: null,
                         savedOn: expect.stringMatching(/^20/),
                         createdBy: {
-                            id: "12345678",
+                            id: "id-12345678",
                             displayName: "John Doe",
                             type: "admin"
                         },
+                        lastPublishedOn: null,
+                        firstPublishedOn: null,
                         meta: {
                             locked: false,
                             modelId: "bug",
-                            publishedOn: null,
                             status: "draft",
-                            title: "High bug value",
+                            title: "A hard debuggable bug - undefined",
                             version: 1
                         },
-                        name: "A hard debuggable bug",
-                        bugType: "critical",
+                        name: "A hard debuggable bug - undefined",
+                        bugType: "when-you-have-time",
                         bugValue: 3,
                         bugFixed: 3
                     },

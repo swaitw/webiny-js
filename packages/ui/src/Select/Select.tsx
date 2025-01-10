@@ -1,11 +1,15 @@
-import * as React from "react";
-import { Select as RmwcSelect, SelectProps as RmwcSelectProps } from "@rmwc/select";
-import { FormElementMessage } from "../FormElementMessage";
-import { FormComponentProps } from "./../types";
-import { css } from "emotion";
+import React, { useMemo } from "react";
+import {
+    FormattedOption,
+    Select as RmwcSelect,
+    SelectProps as RmwcSelectProps
+} from "@rmwc/select";
+import { FormElementMessage } from "~/FormElementMessage";
+import { FormComponentProps } from "~/types";
 import classNames from "classnames";
+import { webinySelect } from "./styled";
 
-type SelectProps = FormComponentProps &
+export type SelectProps = FormComponentProps &
     RmwcSelectProps & {
         // Component label.
         label?: string;
@@ -23,73 +27,130 @@ type SelectProps = FormComponentProps &
         box?: string;
 
         // One or more <option> or <optgroup> elements.
-        children?: Array<React.ReactElement<"option"> | React.ReactElement<"optgroup">>;
+        children?: (React.ReactElement<"option"> | React.ReactElement<"optgroup">)[];
 
         // IconProps for the root element. By default, additional props spread to the native select element.
-        rootProps?: Object;
+        rootProps?: {
+            [key: string]: any;
+        };
 
         // A className for the root element.
         className?: string;
+
+        // Size - small, medium or large
+        size?: "small" | "medium" | "large";
     };
 
-const noLabel = css({
-    "&.mdc-select": {
-        height: 35,
-        ".mdc-select__native-control": {
-            paddingTop: 0
-        },
-        "&.mdc-select--box": {
-            ".mdc-select__native-control": {
-                height: 35,
-                paddingTop: 5
+/**
+ * TODO verify that this is correct method get all options.
+ */
+const getOptions = (initialOptions: SelectProps["options"]): FormattedOption[] => {
+    if (!initialOptions) {
+        return [];
+    } else if (Array.isArray(initialOptions)) {
+        const options: FormattedOption[] = [];
+        for (const option of initialOptions) {
+            if (typeof option === "string") {
+                options.push({
+                    label: option,
+                    value: option
+                });
+                continue;
             }
+            options.push({
+                label: option.label,
+                value: option.value,
+                options: option.options
+            });
         }
+        return options;
     }
-});
+    return Object.keys(initialOptions).map(key => {
+        return {
+            label: initialOptions[key],
+            value: key
+        };
+    });
+};
 
 /**
  * Select component lets users choose a value from given set of options.
  */
-const skipProps = ["validate"];
+const skipProps = ["validate", "form"];
 
-const getRmwcProps = props => {
-    const newProps = {};
+const getRmwcProps = (props: SelectProps): FormComponentProps & RmwcSelectProps => {
+    const newProps: FormComponentProps & RmwcSelectProps = {};
     Object.keys(props)
         .filter(name => !skipProps.includes(name))
-        .forEach(name => (newProps[name] = props[name]));
+        // @ts-expect-error
+        .forEach((name: any) => (newProps[name] = props[name]));
 
     return newProps;
 };
-
+/**
+ * We check for null and undefined in the value because React is complaining about those values.
+ * Error says to use the empty string in null/undefined case.
+ */
 export const Select = (props: SelectProps) => {
-    const { value, description, validation, ...other } = props;
+    const { value: initialValue, description, validation, ...other } = props;
+
+    const value = initialValue === null || initialValue === undefined ? "" : initialValue;
+
+    const { isValid: validationIsValid, message: validationMessage } = validation || {};
+
+    const options = getOptions(other.options);
+
+    // Memoize the label and placeholder values based on the component size.
+    const { label, placeholder } = useMemo(() => {
+        const { size, label, placeholder: placeholderText } = props;
+
+        // If `placeholderText` is null, undefined, or an empty string after trimming, `placeholder` will be set to `undefined`.
+        const placeholder = placeholderText?.trim() || undefined;
+
+        // For small or medium size, we set only the placeholder, using label as fallback.
+        if (size === "small" || size === "medium") {
+            return {
+                label: undefined,
+                placeholder: placeholder || label
+            };
+        }
+
+        // For other sizes, use the provided label and placeholder.
+        return {
+            label,
+            placeholder
+        };
+    }, [props.label, props.placeholder, props.size]);
 
     return (
-        <React.Fragment>
+        <>
             <RmwcSelect
                 {...getRmwcProps(other)}
+                ref={undefined}
+                options={options}
                 value={value}
-                className={classNames("webiny-ui-select", props.className, {
-                    [noLabel]: !props.label
-                })}
-                onChange={e => {
-                    props.onChange && props.onChange((e.target as any).value);
+                label={label}
+                placeholder={placeholder}
+                className={classNames(
+                    "webiny-ui-select mdc-ripple-surface mdc-ripple-upgraded",
+                    webinySelect,
+                    props.size ? `webiny-ui-select--size-${props.size}` : null,
+                    props.className
+                )}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                    props.onChange && props.onChange(e.target.value);
                 }}
             />
 
-            {validation.isValid === false && (
-                <FormElementMessage error>{validation.message}</FormElementMessage>
+            {validationIsValid === false && (
+                <FormElementMessage error>{validationMessage}</FormElementMessage>
             )}
 
-            {validation.isValid !== false && description && (
+            {validationIsValid !== false && description && (
                 <FormElementMessage>{description}</FormElementMessage>
             )}
-        </React.Fragment>
+        </>
     );
-};
-
-Select.defaultProps = {
-    validation: { isValid: null }
 };
 
 export default Select;

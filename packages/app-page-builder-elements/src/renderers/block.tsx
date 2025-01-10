@@ -1,31 +1,40 @@
 import React from "react";
 import { Elements } from "~/components/Elements";
-import { usePageElements } from "~/hooks/usePageElements";
-import { ElementRenderer } from "~/types";
+import { createRenderer } from "~/createRenderer";
+import { useRenderer } from "~/hooks/useRenderer";
+import { BlockProvider } from "./block/BlockProvider";
+export * from "./block/BlockProvider";
 
-declare global {
-    //eslint-disable-next-line
-    namespace JSX {
-        interface IntrinsicElements {
-            "pb-block": any;
-            "pb-block-inner": any;
-        }
-    }
+interface BlockRendererProps {
+    ifEmpty?: JSX.Element;
 }
 
-const defaultStyles = { display: "block", boxSizing: "border-box" };
+export const BlockRenderer = createRenderer<BlockRendererProps>(
+    ({ ifEmpty = null }) => {
+        const { getElement } = useRenderer();
 
-const Block: ElementRenderer = ({ element }) => {
-    const { getClassNames, getElementClassNames } = usePageElements();
-    const classNames = getClassNames(defaultStyles);
+        const element = getElement();
 
-    return (
-        <pb-block class={classNames}>
-            <pb-block-inner class={getElementClassNames(element)}>
+        if (element.elements.length === 0) {
+            return ifEmpty;
+        }
+
+        return (
+            <BlockProvider block={element}>
                 <Elements element={element} />
-            </pb-block-inner>
-        </pb-block>
-    );
-};
-
-export const createBlock = () => Block;
+                {element.data.blockId && (
+                    <ps-tag data-key={"pb-page-block"} data-value={element.data.blockId} />
+                )}
+            </BlockProvider>
+        );
+    },
+    {
+        baseStyles: {
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "flex-start",
+            alignItems: "flex-start",
+            boxSizing: "border-box"
+        }
+    }
+);

@@ -1,27 +1,20 @@
-import * as React from "react";
-import noop from "lodash/noop";
+import React from "react";
 
-import {
-    Dialog,
-    DialogButton,
-    DialogCancel,
-    DialogActions,
-    DialogTitle,
-    DialogContent
-} from "./../Dialog";
+import { Dialog, DialogCancel, DialogActions, DialogTitle, DialogContent } from "./../Dialog";
 
 import { CircularProgress } from "../Progress";
+import { ButtonPrimary } from "~/Button";
 
 interface ChildrenRenderProp {
-    showConfirmation: (onAccept?: Function, onCancel?: Function) => any;
+    showConfirmation: (onAccept?: () => void, onCancel?: () => void) => any;
 }
 
 interface ConfirmationCallbacks {
-    onAccept: Function;
-    onCancel: Function;
+    onAccept?: () => void;
+    onCancel?: () => void;
 }
 
-type Props = {
+interface Props {
     // Title of confirmation dialog
     title?: React.ReactNode;
 
@@ -42,17 +35,17 @@ type Props = {
 
     // Dialog component's custom in-line styles.
     style?: React.CSSProperties;
-};
+}
 
-type State = {
+interface ConfirmationDialogState {
     show: boolean;
     loading: boolean;
-};
+}
 
 /**
  * Use ConfirmationDialog component to display a list of choices, once the handler is triggered.
  */
-class ConfirmationDialog extends React.Component<Props, State> {
+class ConfirmationDialog extends React.Component<Props, ConfirmationDialogState> {
     static defaultProps = {
         title: "Confirmation",
         message: "Are you sure you want to continue?",
@@ -62,33 +55,40 @@ class ConfirmationDialog extends React.Component<Props, State> {
     __isMounted = false;
 
     callbacks: ConfirmationCallbacks = {
-        onAccept: noop,
-        onCancel: noop
+        onAccept: () => {
+            return void 0;
+        },
+        onCancel: () => {
+            return void 0;
+        }
     };
 
-    state = {
+    public override state = {
         show: false,
         loading: false
     };
 
-    componentDidMount() {
+    public override componentDidMount() {
         this.__isMounted = true;
     }
 
-    componentWillUnmount() {
+    public override componentWillUnmount() {
         this.__isMounted = false;
     }
 
-    showConfirmation = (onAccept?: Function, onCancel?: Function) => {
-        this.callbacks = { onAccept, onCancel };
+    private readonly showConfirmation = (onAccept?: () => void, onCancel?: () => void) => {
+        this.callbacks = {
+            onAccept,
+            onCancel
+        };
         this.setState({ show: true });
     };
 
-    hideConfirmation = () => {
+    private readonly hideConfirmation = () => {
         this.setState({ show: false });
     };
 
-    onAccept = async () => {
+    private readonly onAccept = async () => {
         const { onAccept } = this.callbacks;
         if (typeof onAccept === "function") {
             this.setState({ loading: true });
@@ -99,14 +99,14 @@ class ConfirmationDialog extends React.Component<Props, State> {
         }
     };
 
-    onCancel = async () => {
+    private readonly onCancel = async () => {
         const { onCancel } = this.callbacks;
         if (typeof onCancel === "function") {
             await onCancel();
         }
     };
 
-    render() {
+    public override render() {
         return (
             <React.Fragment>
                 <Dialog
@@ -120,13 +120,13 @@ class ConfirmationDialog extends React.Component<Props, State> {
                     <DialogContent>{this.props.message}</DialogContent>
                     <DialogActions>
                         <DialogCancel onClick={this.onCancel}>Cancel</DialogCancel>
-                        <DialogButton
+                        <ButtonPrimary
                             data-testid="confirmationdialog-confirm-action"
                             onClick={this.onAccept}
                             disabled={this.props.disableConfirm}
                         >
                             Confirm
-                        </DialogButton>
+                        </ButtonPrimary>
                     </DialogActions>
                 </Dialog>
                 {this.props.children({

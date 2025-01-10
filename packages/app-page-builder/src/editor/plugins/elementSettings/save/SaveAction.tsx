@@ -1,56 +1,29 @@
 import React, { useEffect, useCallback, useState } from "react";
-import dataURLtoBlob from "dataurl-to-blob";
-import SaveDialog from "./SaveDialog";
-import pick from "lodash.pick";
 import get from "lodash/get";
-import createElementPlugin from "../../../../admin/utils/createElementPlugin";
-import createBlockPlugin from "../../../../admin/utils/createBlockPlugin";
-import { activeElementAtom, elementByIdSelector } from "../../../recoil/modules";
 import { useApolloClient } from "@apollo/react-hooks";
 import { plugins } from "@webiny/plugins";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
-import { useKeyHandler } from "../../../hooks/useKeyHandler";
-import { CREATE_PAGE_ELEMENT, UPDATE_PAGE_ELEMENT } from "../../../../admin/graphql/pages";
-import { useRecoilValue } from "recoil";
-import { CREATE_FILE } from "./SaveDialog/graphql";
-import { FileUploaderPlugin } from "@webiny/app/types";
+import SaveDialog from "./SaveDialog";
+import createElementPlugin from "~/admin/utils/createElementPlugin";
+import { useKeyHandler } from "~/editor/hooks/useKeyHandler";
+import { CREATE_PAGE_ELEMENT } from "~/admin/graphql/pages";
 import {
     PbEditorPageElementPlugin,
     PbEditorPageElementSaveActionPlugin,
+    PbEditorElement as BasePbEditorElement,
+    PbElement,
     PbEditorElement
-} from "../../../../types";
-import { useEventActionHandler } from "../../../hooks/useEventActionHandler";
+} from "~/types";
+import { useEventActionHandler } from "~/editor/hooks/useEventActionHandler";
+import { removeElementId } from "~/editor/helpers";
+import { useActiveElement } from "~/editor/hooks/useActiveElement";
+import { usePageBlocks } from "~/admin/contexts/AdminPageBuilder/PageBlocks/usePageBlocks";
 
-const removeIds = el => {
-    delete el.id;
-
-    el.elements = el.elements.map(el => {
-        delete el.id;
-        if (el.elements && el.elements.length) {
-            el = removeIds(el);
-        }
-
-        return el;
-    });
-
-    return el;
-};
-
-type ImageDimensionsType = {
-    width: number;
-    height: number;
-};
-function getDataURLImageDimensions(dataURL: string): Promise<ImageDimensionsType> {
-    return new Promise(resolve => {
-        const image = new window.Image();
-        image.onload = function () {
-            resolve({ width: image.width, height: image.height });
-        };
-        image.src = dataURL;
-    });
+interface PbEditorElementWithSource extends PbEditorElement {
+    source: string;
 }
 
-const pluginOnSave = (element: PbEditorElement): PbEditorElement => {
+const pluginOnSave = (element: BasePbEditorElement): BasePbEditorElement => {
     const plugin = plugins
         .byType<PbEditorPageElementSaveActionPlugin>("pb-editor-page-element-save-action")
         .find(pl => pl.elementType === element.type);
@@ -60,70 +33,86 @@ const pluginOnSave = (element: PbEditorElement): PbEditorElement => {
     return plugin.onSave(element);
 };
 
-const SaveAction: React.FunctionComponent = ({ children }) => {
-    const activeElementId = useRecoilValue(activeElementAtom);
-    const element = useRecoilValue(elementByIdSelector(activeElementId));
+export interface SaveBlockFormData {
+    id: string;
+    name: string;
+    type: "block";
+    blockCategory: string;
+    overwrite?: boolean;
+}
+
+export interface SaveElementFormData {
+    id: string;
+    name: string;
+    type: "element";
+}
+
+const SaveAction = ({ children }: { children: React.ReactElement }) => {
+    const [element] = useActiveElement<PbEditorElementWithSource>();
     const { addKeyHandler, removeKeyHandler } = useKeyHandler();
     const { getElementTree } = useEventActionHandler();
     const { showSnackbar } = useSnackbar();
     const [isDialogOpened, setOpenDialog] = useState<boolean>(false);
     const client = useApolloClient();
+    const { createBlock, updateBlock } = usePageBlocks();
 
-    const onSubmit = async formData => {
-        formData.content = pluginOnSave(removeIds(await getElementTree(element)));
+    const onSubmit = async (formData: SaveElementFormData | SaveBlockFormData) => {
+        const pbElement = (await getElementTree({ element })) as PbElement;
+        const newContent = pluginOnSave(removeElementId(pbElement));
 
-        const meta = await getDataURLImageDimensions(formData.preview);
-        const blob = dataURLtoBlob(formData.preview);
-        blob.name = "pb-editor-page-element-" + element.id + ".png";
-
-        const fileUploaderPlugin = plugins.byName<FileUploaderPlugin>("app-file-manager-storage");
-        const previewImage = await fileUploaderPlugin.upload(blob, { apolloClient: client });
-        previewImage.meta = meta;
-        previewImage.meta.private = true;
-
-        const createdImageResponse = await client.mutate({
-            mutation: CREATE_FILE,
-            variables: {
-                data: previewImage
+        if (formData.type === "block") {
+            // We can create a new block, or update an existing one.
+            try {
+                if (formData.overwrite) {
+                    await updateBlock({
+                        id: element.source,
+                        content: newContent
+                    });
+                } else {
+                    await createBlock({
+                        name: formData.name,
+                        category: formData.blockCategory,
+                        content: newContent
+                    });
+                }
+            } catch (error) {
+                showSnackbar(error.message);
+                return;
             }
-        });
 
-        const createdImage = get(createdImageResponse, "data.fileManager.createFile", {});
-        if (createdImage.error) {
-            return showSnackbar("Image could not be saved.");
-        } else if (!createdImage.data.id) {
-            return showSnackbar("Missing saved image id.");
-        }
+            hideDialog();
 
-        formData.preview = createdImage.data;
-
-        const query = formData.overwrite ? UPDATE_PAGE_ELEMENT : CREATE_PAGE_ELEMENT;
-
-        const { data: res } = await client.mutate({
-            mutation: query,
-            variables: formData.overwrite
-                ? {
-                      id: element.source,
-                      data: pick(formData, ["content", "id", "preview"])
-                  }
-                : { data: pick(formData, ["type", "category", "preview", "name", "content"]) }
-        });
-
-        hideDialog();
-        const mutationName = formData.overwrite ? "updatePageElement" : "createPageElement";
-        const data = get(res, `pageBuilder.${mutationName}.data`);
-        if (data.type === "block") {
-            createBlockPlugin(data);
+            showSnackbar(
+                <span>
+                    {formData.type[0].toUpperCase() + formData.type.slice(1)}{" "}
+                    <strong>{formData.name}</strong> was saved!
+                </span>
+            );
         } else {
-            createElementPlugin(data);
-        }
+            const { data: res } = await client.mutate({
+                mutation: CREATE_PAGE_ELEMENT,
+                variables: {
+                    data: {
+                        name: formData.name,
+                        type: formData.type,
+                        content: newContent
+                    }
+                }
+            });
 
-        showSnackbar(
-            <span>
-                {formData.type[0].toUpperCase() + formData.type.slice(1)}{" "}
-                <strong>{data.name}</strong> was saved!
-            </span>
-        );
+            hideDialog();
+
+            const data = get(res, `pageBuilder.createPageElement.data`);
+
+            createElementPlugin(data);
+
+            showSnackbar(
+                <span>
+                    {formData.type[0].toUpperCase() + formData.type.slice(1)}{" "}
+                    <strong>{data.name}</strong> was saved!
+                </span>
+            );
+        }
     };
 
     useEffect(() => {
@@ -152,10 +141,12 @@ const SaveAction: React.FunctionComponent = ({ children }) => {
                 element={element}
                 open={isDialogOpened}
                 onClose={hideDialog}
-                onSubmit={onSubmit}
+                onSubmit={data => onSubmit(data)}
                 type={element.type === "block" ? "block" : "element"}
             />
-            {React.cloneElement(children as React.ReactElement, { onClick: showDialog })}
+            {React.cloneElement(children, {
+                onClick: showDialog
+            })}
         </>
     );
 };

@@ -29,32 +29,37 @@ import SearchUI from "@webiny/app-admin/components/SearchUI";
 import { ReactComponent as AddIcon } from "@webiny/app-admin/assets/icons/add-18px.svg";
 import { ReactComponent as FilterIcon } from "@webiny/app-admin/assets/icons/filter-24px.svg";
 import { DELETE_USER, LIST_USERS } from "./graphql";
-import { serializeSorters, deserializeSorters } from "../utils";
+import { deserializeSorters } from "../utils";
+import { UserItem } from "~/UserItem";
 
 const t = i18n.ns("app-identity/admin/users/data-list");
 
 const SORTERS = [
     {
         label: t`Newest to oldest`,
-        sorters: { createdOn: "desc" }
+        sorter: "createdOn_DESC"
     },
     {
         label: t`Oldest to newest`,
-        sorters: { createdOn: "asc" }
+        sorter: "createdOn_ASC"
     },
     {
         label: t`Email A-Z`,
-        sorters: { email: "asc" }
+        sorter: "email_ASC"
     },
     {
         label: t`Email Z-A`,
-        sorters: { email: "desc" }
+        sorter: "email_DESC"
     }
 ];
 
+interface FilterUsersCallable {
+    (user: Pick<UserItem, "email" | "firstName" | "lastName">): boolean;
+}
+
 const UsersDataList = () => {
     const [filter, setFilter] = useState("");
-    const [sort, setSort] = useState(serializeSorters(SORTERS[0].sorters));
+    const [sort, setSort] = useState<string>(SORTERS[0].sorter);
     const { identity } = useSecurity();
     const { history } = useRouter();
     const { showSnackbar } = useSnackbar();
@@ -62,7 +67,7 @@ const UsersDataList = () => {
         dataTestId: "default-data-list.delete-dialog"
     });
 
-    const filterUsers = useCallback(
+    const filterUsers = useCallback<FilterUsersCallable>(
         ({ email, firstName, lastName }) => {
             return (
                 email.toLowerCase().includes(filter) ||
@@ -74,12 +79,12 @@ const UsersDataList = () => {
     );
 
     const sortUsers = useCallback(
-        users => {
+        (users: UserItem[]) => {
             if (!sort) {
                 return users;
             }
-            const [[key, value]] = Object.entries(deserializeSorters(sort));
-            return orderBy(users, [key], [value]);
+            const [key, sortBy] = deserializeSorters(sort);
+            return orderBy(users, [key], [sortBy]);
         },
         [sort]
     );
@@ -96,7 +101,7 @@ const UsersDataList = () => {
     const id = new URLSearchParams(location.search).get("id");
 
     const deleteItem = useCallback(
-        item => {
+        (item: Pick<UserItem, "id" | "email">) => {
             showConfirmation(async () => {
                 const response = await deleteIt({
                     variables: item
@@ -123,9 +128,9 @@ const UsersDataList = () => {
                 <Grid>
                     <Cell span={12}>
                         <Select value={sort} onChange={setSort} label={t`Sort by`}>
-                            {SORTERS.map(({ label, sorters }) => {
+                            {SORTERS.map(({ label, sorter }) => {
                                 return (
-                                    <option key={label} value={serializeSorters(sorters)}>
+                                    <option key={label} value={sorter}>
                                         {label}
                                     </option>
                                 );
@@ -164,10 +169,14 @@ const UsersDataList = () => {
                 />
             }
         >
-            {({ data }) => (
+            {({ data }: { data: UserItem[] }) => (
                 <ScrollList twoLine avatarList data-testid="default-data-list">
                     {data.map(item => (
-                        <ListItem key={item.id} selected={item.id === id}>
+                        <ListItem
+                            key={item.id}
+                            selected={item.id === id}
+                            style={{ height: "auto" }}
+                        >
                             <ListItemGraphic>
                                 <Avatar
                                     renderImage={props => (

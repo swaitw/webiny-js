@@ -1,4 +1,4 @@
-import { Entity } from "dynamodb-toolbox";
+import { Entity } from "~/toolbox";
 
 /**
  * The attributes defined by us or the dynamodb-toolbox library.
@@ -15,14 +15,22 @@ const attributesToRemove = [
     "_et",
     "GSI1_PK",
     "GSI1_SK",
+    "GSI2_PK",
+    "GSI2_SK",
+    "GSI3_PK",
+    "GSI3_SK",
+    "GSI4_PK",
+    "GSI4_SK",
+    "GSI5_PK",
+    "GSI5_SK",
     "TYPE"
 ];
 
-export const cleanupItem = <T>(
+export function cleanupItem<T>(
     entity: Entity<any>,
-    item?: T & Record<string, any>,
+    item?: T | null,
     removeAttributes: string[] = []
-): T | null => {
+): T | null {
     if (!item) {
         return null;
     }
@@ -41,12 +49,12 @@ export const cleanupItem = <T>(
         delete newItem[key];
     }
     return newItem;
-};
+}
 
-export const cleanupItems = <T>(
+export function cleanupItems<T>(
     entity: Entity<any>,
-    items: (T & Record<string, any>)[],
+    items: T[],
     removeAttributes: string[] = []
-): T[] => {
-    return items.map(item => cleanupItem<T>(entity, item, removeAttributes));
-};
+): T[] {
+    return items.map(item => cleanupItem<T>(entity, item, removeAttributes) as T);
+}

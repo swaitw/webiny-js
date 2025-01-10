@@ -1,11 +1,10 @@
-import { useCategoryManageHandler } from "../utils/useCategoryManageHandler";
-import { useArticleManageHandler } from "../utils/useArticleManageHandler";
-import { useArticleReadHandler } from "../utils/useArticleReadHandler";
-import { useContentGqlHandler } from "../utils/useContentGqlHandler";
-import { setupContentModelGroup, setupContentModels } from "../utils/setup";
-import { until } from "../utils/helpers";
+import { useCategoryManageHandler } from "../testHelpers/useCategoryManageHandler";
+import { useArticleManageHandler } from "../testHelpers/useArticleManageHandler";
+import { useArticleReadHandler } from "../testHelpers/useArticleReadHandler";
+import { useGraphQLHandler } from "../testHelpers/useGraphQLHandler";
+import { setupContentModelGroup, setupContentModels } from "../testHelpers/setup";
 
-const createCategoryItem = async ({ manager, from = null, publish, data }) => {
+const createCategoryItem = async ({ manager, from = null, publish, data }: any) => {
     const [response] = await (from
         ? manager.createCategoryFrom({ revision: from.id })
         : manager.createCategory({ data }));
@@ -45,7 +44,7 @@ const createCategoryItem = async ({ manager, from = null, publish, data }) => {
     return publishResponse.data.publishCategory.data;
 };
 
-const createArticleItem = async ({ manager, from = null, publish, data }) => {
+const createArticleItem = async ({ manager, from = null, publish, data }: any) => {
     const [response] = await (from
         ? manager.createArticleFrom({ revision: from.id })
         : manager.createArticle({ data }));
@@ -88,23 +87,24 @@ const createArticleItem = async ({ manager, from = null, publish, data }) => {
 /**
  * We need only certain values from the article data when created.
  */
-const extractReadArticle = (
-    item: Record<string, any>,
-    category?: Record<string, any>
-): Record<string, any> => {
+const extractReadArticle = (item: any, category?: any): Record<string, any> => {
     return {
         id: item.id,
         entryId: item.entryId,
         createdOn: item.createdOn,
+        modifiedOn: expect.toBeDateString(),
         savedOn: item.savedOn,
+        firstPublishedOn: expect.toBeDateString(),
+        lastPublishedOn: expect.toBeDateString(),
         createdBy: item.createdBy,
-        ownedBy: item.ownedBy,
         title: item.title,
         body: item.body,
         categories: category
             ? [
                   {
                       id: category.id,
+                      entryId: category.entryId,
+                      modelId: "category",
                       title: category.title
                   }
               ]
@@ -112,6 +112,8 @@ const extractReadArticle = (
         category: category
             ? {
                   id: category.id,
+                  entryId: category.entryId,
+                  modelId: "category",
                   title: category.title
               }
             : null
@@ -122,7 +124,7 @@ describe("entry references", () => {
     const manageOpts = { path: "manage/en-US" };
     const readOpts = { path: "read/en-US" };
 
-    const mainManager = useContentGqlHandler(manageOpts);
+    const mainManager = useGraphQLHandler(manageOpts);
 
     it("should get the published references on entries", async () => {
         const group = await setupContentModelGroup(mainManager);
@@ -147,12 +149,12 @@ describe("entry references", () => {
                 title: "Tech article",
                 body: null,
                 category: {
-                    entryId: techCategory.id,
+                    id: techCategory.id,
                     modelId: "category"
                 },
                 categories: [
                     {
-                        entryId: techCategory.id,
+                        id: techCategory.id,
                         modelId: "category"
                     }
                 ]
@@ -171,17 +173,16 @@ describe("entry references", () => {
 
         const techArticle2 = await createArticleItem({
             manager: articleManager,
-            // from: techArticle,
             data: {
                 title: "Tech article 2",
                 body: null,
                 category: {
-                    entryId: techCategory2.id,
+                    id: techCategory2.id,
                     modelId: "category"
                 },
                 categories: [
                     {
-                        entryId: techCategory2.id,
+                        id: techCategory2.id,
                         modelId: "category"
                     }
                 ]
@@ -201,40 +202,22 @@ describe("entry references", () => {
 
         const techArticle3 = await createArticleItem({
             manager: articleManager,
-            // from: techArticle2,
             data: {
                 title: "Tech article 3",
                 body: null,
                 category: {
-                    entryId: techCategory3.id,
+                    id: techCategory3.id,
                     modelId: "category"
                 },
                 categories: [
                     {
-                        entryId: techCategory3.id,
+                        id: techCategory3.id,
                         modelId: "category"
                     }
                 ]
             },
             publish: true
         });
-
-        /**
-         * Make sure we have all articles published.
-         */
-        await until(
-            () => articleManager.listArticles().then(([data]) => data),
-            ({ data }) => {
-                const entries = data.listArticles.data || [];
-                if (entries.length !== 3) {
-                    return false;
-                }
-                return entries.every(entry => {
-                    return !!entry.meta.publishedOn;
-                });
-            },
-            { name: "list all published articles", tries: 10 }
-        );
 
         const [readListResponse] = await articleRead.listArticles({
             sort: ["createdOn_DESC"]
@@ -292,7 +275,8 @@ describe("entry references", () => {
                          */
                         categories: [
                             {
-                                entryId: techCategory.id,
+                                id: techCategory.id,
+                                entryId: techCategory.entryId,
                                 modelId: techCategory.meta.modelId
                             }
                         ]
@@ -329,12 +313,12 @@ describe("entry references", () => {
                 title: "Tech article",
                 body: null,
                 category: {
-                    entryId: techCategory.id,
+                    id: techCategory.id,
                     modelId: "category"
                 },
                 categories: [
                     {
-                        entryId: techCategory.id,
+                        id: techCategory.id,
                         modelId: "category"
                     }
                 ]
@@ -362,24 +346,6 @@ describe("entry references", () => {
                 }
             }
         });
-        /**
-         * Make sure we have article published.
-         */
-        await until(
-            () => articleManager.listArticles().then(([data]) => data),
-            ({ data }) => {
-                const entries = data?.listArticles?.data || [];
-                if (entries.length !== 1) {
-                    return false;
-                }
-                return entries.every(entry => {
-                    return !!entry.meta.publishedOn;
-                });
-            },
-            {
-                name: "list all published articles"
-            }
-        );
 
         const [listManageResponse] = await articleManager.listArticles();
         expect(listManageResponse).toEqual({
@@ -450,19 +416,6 @@ describe("entry references", () => {
                 }
             }
         });
-        /**
-         * Make sure there are no categories.
-         */
-        await until(
-            () => categoryManager.listCategories().then(([data]) => data),
-            ({ data }) => {
-                const entries = data?.listCategories?.data || [];
-                return entries.length === 0;
-            },
-            {
-                name: "list all categories after delete"
-            }
-        );
 
         const [listAfterDeleteManageResponse] = await articleManager.listArticles();
         expect(listAfterDeleteManageResponse).toEqual({
@@ -523,11 +476,9 @@ describe("entry references", () => {
         });
     });
 
-    /**
-     * TODO implement filtering by reference field to make this work
-     */
-    // eslint-disable-next-line
-    it.skip("should list articles filtered by reference", async () => {
+    it("should list articles filtered by reference", async () => {
+        expect.assertions(12);
+
         const group = await setupContentModelGroup(mainManager);
         await setupContentModels(mainManager, group, ["category", "article"]);
 
@@ -550,12 +501,12 @@ describe("entry references", () => {
                 title: "Tech article",
                 body: null,
                 category: {
-                    entryId: techCategory.id,
+                    id: techCategory.id,
                     modelId: "category"
                 },
                 categories: [
                     {
-                        entryId: techCategory.id,
+                        id: techCategory.id,
                         modelId: "category"
                     }
                 ]
@@ -574,17 +525,16 @@ describe("entry references", () => {
 
         const techArticle2 = await createArticleItem({
             manager: articleManager,
-            // from: techArticle,
             data: {
                 title: "Tech article 2",
                 body: null,
                 category: {
-                    entryId: techCategory2.id,
+                    id: techCategory2.id,
                     modelId: "category"
                 },
                 categories: [
                     {
-                        entryId: techCategory2.id,
+                        id: techCategory2.id,
                         modelId: "category"
                     }
                 ]
@@ -604,17 +554,16 @@ describe("entry references", () => {
 
         const techArticle3 = await createArticleItem({
             manager: articleManager,
-            // from: techArticle2,
             data: {
                 title: "Tech article 3",
                 body: null,
                 category: {
-                    entryId: techCategory3.id,
+                    id: techCategory3.id,
                     modelId: "category"
                 },
                 categories: [
                     {
-                        entryId: techCategory3.id,
+                        id: techCategory3.id,
                         modelId: "category"
                     }
                 ]
@@ -631,19 +580,18 @@ describe("entry references", () => {
             publish: true
         });
 
-        // eslint-disable-next-line
         const foodArticle = await createArticleItem({
             manager: articleManager,
             data: {
                 title: "Food article",
                 body: null,
                 category: {
-                    entryId: foodCategory.id,
+                    id: foodCategory.id,
                     modelId: "category"
                 },
                 categories: [
                     {
-                        entryId: foodCategory.id,
+                        id: foodCategory.id,
                         modelId: "category"
                     }
                 ]
@@ -651,39 +599,123 @@ describe("entry references", () => {
             publish: true
         });
 
-        /**
-         * Make sure we have all articles published.
-         */
-        await until(
-            () => articleManager.listArticles().then(([data]) => data),
-            ({ data }) => {
-                const entries = data?.listArticles?.data || [];
-                if (entries.length !== 4) {
-                    return false;
-                }
-                return entries.every(entry => {
-                    return !!entry.meta.publishedOn;
-                });
-            },
-            { name: "list all published articles", tries: 10 }
-        );
-
         const [listArticlesEntryIdResponse] = await articleReader.listArticles({
             where: {
                 category: {
                     entryId: techCategory.entryId
                 }
             },
-            sort: ["createdBy_ASC"]
+            sort: ["createdOn_ASC"]
         });
+
+        const expectedTechArticles = [
+            {
+                ...techArticle,
+                category: {
+                    id: techCategory3.id,
+                    entryId: techCategory3.entryId,
+                    modelId: "category",
+                    title: techCategory3.title
+                },
+                categories: [
+                    {
+                        id: techCategory3.id,
+                        entryId: techCategory3.entryId,
+                        modelId: "category",
+                        title: techCategory3.title
+                    }
+                ],
+                meta: undefined
+            },
+            {
+                ...techArticle2,
+                category: {
+                    id: techCategory3.id,
+                    entryId: techCategory3.entryId,
+                    modelId: "category",
+                    title: techCategory3.title
+                },
+                categories: [
+                    {
+                        id: techCategory3.id,
+                        entryId: techCategory3.entryId,
+                        modelId: "category",
+                        title: techCategory3.title
+                    }
+                ],
+                meta: undefined
+            },
+            {
+                ...techArticle3,
+                category: {
+                    id: techCategory3.id,
+                    entryId: techCategory3.entryId,
+                    modelId: "category",
+                    title: techCategory3.title
+                },
+                categories: [
+                    {
+                        id: techCategory3.id,
+                        entryId: techCategory3.entryId,
+                        modelId: "category",
+                        title: techCategory3.title
+                    }
+                ],
+                meta: undefined
+            }
+        ];
 
         expect(listArticlesEntryIdResponse).toEqual({
             data: {
                 listArticles: {
-                    data: [techArticle, techArticle2, techArticle3],
+                    data: expectedTechArticles,
                     meta: {
                         hasMoreItems: false,
                         totalCount: 3,
+                        cursor: null
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [listArticlesEntryIdWrongResponse] = await articleReader.listArticles({
+            where: {
+                category: {
+                    entryId: techCategory.id
+                }
+            },
+            sort: ["createdOn_ASC"]
+        });
+        expect(listArticlesEntryIdWrongResponse).toEqual({
+            data: {
+                listArticles: {
+                    data: [],
+                    meta: {
+                        hasMoreItems: false,
+                        totalCount: 0,
+                        cursor: null
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [listArticlesIdWrongResponse] = await articleReader.listArticles({
+            where: {
+                category: {
+                    id: techCategory.entryId
+                }
+            },
+            sort: ["createdOn_ASC"]
+        });
+        expect(listArticlesIdWrongResponse).toEqual({
+            data: {
+                listArticles: {
+                    data: [],
+                    meta: {
+                        hasMoreItems: false,
+                        totalCount: 0,
                         cursor: null
                     },
                     error: null
@@ -697,13 +729,13 @@ describe("entry references", () => {
                     entryId_in: [techCategory.entryId]
                 }
             },
-            sort: ["createdBy_ASC"]
+            sort: ["createdOn_ASC"]
         });
 
         expect(listArticlesEntryIdInResponse).toEqual({
             data: {
                 listArticles: {
-                    data: [techArticle, techArticle2, techArticle3],
+                    data: expectedTechArticles,
                     meta: {
                         hasMoreItems: false,
                         totalCount: 3,
@@ -713,5 +745,378 @@ describe("entry references", () => {
                 }
             }
         });
+
+        const [listArticlesIdResponse] = await articleReader.listArticles({
+            where: {
+                category: {
+                    id: techCategory.id
+                }
+            },
+            sort: ["createdOn_ASC"]
+        });
+
+        expect(listArticlesIdResponse).toEqual({
+            data: {
+                listArticles: {
+                    data: [expectedTechArticles[0]],
+                    meta: {
+                        hasMoreItems: false,
+                        totalCount: 1,
+                        cursor: null
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [listArticlesIdInResponse] = await articleReader.listArticles({
+            where: {
+                category: {
+                    id_in: [techCategory.id]
+                }
+            },
+            sort: ["createdOn_ASC"]
+        });
+
+        expect(listArticlesIdInResponse).toEqual({
+            data: {
+                listArticles: {
+                    data: [expectedTechArticles[0]],
+                    meta: {
+                        hasMoreItems: false,
+                        totalCount: 1,
+                        cursor: null
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [listArticlesFoodResponse] = await articleReader.listArticles({
+            where: {
+                category: {
+                    entryId: foodCategory.entryId
+                }
+            },
+            sort: ["createdOn_ASC"]
+        });
+
+        expect(listArticlesFoodResponse).toEqual({
+            data: {
+                listArticles: {
+                    data: [
+                        {
+                            ...foodArticle,
+                            category: {
+                                id: foodCategory.id,
+                                entryId: foodCategory.entryId,
+                                modelId: "category",
+                                title: foodCategory.title
+                            },
+                            categories: [
+                                {
+                                    id: foodCategory.id,
+                                    entryId: foodCategory.entryId,
+                                    modelId: "category",
+                                    title: foodCategory.title
+                                }
+                            ],
+                            meta: undefined
+                        }
+                    ],
+                    meta: {
+                        hasMoreItems: false,
+                        totalCount: 1,
+                        cursor: null
+                    },
+                    error: null
+                }
+            }
+        });
+        /**
+         * Filtering on multipleValues field
+         */
+
+        const [listArticlesFoodMultipleEntryIdResponse] = await articleReader.listArticles({
+            where: {
+                categories: {
+                    entryId: foodCategory.entryId
+                }
+            },
+            sort: ["createdOn_ASC"]
+        });
+
+        expect(listArticlesFoodMultipleEntryIdResponse).toEqual({
+            data: {
+                listArticles: {
+                    data: [
+                        {
+                            ...foodArticle,
+                            category: {
+                                id: foodCategory.id,
+                                entryId: foodCategory.entryId,
+                                modelId: "category",
+                                title: foodCategory.title
+                            },
+                            categories: [
+                                {
+                                    id: foodCategory.id,
+                                    entryId: foodCategory.entryId,
+                                    modelId: "category",
+                                    title: foodCategory.title
+                                }
+                            ],
+                            meta: undefined
+                        }
+                    ],
+                    meta: {
+                        hasMoreItems: false,
+                        totalCount: 1,
+                        cursor: null
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [listArticlesFoodMultipleIdResponse] = await articleReader.listArticles({
+            where: {
+                categories: {
+                    id: foodCategory.id
+                }
+            },
+            sort: ["createdOn_ASC"]
+        });
+
+        expect(listArticlesFoodMultipleIdResponse).toEqual({
+            data: {
+                listArticles: {
+                    data: [
+                        {
+                            ...foodArticle,
+                            category: {
+                                id: foodCategory.id,
+                                entryId: foodCategory.entryId,
+                                modelId: "category",
+                                title: foodCategory.title
+                            },
+                            categories: [
+                                {
+                                    id: foodCategory.id,
+                                    entryId: foodCategory.entryId,
+                                    modelId: "category",
+                                    title: foodCategory.title
+                                }
+                            ],
+                            meta: undefined
+                        }
+                    ],
+                    meta: {
+                        hasMoreItems: false,
+                        totalCount: 1,
+                        cursor: null
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [listArticlesMultipleEntryIdInResponse] = await articleReader.listArticles({
+            where: {
+                categories: {
+                    entryId_in: [techCategory.entryId]
+                }
+            },
+            sort: ["createdOn_ASC"]
+        });
+
+        expect(listArticlesMultipleEntryIdInResponse).toEqual({
+            data: {
+                listArticles: {
+                    data: expectedTechArticles,
+                    meta: {
+                        hasMoreItems: false,
+                        totalCount: 3,
+                        cursor: null
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [listArticlesMultipleEntryIdWrongResponse] = await articleReader.listArticles({
+            where: {
+                categories: {
+                    entryId_in: [techCategory.id]
+                }
+            },
+            sort: ["createdOn_ASC"]
+        });
+
+        expect(listArticlesMultipleEntryIdWrongResponse).toEqual({
+            data: {
+                listArticles: {
+                    data: [],
+                    meta: {
+                        hasMoreItems: false,
+                        totalCount: 0,
+                        cursor: null
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [listArticlesMultipleIdWrongResponse] = await articleReader.listArticles({
+            where: {
+                categories: {
+                    id_in: [techCategory.entryId]
+                }
+            },
+            sort: ["createdOn_ASC"]
+        });
+
+        expect(listArticlesMultipleIdWrongResponse).toEqual({
+            data: {
+                listArticles: {
+                    data: [],
+                    meta: {
+                        hasMoreItems: false,
+                        totalCount: 0,
+                        cursor: null
+                    },
+                    error: null
+                }
+            }
+        });
     });
+
+    it("should not populate referenced field", async () => {
+        const group = await setupContentModelGroup(mainManager);
+        await setupContentModels(mainManager, group, ["category", "article"]);
+
+        const categoryManager = useCategoryManageHandler(manageOpts);
+        const articleManager = useArticleManageHandler(manageOpts);
+        const articleRead = useArticleReadHandler(readOpts);
+
+        const techCategory = await createCategoryItem({
+            manager: categoryManager,
+            data: {
+                title: "Tech category",
+                slug: "tech-category"
+            },
+            publish: true
+        });
+
+        const techArticle = await createArticleItem({
+            manager: articleManager,
+            data: {
+                title: "Tech article",
+                body: null,
+                category: {
+                    id: techCategory.id,
+                    modelId: "category"
+                },
+                categories: [
+                    {
+                        id: techCategory.id,
+                        modelId: "category"
+                    }
+                ]
+            },
+            publish: true
+        });
+
+        const [result] = await articleRead.listArticlesWithoutReferences();
+
+        expect(result).toMatchObject({
+            data: {
+                listArticles: {
+                    data: [
+                        {
+                            id: techArticle.id,
+                            title: techArticle.title,
+                            category: {
+                                id: techCategory.id,
+                                entryId: techCategory.entryId,
+                                modelId: "category",
+                                title: null
+                            },
+                            categories: [
+                                {
+                                    id: techCategory.id,
+                                    entryId: techCategory.entryId,
+                                    modelId: "category",
+                                    title: null
+                                }
+                            ]
+                        }
+                    ],
+                    error: null,
+                    meta: {
+                        cursor: null,
+                        hasMoreItems: false,
+                        totalCount: 1
+                    }
+                }
+            }
+        });
+    });
+
+    /**
+     * Test is commented because we do not have access to the data loaders in the storage operations.
+     */
+    /*
+    it("should not produce multiple requests to the database when loading references", async () => {
+        const group = await setupContentModelGroup(mainManager);
+        await setupContentModels(mainManager, group, ["category", "article"]);
+        const categoryManager = useCategoryManageHandler(manageOpts);
+        const articleManager = useArticleManageHandler({
+            ...manageOpts,
+            plugins: []
+        });
+        const articleRead = useArticleReadHandler({
+            ...readOpts
+        });
+        const techCategory = await createCategoryItem({
+            manager: categoryManager,
+            data: {
+                title: "Tech category",
+                slug: "tech-category"
+            },
+            publish: true
+        });
+        const totalCount = 10;
+        for (let current = 1; current <= totalCount; current++) {
+            await createArticleItem({
+                manager: articleManager,
+                data: {
+                    title: `Tech article #${current}`,
+                    body: null,
+                    category: {
+                        id: techCategory.id,
+                        modelId: "category"
+                    }
+                },
+                publish: true
+            });
+        }
+        const [result] = await articleRead.listArticles({
+            limit: 1000
+        });
+        expect(result.data.listArticles.data).toHaveLength(totalCount);
+        expect(result).toMatchObject({
+            data: {
+                listArticles: {
+                    meta: {
+                        hasMoreItems: false,
+                        totalCount,
+                        cursor: null
+                    },
+                    error: null
+                }
+            }
+        });
+    });
+    */
 });

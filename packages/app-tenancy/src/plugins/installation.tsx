@@ -34,7 +34,10 @@ const INSTALL = gql`
     }
 `;
 
-const TenancyInstaller = ({ onInstalled }) => {
+interface TenancyInstallerProps {
+    onInstalled: () => Promise<void>;
+}
+const TenancyInstaller = ({ onInstalled }: TenancyInstallerProps) => {
     const client = useApolloClient();
     const [error, setError] = useState(null);
 

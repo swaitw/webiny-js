@@ -2,22 +2,38 @@ import { SecurityIdentity } from "@webiny/api-security/types";
 import useGqlHandler from "./useGqlHandler";
 import * as mocks from "./mocks/form.mocks";
 
-function Mock(prefix) {
-    this.name = `${prefix}name`;
+class Mock {
+    public name: string;
+    constructor(prefix = "") {
+        this.name = `${prefix}name`;
+    }
 }
 
-function MockSubmission(prefix) {
-    this.data = {
-        firstName: `${prefix}first-name`,
-        lastName: `${prefix}last-name`,
-        email: `${prefix}email@gmail.com`
-    };
-    this.meta = {
-        ip: "150.129.183.18"
-    };
+interface MockSubmissionData {
+    firstName: string;
+    lastName: string;
+    email: string;
+}
+interface MockSubmissionMeta {
+    ip: string;
+}
+class MockSubmission {
+    public data: MockSubmissionData;
+    public meta: MockSubmissionMeta;
+
+    public constructor(prefix = "") {
+        this.data = {
+            firstName: `${prefix}first-name`,
+            lastName: `${prefix}last-name`,
+            email: `${prefix}email@gmail.com`
+        };
+        this.meta = {
+            ip: "150.129.183.18"
+        };
+    }
 }
 
-const NOT_AUTHORIZED_RESPONSE = operation => ({
+const NOT_AUTHORIZED_RESPONSE = (operation: string) => ({
     data: {
         formBuilder: {
             [operation]: {
@@ -54,6 +70,7 @@ describe("Forms Submission Security Test", () => {
         try {
             await handlerA.install();
         } catch (ex) {
+            console.log("formSubmissionSecurity.test.ts");
             console.log(ex.message);
         }
     });
@@ -75,7 +92,6 @@ describe("Forms Submission Security Test", () => {
                             version: 1,
                             createdOn: expect.stringMatching(/^20/),
                             savedOn: expect.stringMatching(/^20/),
-                            layout: [],
                             fields: [],
                             locked: false,
                             published: false,
@@ -91,6 +107,12 @@ describe("Forms Submission Security Test", () => {
                                 views: 0
                             },
                             status: "draft",
+                            steps: [
+                                {
+                                    title: "Step 1",
+                                    layout: []
+                                }
+                            ],
                             triggers: null,
                             settings: {
                                 reCaptcha: {
@@ -123,7 +145,13 @@ describe("Forms Submission Security Test", () => {
         const [updateFormRevisionResponse] = await handlerA.updateRevision({
             revision: formA.id,
             data: {
-                fields: mocks.fields
+                fields: mocks.fields,
+                steps: [
+                    {
+                        title: "Test Step",
+                        layout: []
+                    }
+                ]
             }
         });
         expect(updateFormRevisionResponse).toEqual({
@@ -133,7 +161,13 @@ describe("Forms Submission Security Test", () => {
                         data: {
                             ...formA,
                             savedOn: expect.stringMatching(/^20/),
-                            fields: expect.any(Array)
+                            fields: expect.any(Array),
+                            steps: [
+                                {
+                                    title: "Test Step",
+                                    layout: []
+                                }
+                            ]
                         },
 
                         error: null
@@ -153,6 +187,12 @@ describe("Forms Submission Security Test", () => {
                             ...formA,
                             savedOn: expect.stringMatching(/^20/),
                             fields: expect.any(Array),
+                            steps: [
+                                {
+                                    title: "Test Step",
+                                    layout: []
+                                }
+                            ],
                             status: "published",
                             published: true,
                             publishedOn: expect.stringMatching(/^20/),
@@ -164,9 +204,9 @@ describe("Forms Submission Security Test", () => {
             }
         });
 
-        // Create form as Identity B (this guy can only access his own forms)
+        // Create form as Identity B (this user can only access his own forms)
         const handlerB = useGqlHandler({
-            permissions: [{ name: "content.i18n" }, { name: "fb.*", own: true }],
+            permissions: [{ name: "content.i18n" }, { name: "fb.form", own: true }],
             identity: identityB
         });
 
@@ -177,7 +217,13 @@ describe("Forms Submission Security Test", () => {
         await handlerB.updateRevision({
             revision: formB.id,
             data: {
-                fields: mocks.fields
+                fields: mocks.fields,
+                steps: [
+                    {
+                        title: "Test Step",
+                        layout: []
+                    }
+                ]
             }
         });
 
@@ -251,14 +297,14 @@ describe("Forms Submission Security Test", () => {
 
         await handlerA.until(
             () => handlerA.listFormSubmissions({ form: formA.id }).then(([data]) => data),
-            ({ data }) => data.formBuilder.listFormSubmissions.data.length === 3,
+            ({ data }: any) => data.formBuilder.listFormSubmissions.data.length === 3,
             {
                 name: "list form A submissions"
             }
         );
         await handlerA.until(
             () => handlerA.listFormSubmissions({ form: formB.id }).then(([data]) => data),
-            ({ data }) => data.formBuilder.listFormSubmissions.data.length === 2,
+            ({ data }: any) => data.formBuilder.listFormSubmissions.data.length === 2,
             {
                 name: "list form B submissions"
             }

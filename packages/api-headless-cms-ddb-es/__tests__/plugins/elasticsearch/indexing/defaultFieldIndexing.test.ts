@@ -1,6 +1,8 @@
 import defaultFieldIndexPlugin from "~/elasticsearch/indexing/defaultFieldIndexing";
-import cmsFieldTypePlugins from "@webiny/api-headless-cms/content/plugins/graphqlFields";
-import { CmsEntry } from "@webiny/api-headless-cms/types";
+import { createGraphQLFields } from "@webiny/api-headless-cms";
+import { CmsEntry, CmsModel, CmsModelFieldToGraphQLPlugin } from "@webiny/api-headless-cms/types";
+import { PluginsContainer } from "@webiny/plugins/PluginsContainer";
+import { CmsModelFieldToElasticsearchPlugin } from "~/types";
 
 const mockRichTextValue = [
     {
@@ -11,39 +13,37 @@ const mockRichTextValue = [
 
 const mockTextValue = "some short searchable text";
 
-const mockContext: any = {};
-
-const mockModel: any = {
+const mockModel = {
     fields: [
         {
-            fieldId: "notAffectedNumber",
+            storageId: "notAffectedNumber",
             type: "number"
         },
         {
-            fieldId: "notAffectedString",
+            storageId: "notAffectedString",
             type: "text"
         },
         {
-            fieldId: "richText",
+            storageId: "richText",
             type: "rich-text"
         },
         {
-            fieldId: "text",
+            storageId: "text",
             type: "text"
         }
     ]
-};
+} as unknown as CmsModel;
 
-const mockInputEntry: Partial<CmsEntry> = {
+const mockInputEntry = {
     values: {
         notAffectedNumber: 1,
         notAffectedString: "some text",
         richText: mockRichTextValue,
         text: mockTextValue
     }
-};
+} as unknown as Required<CmsEntry>;
 
-const mockIndexedEntry: Partial<CmsEntry> & Record<string, any> = {
+const mockIndexedEntry = {
     values: {
         notAffectedNumber: 1,
         notAffectedString: "some text",
@@ -52,39 +52,40 @@ const mockIndexedEntry: Partial<CmsEntry> & Record<string, any> = {
     rawValues: {
         richText: mockRichTextValue
     }
-};
+} as unknown as Required<CmsEntry> & Record<string, any>;
 
 const getFieldIndexPlugin = () => {
     return defaultFieldIndexPlugin();
 };
 
-const fieldTypePlugins = cmsFieldTypePlugins();
+const fieldTypePlugins = createGraphQLFields();
 
 const getFieldTypePlugin = (fieldType: string) => {
-    return fieldTypePlugins.find(pl => pl.fieldType === fieldType);
+    return fieldTypePlugins.find(pl => pl.fieldType === fieldType) as CmsModelFieldToGraphQLPlugin;
 };
 
 describe("defaultFieldIndexPlugin", () => {
     test("toIndex should return transformed objects", () => {
-        const plugin = defaultFieldIndexPlugin();
+        const plugin = defaultFieldIndexPlugin() as Required<CmsModelFieldToElasticsearchPlugin>;
 
         const result = mockModel.fields.reduce(
-            (entry, field) => {
+            (entry: any, field: any) => {
                 const { value, rawValue } = plugin.toIndex({
-                    value: mockInputEntry.values[field.fieldId],
+                    rawValue: mockInputEntry.values[field.storageId],
+                    value: mockInputEntry.values[field.storageId],
+                    plugins: new PluginsContainer(),
                     getFieldIndexPlugin,
                     getFieldTypePlugin,
-                    context: mockContext,
                     model: mockModel,
                     field
                 });
 
                 if (value) {
-                    entry.values[field.fieldId] = value;
+                    entry.values[field.storageId] = value;
                 }
 
                 if (rawValue) {
-                    entry.rawValues[field.fieldId] = rawValue;
+                    entry.rawValues[field.storageId] = rawValue;
                 }
 
                 return entry;
@@ -96,20 +97,20 @@ describe("defaultFieldIndexPlugin", () => {
     });
 
     test("fromIndex should return transformed objects", () => {
-        const plugin = defaultFieldIndexPlugin();
-        const result = mockModel.fields.reduce((entry, field) => {
+        const plugin = defaultFieldIndexPlugin() as Required<CmsModelFieldToElasticsearchPlugin>;
+        const result = mockModel.fields.reduce((entry: any, field) => {
             const value = plugin.fromIndex({
-                value: mockIndexedEntry.values[field.fieldId],
-                rawValue: mockIndexedEntry.rawValues[field.fieldId],
+                value: mockIndexedEntry.values[field.storageId],
+                rawValue: mockIndexedEntry.rawValues[field.storageId],
                 getFieldIndexPlugin,
                 getFieldTypePlugin,
-                context: mockContext,
+                plugins: new PluginsContainer(),
                 model: mockModel,
                 field
             });
 
             if (value) {
-                entry[field.fieldId] = value;
+                entry[field.storageId] = value;
             }
 
             return entry;

@@ -4,11 +4,10 @@ import previewContent from "./pageDetails/previewContent";
 import pageRevisions from "./pageDetails/pageRevisions";
 import menuItems from "./menuItems";
 import globalSearch from "./globalSearch";
-import settings from "./settings";
 import routes from "./routes";
-import menus from "./menus";
 import installation from "./installation";
 import permissionRenderer from "./permissionRenderer";
+import icons from "./icons";
 
 export default () => [
     header,
@@ -17,9 +16,8 @@ export default () => [
     pageRevisions,
     menuItems,
     globalSearch,
-    settings,
     routes,
-    menus,
     installation,
-    permissionRenderer
+    permissionRenderer,
+    icons
 ];

@@ -22,9 +22,6 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
             type FbMutation {
                 # Install Form Builder
                 install(domain: String): FbBooleanResponse
-
-                # Upgrade Form Builder
-                upgrade(version: String!): FbBooleanResponse
             }
 
             extend type Query {
@@ -39,6 +36,7 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                 code: String
                 message: String
                 data: JSON
+                stack: String
             }
 
             type FbDeleteResponse {
@@ -55,14 +53,15 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
             },
             FbQuery: {
                 version: async (_, __, context) => {
-                    const { i18nContent, tenancy, formBuilder } = context;
+                    const { i18n, tenancy, formBuilder } = context;
 
-                    if (!tenancy.getCurrentTenant() || !i18nContent.getLocale()) {
+                    if (!tenancy.getCurrentTenant() || !i18n.getContentLocale()) {
                         return null;
                     }
 
                     try {
-                        return formBuilder.getSystemVersion();
+                        const version = await formBuilder.getSystemVersion();
+                        return version ? "true" : null;
                     } catch (e) {
                         return new ErrorResponse({
                             code: "FORM_BUILDER_ERROR",
@@ -73,7 +72,7 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                 }
             },
             FbMutation: {
-                install: async (_, args, context) => {
+                install: async (_, args: any, context) => {
                     try {
                         await context.formBuilder.installSystem({ domain: args.domain });
 
@@ -84,15 +83,6 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                             message: e.message,
                             data: e.data
                         });
-                    }
-                },
-                upgrade: async (_, args, context) => {
-                    try {
-                        await context.formBuilder.upgradeSystem(args.version as string);
-
-                        return new Response(true);
-                    } catch (e) {
-                        return new ErrorResponse(e);
                     }
                 }
             }

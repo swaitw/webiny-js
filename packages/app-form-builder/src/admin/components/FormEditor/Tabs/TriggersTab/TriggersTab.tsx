@@ -5,10 +5,10 @@ import { Typography } from "@webiny/ui/Typography";
 import { Form } from "@webiny/form";
 import { useFormEditor } from "../../Context";
 import { plugins } from "@webiny/plugins";
-import { set } from "lodash";
+import set from "lodash/set";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
 import { i18n } from "@webiny/app/i18n";
-import { FbEditorTrigger } from "../../../../../types";
+import { FbEditorTrigger } from "~/types";
 const t = i18n.namespace("FormsApp.Editor.TriggersTab");
 
 const Container = styled("div")({
@@ -36,9 +36,12 @@ export const TriggersTab = () => {
                         description={trigger.description}
                     >
                         <Form
-                            data={formData?.triggers?.[trigger.id] || {}}
+                            data={formData.triggers?.[trigger.id] || {}}
                             onSubmit={submitData => {
-                                setData(data => set(data, `triggers.${trigger.id}`, submitData));
+                                // TODO @ts-refactor figure out how to type the data param
+                                setData(data => {
+                                    return set(data, `triggers.${trigger.id}`, submitData);
+                                });
                                 showSnackbar(t`Form settings updated successfully.`);
                             }}
                         >

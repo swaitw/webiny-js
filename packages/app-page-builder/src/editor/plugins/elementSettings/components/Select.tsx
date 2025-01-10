@@ -1,6 +1,6 @@
 import React from "react";
 import { activeElementAtom, elementWithChildrenByIdSelector } from "../../../recoil/modules";
-import { get } from "lodash";
+import get from "lodash/get";
 import { Typography } from "@webiny/ui/Typography";
 import { Grid, Cell } from "@webiny/ui/Grid";
 import { Select as SelectCmp } from "@webiny/ui/Select";
@@ -14,7 +14,7 @@ const selectStyle = css({
     }
 });
 
-type SelectProps = {
+interface SelectProps {
     label: string;
     value?: string;
     valueKey?: string;
@@ -25,7 +25,7 @@ type SelectProps = {
     // One or more <option> or <optgroup> elements.
     children?: Array<React.ReactElement<"option"> | React.ReactElement<"optgroup">>;
     className?: string;
-};
+}
 
 const Select = ({
     label,

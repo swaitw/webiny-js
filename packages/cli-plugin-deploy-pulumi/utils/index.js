@@ -1,23 +1,35 @@
+const createProjectApplicationWorkspace = require("./createProjectApplicationWorkspace");
 const getPulumi = require("./getPulumi");
 const getStackOutput = require("./getStackOutput");
-const crawlDirectory = require("./crawlDirectory");
+const getStackExport = require("./getStackExport");
+const getDeploymentId = require("./getDeploymentId");
+const { GracefulError } = require("./GracefulError");
+const { GracefulPulumiError } = require("./GracefulPulumiError");
+const createPulumiCommand = require("./createPulumiCommand");
+const loadEnvVariables = require("./loadEnvVariables");
 const processHooks = require("./processHooks");
+const runHook = require("./runHook");
 const notify = require("./notify");
 const login = require("./login");
 const mapStackOutput = require("./mapStackOutput");
-const loadEnvVariables = require("./loadEnvVariables");
+const measureDuration = require("./measureDuration");
 const getRandomColorForString = require("./getRandomColorForString");
-const { tagResources } = require("./tagResources");
 
 module.exports = {
     getPulumi,
     getStackOutput,
-    crawlDirectory,
+    getStackExport,
+    getDeploymentId,
+    GracefulError,
+    GracefulPulumiError,
+    createPulumiCommand,
     loadEnvVariables,
     mapStackOutput,
-    tagResources,
+    measureDuration,
     processHooks,
+    runHook,
     notify,
     login,
-    getRandomColorForString
+    getRandomColorForString,
+    createProjectApplicationWorkspace
 };

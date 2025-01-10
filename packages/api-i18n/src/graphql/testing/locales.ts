@@ -1,4 +1,6 @@
-export const locales = {
+import { ContextI18NGetLocales, I18NLocale } from "~/types";
+
+export const locales: Record<string, I18NLocale> = {
     en: {
         code: "en-US",
         default: true
@@ -13,7 +15,7 @@ export const locales = {
     }
 };
 
-export const mockLocalesPlugins = () => ({
+export const mockLocalesPlugins = (): ContextI18NGetLocales => ({
     name: "context-i18n-get-locales",
     type: "context-i18n-get-locales",
     async resolve() {

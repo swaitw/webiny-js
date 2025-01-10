@@ -1,10 +1,8 @@
 import WebinyError from "@webiny/error";
 import { NotAuthorizedError } from "@webiny/api-security";
-import { UpgradePlugin } from "@webiny/api-upgrade/types";
-import { getApplicablePlugin } from "@webiny/api-upgrade";
 import {
-    AfterInstallTopic,
-    BeforeInstallTopic,
+    OnSystemBeforeInstallTopic,
+    OnSystemAfterInstallTopic,
     FormBuilder,
     FormBuilderContext,
     Settings,
@@ -14,22 +12,31 @@ import {
 import { Tenant } from "@webiny/api-tenancy/types";
 import { createTopic } from "@webiny/pubsub";
 import { SecurityIdentity } from "@webiny/api-security/types";
+import { I18NLocale } from "@webiny/api-i18n/types";
 
-export interface Params {
+interface CreateSystemCrudParams {
     getIdentity: () => SecurityIdentity;
     getTenant: () => Tenant;
+    getLocale: () => I18NLocale;
     context: FormBuilderContext;
 }
 
-export const createSystemCrud = (params: Params): SystemCRUD => {
-    const { getTenant, getIdentity, context } = params;
+export const createSystemCrud = (params: CreateSystemCrudParams): SystemCRUD => {
+    const { getTenant, getLocale, context } = params;
 
-    const onBeforeInstall = createTopic<BeforeInstallTopic>();
-    const onAfterInstall = createTopic<AfterInstallTopic>();
+    const onSystemBeforeInstall = createTopic<OnSystemBeforeInstallTopic>(
+        "formBuilder.onSystemBeforeInstall"
+    );
+    const onSystemAfterInstall = createTopic<OnSystemAfterInstallTopic>(
+        "formBuilder.onSystemAfterInstall"
+    );
 
     return {
-        onBeforeInstall,
-        onAfterInstall,
+        /**
+         * Released in 5.34.0
+         */
+        onSystemBeforeInstall,
+        onSystemAfterInstall,
         async getSystem(this: FormBuilder) {
             try {
                 return await this.storageOperations.getSystem({
@@ -44,7 +51,7 @@ export const createSystemCrud = (params: Params): SystemCRUD => {
         },
         async getSystemVersion(this: FormBuilder) {
             const system = await this.getSystem();
-            return system ? system.version : null;
+            return system ? system.version || null : null;
         },
         async setSystemVersion(this: FormBuilder, version: string) {
             const original = await this.getSystem();
@@ -86,6 +93,10 @@ export const createSystemCrud = (params: Params): SystemCRUD => {
             }
         },
         async installSystem(this: FormBuilder, { domain }) {
+            const identity = context.security.getIdentity();
+            if (!identity) {
+                throw new NotAuthorizedError();
+            }
             const version = await this.getSystemVersion();
             if (version) {
                 throw new WebinyError(
@@ -104,14 +115,16 @@ export const createSystemCrud = (params: Params): SystemCRUD => {
             }
 
             try {
-                await onBeforeInstall.publish({
-                    tenant: getTenant().id
+                await onSystemBeforeInstall.publish({
+                    tenant: getTenant().id,
+                    locale: getLocale().code
                 });
 
                 await this.createSettings(data);
 
-                await onAfterInstall.publish({
-                    tenant: getTenant().id
+                await onSystemAfterInstall.publish({
+                    tenant: getTenant().id,
+                    locale: getLocale().code
                 });
                 await this.setSystemVersion(context.WEBINY_VERSION);
             } catch (err) {
@@ -125,39 +138,13 @@ export const createSystemCrud = (params: Params): SystemCRUD => {
                     }
                 );
             }
-        },
-        async upgradeSystem(this: FormBuilder, version: string) {
-            const identity = getIdentity();
-            if (!identity) {
-                throw new NotAuthorizedError();
-            }
-
-            const upgradePlugins: UpgradePlugin[] = [];
 
             /**
-             * There are no more registered plugins for the upgrades because each storage operations gives it's own, if some upgrade exists.
+             * Form Builder is the last app that has an installer. Once its installation is finished,
+             * we need to notify the system that tenant is now ready to use, because many external plugins
+             * insert initial tenant data into various apps, copy data from other tenants, etc.
              */
-            if (this.storageOperations.upgrade) {
-                upgradePlugins.push(this.storageOperations.upgrade);
-            }
-
-            const installedAppVersion = await this.getSystemVersion();
-
-            const plugin = getApplicablePlugin({
-                deployedVersion: context.WEBINY_VERSION,
-                installedAppVersion,
-                upgradePlugins,
-                upgradeToVersion: version
-            });
-
-            await plugin.apply(context);
-
-            /**
-             * Store new app version
-             */
-            await this.setSystemVersion(version);
-
-            return true;
+            await context.tenancy.onTenantAfterInstall.publish({});
         }
     };
 };

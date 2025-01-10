@@ -6,10 +6,8 @@ import set from "lodash/set";
 import merge from "lodash/merge";
 import { plugins } from "@webiny/plugins";
 import { Tooltip } from "@webiny/ui/Tooltip";
-import { Grid, Cell } from "@webiny/ui/Grid";
-import { Typography } from "@webiny/ui/Typography";
-import { Link } from "@webiny/react-router";
 import {
+    PbEditorElement,
     PbEditorPageElementSettingsRenderComponentProps,
     PbEditorResponsiveModePlugin,
     PbThemePlugin
@@ -28,7 +26,8 @@ import useUpdateHandlers from "../../elementSettings/useUpdateHandlers";
 import TextAlignment from "./TextAlignment";
 import { applyFallbackDisplayMode } from "../elementSettingsUtils";
 import { usePageElements } from "@webiny/app-page-builder-elements/hooks/usePageElements";
-import { Theme } from "@webiny/app-page-builder-elements/types";
+
+import { TypographyStyle } from "@webiny/app-theme/types";
 
 const classes = {
     grid: css({
@@ -58,46 +57,56 @@ const classes = {
 const TEXT_SETTINGS_COUNT = 4;
 const DATA_NAMESPACE = "data.text";
 
-const TextSettings: React.FunctionComponent<
-    PbEditorPageElementSettingsRenderComponentProps & {
-        options: any;
-    }
-> = ({ defaultAccordionValue, options }) => {
+interface TextSettingsPropsOptions {
+    useCustomTag?: boolean;
+    tags: string[];
+}
+
+interface TextSettingsProps extends PbEditorPageElementSettingsRenderComponentProps {
+    options: TextSettingsPropsOptions;
+}
+
+const TextSettings = ({ defaultAccordionValue, options }: TextSettingsProps) => {
     const { displayMode } = useRecoilValue(uiAtom);
     const activeElementId = useRecoilValue(activeElementAtom);
 
-    let peTheme: Theme = {};
-    const pageElements = usePageElements();
-    if (pageElements) {
-        peTheme = pageElements.theme;
-    }
+    const element = useRecoilValue(
+        elementWithChildrenByIdSelector(activeElementId)
+    ) as PbEditorElement;
 
-    const element = useRecoilValue(elementWithChildrenByIdSelector(activeElementId));
-    const [{ theme }] = plugins.byType<PbThemePlugin>("pb-theme");
-
-    const { config: activeDisplayModeConfig } = useMemo(() => {
+    const memoizedResponsiveModePlugin = useMemo(() => {
         return plugins
             .byType<PbEditorResponsiveModePlugin>("pb-editor-responsive-mode")
             .find(pl => pl.config.displayMode === displayMode);
     }, [displayMode]);
 
-    const themeTypographyOptions = useMemo(() => {
-        const { types } = theme.elements[element.type] || { types: [] };
-        const peThemeTypography = Object.keys(peTheme.styles?.typography || {});
+    const { config: activeDisplayModeConfig } = memoizedResponsiveModePlugin || {
+        config: {
+            displayMode: null,
+            icon: null
+        }
+    };
 
-        return [
-            ...types.map(el => (
-                <option value={el.className} key={el.label}>
-                    {el.label}
-                </option>
-            )),
-            ...peThemeTypography.map(el => (
-                <option value={el} key={el}>
-                    {el}
-                </option>
-            ))
-        ];
-    }, [theme, element]);
+    const pageElements = usePageElements();
+
+    const themePlugins = plugins.byType<PbThemePlugin>("pb-theme");
+
+    const themeTypographyOptions = useMemo(() => {
+        const allTypographyVariants: TypographyStyle[] = [];
+
+        const typography = pageElements.theme.styles?.typography;
+        if (typography) {
+            for (const typographyCategory in typography) {
+                allTypographyVariants.push(...typography[typographyCategory]);
+            }
+        }
+
+        return allTypographyVariants.map(variant => (
+            <option value={variant.id} key={variant.id}>
+                {variant.name}
+            </option>
+        ));
+    }, [themePlugins, element]);
 
     const { getUpdateValue, getUpdatePreview } = useUpdateHandlers({
         element,
@@ -145,7 +154,23 @@ const TextSettings: React.FunctionComponent<
 
     const text = get(element, `${DATA_NAMESPACE}.${displayMode}`, fallbackValue);
 
-    if (!text) {
+    // For the new editor, we only want to show text alignment options. We check if the editor is new by
+    // examining the text data. If it's JSON, then it's the new editor. Otherwise, it's the old editor.
+    const textData = element.data?.text?.data?.text;
+    const usingLexicalEditor = useMemo(() => {
+        if (!textData) {
+            return false;
+        }
+
+        try {
+            JSON.parse(textData);
+            return true;
+        } catch {
+            return false;
+        }
+    }, [textData]);
+
+    if (!text || usingLexicalEditor) {
         return null;
     }
 
@@ -197,24 +222,6 @@ const TextSettings: React.FunctionComponent<
                         {themeTypographyOptions}
                     </SelectField>
                 </Wrapper>
-                {themeTypographyOptions.length === 0 && (
-                    <Grid className={classes.warningMessageGrid}>
-                        <Cell span={12}>
-                            <Typography use={"caption"}>
-                                Please add typography options in{" "}
-                                <Link
-                                    to={
-                                        "https://github.com/webiny/webiny-js/blob/next/apps/theme/pageBuilder/index.ts#L21"
-                                    }
-                                    target={"_blank"}
-                                >
-                                    theme
-                                </Link>
-                                .
-                            </Typography>
-                        </Cell>
-                    </Grid>
-                )}
                 <Wrapper
                     containerClassName={classes.grid}
                     label={"Alignment"}

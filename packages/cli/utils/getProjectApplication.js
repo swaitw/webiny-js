@@ -1,4 +1,4 @@
-const { dirname, basename, join } = require("path");
+const { dirname, basename, join, relative } = require("path");
 const findUp = require("find-up");
 const getProject = require("./getProject");
 const { importModule } = require("./importModule");
@@ -15,31 +15,49 @@ module.exports = args => {
     }
 
     const rootFile = applicationRootFile.replace(/\\/g, "/");
-    const applicationRoot = dirname(rootFile);
+    const projectAppRootPath = dirname(rootFile);
 
     let applicationConfig;
     if (appConfigs.includes(basename(rootFile))) {
         applicationConfig = importModule(rootFile);
     }
 
-    let name, id;
+    let id, name, description;
     if (applicationConfig) {
         id = applicationConfig.id;
         name = applicationConfig.name;
+        description = applicationConfig.description;
     } else {
-        name = basename(applicationRoot);
+        name = basename(projectAppRootPath);
+        description = name;
         id = name;
     }
+
+    const project = getProject(args);
+
+    const projectAppRelativePath = relative(project.root, projectAppRootPath);
+    const projectAppWorkspacePath = join(
+        project.root,
+        ".webiny",
+        "workspaces",
+        projectAppRelativePath
+    );
 
     return {
         id,
         name,
-        root: applicationRoot,
+        description,
+        root: projectAppRootPath,
+        paths: {
+            relative: projectAppRelativePath,
+            absolute: projectAppRootPath,
+            workspace: projectAppWorkspacePath
+        },
         config: applicationConfig,
-        project: getProject(args),
+        project,
         get packages() {
             const webinyConfigs = glob.sync(
-                join(applicationRoot, "**/webiny.config*.{ts,js}").replace(/\\/g, "/")
+                join(projectAppRootPath, "**/webiny.config*.{ts,js}").replace(/\\/g, "/")
             );
 
             return webinyConfigs.map(config => {
@@ -48,6 +66,8 @@ module.exports = args => {
                 return {
                     name: packageJson.name,
                     paths: {
+                        absolute: dirname(config),
+                        relative: relative(project.root, dirPath),
                         root: dirname(config),
                         packageJson: join(dirPath, "package.json"),
                         config

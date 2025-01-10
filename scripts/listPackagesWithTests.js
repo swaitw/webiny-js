@@ -1,49 +1,155 @@
 /**
- * Note: do not use any 3rd party libraries because we need this script
- * to be executed in our CI/CD, as fast as possible.
+ * Dictates how package tests will be executed. With this script, we achieve
+ * parallelization of execution of Jest tests. Note: do not use any 3rd party
+ * libraries because we need this script to be executed in our CI/CD, as fast as possible.
  */
 
 const fs = require("fs");
 const path = require("path");
 
+/**
+ * Some packages require custom handling.
+ */
 const CUSTOM_HANDLERS = {
-    // Skip "i18n" package.
+    // Ignore "i18n" package.
     i18n: () => [],
 
-    // Split "api-file-manager" tests into batches of
+    // TODO: bring back project-utils tests.
+    "project-utils": () => [],
+
+    "api-tenancy": () => {
+        return ["packages/api-tenancy --storage=ddb"];
+    },
+
+    "api-security": () => {
+        return ["packages/api-security --storage=ddb"];
+    },
+
+    "api-security-cognito": () => {
+        return ["packages/api-security-cognito --storage=ddb"];
+    },
+
+    "api-i18n": () => {
+        return ["packages/api-i18n --storage=ddb"];
+    },
+
+    "api-tenant-manager": () => {
+        return ["packages/api-tenant-manager --storage=ddb"];
+    },
+
+    "api-audit-logs": () => {
+        return [
+            "packages/api-audit-logs --storage=ddb",
+            "packages/api-audit-logs --storage=ddb-es,ddb"
+        ];
+    },
+
     "api-file-manager": () => {
         return [
-            "packages/api-file-manager/* --keyword=fm:ddb --keyword=fm:base",
-            "packages/api-file-manager/* --keyword=fm:ddb-es --keyword=fm:base"
+            "packages/api-file-manager --storage=ddb",
+            "packages/api-file-manager --storage=ddb-es,ddb"
         ];
     },
 
-    // Split "api-form-builder" tests into batches of
     "api-form-builder": () => {
         return [
-            "packages/api-form-builder/* --keyword=fb:ddb --keyword=fb:base",
-            "packages/api-form-builder/* --keyword=fb:ddb-es --keyword=fb:base"
+            "packages/api-form-builder --storage=ddb",
+            "packages/api-form-builder --storage=ddb-es,ddb"
         ];
     },
 
-    // Split "api-page-builder" tests into batches of
+    "api-form-builder-so-ddb-es": () => {
+        return ["packages/api-form-builder-so-ddb-es --storage=ddb-es,ddb"];
+    },
+
     "api-page-builder": () => {
         return [
-            "packages/api-page-builder/* --keyword=pb:ddb --keyword=pb:base",
-            "packages/api-page-builder/* --keyword=pb:ddb-es --keyword=pb:base"
+            "packages/api-page-builder --storage=ddb",
+            "packages/api-page-builder --storage=ddb-es,ddb"
         ];
     },
-    // Split "api-headless-cms" tests into batches of
+    "api-page-builder-so-ddb-es": () => {
+        return ["packages/api-page-builder-so-ddb-es --storage=ddb-es,ddb"];
+    },
+
+    "api-page-builder-import-export": () => {
+        return ["packages/api-page-builder-import-export --storage=ddb"];
+    },
+
+    "api-prerendering-service": () => {
+        return ["packages/api-prerendering-service --storage=ddb"];
+    },
+
+    "api-mailer": () => {
+        return ["packages/api-mailer --storage=ddb", "packages/api-mailer --storage=ddb-es,ddb"];
+    },
+
     "api-headless-cms": () => {
         return [
-            "packages/api-headless-cms/* --keyword=cms:ddb --keyword=cms:base",
-            "packages/api-headless-cms/* --keyword=cms:ddb-es --keyword=cms:base"
+            "packages/api-headless-cms --storage=ddb",
+            "packages/api-headless-cms --storage=ddb-es,ddb"
+        ];
+    },
+    "api-headless-cms-aco": () => {
+        return [
+            "packages/api-headless-cms-aco --storage=ddb",
+            "packages/api-headless-cms-aco --storage=ddb-es,ddb"
+        ];
+    },
+    "api-headless-cms-ddb-es": () => {
+        return ["packages/api-headless-cms-ddb-es --storage=ddb-es,ddb"];
+    },
+    "api-headless-cms-bulk-actions": () => {
+        return [
+            "packages/api-headless-cms-bulk-actions --storage=ddb",
+            "packages/api-headless-cms-bulk-actions --storage=ddb-es,ddb"
+        ];
+    },
+    "api-apw": () => {
+        return [
+            "packages/api-apw --storage=ddb"
+            // TODO: With ddb-es setup, some tests are failing!
+            // "packages/api-apw --storage=ddb-es,ddb"
+        ];
+    },
+    "api-aco": () => {
+        return ["packages/api-aco --storage=ddb", "packages/api-aco --storage=ddb-es,ddb"];
+    },
+    "api-page-builder-aco": () => {
+        return [
+            "packages/api-page-builder-aco --storage=ddb",
+            "packages/api-page-builder-aco --storage=ddb-es,ddb"
+        ];
+    },
+    "app-aco": () => {
+        return ["packages/app-aco"];
+    },
+    "app-file-manager": () => {
+        return ["packages/app-file-manager"];
+    },
+    "app-headless-cms": () => {
+        return ["packages/app-headless-cms"];
+    },
+    "app-trash-bin": () => {
+        return ["packages/app-trash-bin"];
+    },
+    tasks: () => {
+        return ["packages/tasks --storage=ddb", "packages/tasks --storage=ddb-es,ddb"];
+    },
+    "api-elasticsearch-tasks": () => {
+        return ["packages/api-elasticsearch-tasks --storage=ddb-es,ddb"];
+    },
+    "api-record-locking": () => {
+        return [
+            "packages/api-record-locking --storage=ddb",
+            "packages/api-record-locking --storage=ddb-es,ddb"
         ];
     }
 };
 
-/**
+const testFilePattern = /test\.j?t?sx?$/;
 
+/**
  * @param folder
  * @returns boolean
  */
@@ -60,11 +166,20 @@ function hasTestFiles(folder) {
             if (hasTFiles) {
                 return true;
             }
-        } else if (filepath.endsWith("test.js") || filepath.endsWith("test.ts")) {
+        } else if (testFilePattern.test(filepath)) {
             return true;
         }
     }
     return false;
+}
+
+const args = {};
+for (let i = 0; i < process.argv.length; i++) {
+    const current = process.argv[i];
+    if (current.startsWith("--")) {
+        const [name, value = true] = current.split("=");
+        args[name] = value;
+    }
 }
 
 const allPackages = fs.readdirSync("packages");
@@ -82,4 +197,27 @@ for (let i = 0; i < allPackages.length; i++) {
     }
 }
 
-console.log(JSON.stringify(packagesWithTests));
+let output = [...packagesWithTests];
+
+const ignorePackagesPattern = args["--ignore-packages"];
+if (ignorePackagesPattern) {
+    output = output.filter(current => !current.includes(ignorePackagesPattern));
+}
+
+const cmdToId = cmd => {
+    return cmd
+        .replace("packages/", "")
+        .replace("--storage=", "")
+        .replace(/[,\s]/g, "_")
+        .replace(/[\(\)\[\]]/g, "")
+        .toLowerCase();
+};
+
+const tasks = output.map(pkg => {
+    return {
+        cmd: pkg,
+        id: cmdToId(pkg)
+    };
+});
+
+console.log(JSON.stringify(tasks));

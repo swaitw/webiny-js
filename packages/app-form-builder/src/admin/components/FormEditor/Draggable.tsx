@@ -1,5 +1,6 @@
 import React, { ReactElement } from "react";
-import { useDrag, DragPreviewImage, ConnectDragSource } from "react-dnd";
+import { Container, DragObjectWithType } from "~/types";
+import { useDrag, DragPreviewImage, ConnectDragSource, DragSourceMonitor } from "react-dnd";
 
 const emptyImage = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
 
@@ -8,32 +9,47 @@ export type DraggableChildrenFunction = (params: {
     drag: ConnectDragSource;
 }) => ReactElement;
 
-export type DraggableProps = {
-    children: DraggableChildrenFunction;
-    beginDrag?: any;
-    endDrag?: any;
-    target?: string[];
-};
+export interface BeginDragProps {
+    ui?: "row" | "field" | "step";
+    pos?: {
+        row: number;
+        index?: number;
+    };
+    name?: string;
+    id?: string;
+    // "container" contains info about source element.
+    container?: Container;
+}
 
-const Draggable = React.memo((props: DraggableProps) => {
-    const { children, beginDrag, endDrag, target } = props;
+export type BeginDrag = (props: BeginDragProps, monitor: DragSourceMonitor) => void;
+export type EndDrag = (item: DragObjectWithType, monitor: DragSourceMonitor) => void;
+
+export interface DraggableProps extends BeginDragProps {
+    children: DraggableChildrenFunction;
+    beginDrag?: BeginDrag | BeginDragProps;
+    endDrag?: EndDrag;
+    target?: string[];
+}
+
+const Draggable = (props: DraggableProps) => {
+    const { children, beginDrag, endDrag } = props;
 
     const [{ isDragging }, drag, preview] = useDrag({
-        item: { type: "element", target },
+        type: "element",
+        item(monitor) {
+            if (typeof beginDrag !== "function") {
+                return beginDrag as undefined;
+            }
+            return beginDrag(props, monitor);
+        },
         collect: monitor => ({
             isDragging: monitor.isDragging()
         }),
-        begin(monitor) {
-            if (typeof beginDrag === "function") {
-                return beginDrag(props, monitor);
-            }
-            return beginDrag;
-        },
         end(item, monitor) {
-            if (typeof endDrag === "function") {
-                return endDrag(item, monitor);
+            if (typeof endDrag !== "function") {
+                return endDrag as undefined;
             }
-            return endDrag;
+            return endDrag(item as unknown as DragObjectWithType, monitor);
         }
     });
 
@@ -43,6 +59,6 @@ const Draggable = React.memo((props: DraggableProps) => {
             {children({ isDragging, drag })}
         </>
     );
-});
+};
 
-export default Draggable;
+export default React.memo(Draggable);

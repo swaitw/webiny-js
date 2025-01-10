@@ -1,12 +1,10 @@
-import { Entity, Table } from "dynamodb-toolbox";
-import { Attributes } from "~/types";
+import { Entity, Table } from "@webiny/db-dynamodb/toolbox";
 
 interface Params {
     entityName: string;
-    table: Table;
-    attributes?: Attributes;
+    table: Table<string, string, string>;
 }
-export const createTenantEntity = ({ entityName, table, attributes }: Params): Entity<any> => {
+export const createTenantEntity = ({ entityName, table }: Params): Entity<any> => {
     return new Entity({
         table,
         name: entityName,
@@ -23,22 +21,12 @@ export const createTenantEntity = ({ entityName, table, attributes }: Params): E
             GSI1_SK: {
                 type: "string"
             },
-            id: {
+            TYPE: {
                 type: "string"
             },
-            name: {
-                type: "string"
-            },
-            description: {
-                type: "string"
-            },
-            parent: {
-                type: "string"
-            },
-            webinyVersion: {
-                type: "string"
-            },
-            ...(attributes || {})
+            data: {
+                type: "map"
+            }
         }
     });
 };

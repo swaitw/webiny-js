@@ -1,17 +1,16 @@
 import React from "react";
-import Element from "../../../components/Element";
-import { PbEditorElement } from "../../../../types";
+import { PbEditorElement } from "~/types";
+import PeDocument from "./PeDocument";
 
-type DocumentProps = { element: PbEditorElement };
+import { Element } from "@webiny/app-page-builder-elements/types";
 
-const Document = ({ element }: DocumentProps) => {
-    return (
-        <div className={"webiny-pb-page-document"} data-testid={"pb-editor-page-canvas-section"}>
-            {element.elements.map(id => {
-                return <Element key={id} id={id} />;
-            })}
-        </div>
-    );
+interface DocumentProps {
+    element: PbEditorElement;
+}
+
+const Document = (props: DocumentProps) => {
+    const { element, ...rest } = props;
+    return <PeDocument element={element as Element} {...rest} />;
 };
 
-export default React.memo(Document);
+export default Document;

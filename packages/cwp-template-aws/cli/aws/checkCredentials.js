@@ -1,4 +1,4 @@
-const STS = require("aws-sdk/clients/sts");
+const { STS } = require("@webiny/aws-sdk/client-sts");
 const { green } = require("chalk");
 
 module.exports = {
@@ -9,13 +9,16 @@ module.exports = {
 
         // Check if AWS credentials are configured
         const sts = new STS();
-        const config = sts.config;
 
         try {
-            await sts.getCallerIdentity({}).promise();
+            await sts.getCallerIdentity({});
         } catch (err) {
             console.log();
             context.error("Looks like your AWS credentials are not configured correctly!");
+
+            // Print the actual error if the debug mode has been enabled.
+            context.debug(err);
+
             context.info(
                 "To learn how to configure your AWS credentials, visit https://www.webiny.com/docs/how-to-guides/deployment/aws/configure-aws-credentials"
             );
@@ -23,9 +26,10 @@ module.exports = {
             process.exit(1);
         }
 
-        const { profile } = config.credentials;
+        const config = sts.config;
+        const region = await config.region();
 
-        if (!config.region) {
+        if (!region) {
             console.log();
             context.error("You must define an AWS Region to deploy to!");
             context.info(
@@ -39,8 +43,18 @@ module.exports = {
         }
 
         // We assign the region to the appropriate ENV variable for easier access in the stack definition files.
-        process.env.AWS_REGION = config.region;
+        process.env.AWS_REGION = region;
 
-        context.info(`Using profile ${green(profile)} in ${green(config.region)} region.`);
+        const { accessKeyId } = await config.credentials();
+
+        // With AWS-SDK v3, we can't no longer read the loaded profile.
+        // So, we try to read it from environment variables instead.
+        const profile = process.env.AWS_PROFILE || "default";
+
+        if (profile) {
+            context.info(`Using profile ${green(profile)} in ${green(region)} region.`);
+        } else {
+            context.info(`Using access key ID ${green(accessKeyId)} in ${green(region)} region.`);
+        }
     }
 };

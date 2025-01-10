@@ -1,8 +1,8 @@
-import dateLtePlugin from "../../src/content/plugins/validators/dateLte";
-import dateGtePlugin from "../../src/content/plugins/validators/dateGte";
-import { CmsModelFieldValidation } from "../../src/types";
+import { createDateLteValidator } from "~/validators/dateLte";
+import { createDateGteValidator } from "~/validators/dateGte";
+import { CmsModel, CmsModelField, CmsModelFieldValidation } from "~/types";
 
-const createValidator = (args): CmsModelFieldValidation => {
+const createValidator = (args: Record<string, any>): CmsModelFieldValidation => {
     return {
         name: "test-validator",
         message: "test validation message",
@@ -15,8 +15,8 @@ const createValidator = (args): CmsModelFieldValidation => {
 
 describe("date validators", () => {
     const context: any = {};
-    const gtePlugin = dateGtePlugin();
-    const ltePlugin = dateLtePlugin();
+    const gtePlugin = createDateGteValidator();
+    const ltePlugin = createDateLteValidator();
 
     const gteValidationDateCorrectValues = [
         ["2020-06-06T16:30:50Z", "2020-06-06T16:30:50Z"],
@@ -25,7 +25,7 @@ describe("date validators", () => {
     ];
 
     test.each(gteValidationDateCorrectValues)(
-        "should pass gte validation",
+        "should pass gte validation - %s - %s",
         async (value, gteValue) => {
             const validator = createValidator({
                 value: gteValue
@@ -35,8 +35,8 @@ describe("date validators", () => {
                 value,
                 validator,
                 context,
-                field: {} as any,
-                contentModel: {} as any
+                field: {} as unknown as CmsModelField,
+                model: {} as unknown as CmsModel
             });
             expect(result).toEqual(true);
         }
@@ -49,7 +49,7 @@ describe("date validators", () => {
     ];
 
     test.each(gteValidationDateIncorrectValues)(
-        "should not pass gte validation",
+        "should not pass gte validation - %s - %s",
         async (value, gteValue) => {
             const validator = createValidator({
                 value: gteValue
@@ -59,8 +59,8 @@ describe("date validators", () => {
                 value,
                 validator,
                 context,
-                field: {} as any,
-                contentModel: {} as any
+                field: {} as unknown as CmsModelField,
+                model: {} as unknown as CmsModel
             });
             expect(result).toEqual(false);
         }
@@ -73,7 +73,7 @@ describe("date validators", () => {
     ];
 
     test.each(lteValidationDateCorrectValues)(
-        "name should pass lte validation",
+        "name should pass lte validation - %s - %s",
         async (value, lteValue) => {
             const validator = createValidator({
                 value: lteValue
@@ -83,8 +83,8 @@ describe("date validators", () => {
                 value,
                 validator,
                 context,
-                field: {} as any,
-                contentModel: {} as any
+                field: {} as unknown as CmsModelField,
+                model: {} as unknown as CmsModel
             });
             expect(result).toEqual(true);
         }
@@ -97,7 +97,7 @@ describe("date validators", () => {
     ];
 
     test.each(lteValidationDateIncorrectValues)(
-        "name should not pass lte validation",
+        "name should not pass lte validation - %s - %s",
         async (value, lteValue) => {
             const validator = createValidator({
                 value: lteValue
@@ -107,8 +107,8 @@ describe("date validators", () => {
                 value,
                 validator,
                 context,
-                field: {} as any,
-                contentModel: {} as any
+                field: {} as unknown as CmsModelField,
+                model: {} as unknown as CmsModel
             });
             expect(result).toEqual(false);
         }
@@ -122,7 +122,7 @@ describe("date validators", () => {
         ["10:00", "10:00"]
     ];
     test.each(timeValidationGteCorrectValues)(
-        "gte - should pass validation when type is time",
+        "gte - should pass validation when type is time - %s - %s",
         async (value, gteValue) => {
             const validator = createValidator({
                 value: gteValue,
@@ -133,8 +133,8 @@ describe("date validators", () => {
                 value,
                 validator,
                 context,
-                field: {} as any,
-                contentModel: {} as any
+                field: {} as unknown as CmsModelField,
+                model: {} as unknown as CmsModel
             });
             expect(result).toEqual(true);
         }
@@ -146,7 +146,7 @@ describe("date validators", () => {
         ["10:00:00", "10:01"]
     ];
     test.each(timeValidationGteIncorrectValues)(
-        "gte - should fail validation when type is time",
+        "gte - should fail validation when type is time - %s - %s",
         async (value, gteValue) => {
             const validator = createValidator({
                 value: gteValue,
@@ -157,8 +157,8 @@ describe("date validators", () => {
                 value,
                 validator,
                 context,
-                field: {} as any,
-                contentModel: {} as any
+                field: {} as unknown as CmsModelField,
+                model: {} as unknown as CmsModel
             });
             expect(result).toEqual(false);
         }
@@ -172,7 +172,7 @@ describe("date validators", () => {
         ["10:00", "10:00"]
     ];
     test.each(timeValidationLteCorrectValues)(
-        "lte - should pass validation when type is time",
+        "lte - should pass validation when type is time - %s - %s",
         async (value, lteValue) => {
             const validator = createValidator({
                 value: lteValue,
@@ -183,8 +183,8 @@ describe("date validators", () => {
                 value,
                 validator,
                 context,
-                field: {} as any,
-                contentModel: {} as any
+                field: {} as unknown as CmsModelField,
+                model: {} as unknown as CmsModel
             });
             expect(result).toEqual(true);
         }
@@ -198,7 +198,7 @@ describe("date validators", () => {
         ["10:01", "10:00"]
     ];
     test.each(timeValidationLteIncorrectValues)(
-        "lte - should not pass validation when type is time",
+        "lte - should not pass validation when type is time - %s - %s",
         async (value, lteValue) => {
             const validator = createValidator({
                 value: lteValue,
@@ -209,8 +209,8 @@ describe("date validators", () => {
                 value,
                 validator,
                 context,
-                field: {} as any,
-                contentModel: {} as any
+                field: {} as unknown as CmsModelField,
+                model: {} as unknown as CmsModel
             });
             expect(result).toEqual(false);
         }

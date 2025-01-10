@@ -1,7 +1,8 @@
-import Error from "@webiny/error";
+import WebinyError from "@webiny/error";
 import { CmsEntry, CmsModel, CmsModelFieldToGraphQLPlugin } from "@webiny/api-headless-cms/types";
 import { CmsIndexEntry, CmsModelFieldToElasticsearchPlugin } from "~/types";
 import { PluginsContainer } from "@webiny/plugins";
+import { getFieldIdentifier, getFieldIdentifiers } from "~/helpers/fieldIdentifier";
 
 interface SetupEntriesIndexHelpersParams {
     plugins: PluginsContainer;
@@ -32,16 +33,17 @@ export const prepareEntryToIndex = (params: PrepareElasticsearchDataParams): Cms
         if (pl) {
             return pl;
         }
-        throw new Error(`Missing field type plugin "${fieldType}". Prepare entry for index.`);
+        throw new WebinyError(`Missing field type plugin "${fieldType}". Prepare entry for index.`);
     }
 
     // These objects will contain values processed by field index plugins
-    const values = {};
-    const rawValues = {};
+    const values: Record<string, string> = {};
+    const rawValues: Record<string, string> = {};
 
     // We're only interested in current model fields.
     for (const field of model.fields) {
-        if (storageEntry.values.hasOwnProperty(field.fieldId) === false) {
+        const identifier = getFieldIdentifier(storageEntry.values, field);
+        if (!identifier) {
             continue;
         }
 
@@ -56,18 +58,18 @@ export const prepareEntryToIndex = (params: PrepareElasticsearchDataParams): Cms
             plugins,
             model,
             field,
-            rawValue: entry.values[field.fieldId],
-            value: storageEntry.values[field.fieldId],
+            rawValue: entry.values[identifier],
+            value: storageEntry.values[identifier],
             getFieldIndexPlugin,
             getFieldTypePlugin
         });
 
         if (typeof value !== "undefined") {
-            values[field.fieldId] = value;
+            values[identifier] = value;
         }
 
         if (typeof rawValue !== "undefined") {
-            rawValues[field.fieldId] = rawValue;
+            rawValues[identifier] = rawValue;
         }
     }
     return {
@@ -126,13 +128,13 @@ export const extractEntriesFromIndex = ({
 
     for (const entry of entries) {
         // This object will contain values processed by field index plugins
-        const indexValues = {};
+        const indexValues: Record<string, string> = {};
 
         // We only consider fields that are present in the model
         for (const field of model.fields) {
             const fieldTypePlugin = fieldTypePlugins[field.type];
             if (!fieldTypePlugin) {
-                throw new Error(
+                throw new WebinyError(
                     `Missing field type plugin "${field.type}". Extract entries from index.`
                 );
             }
@@ -141,21 +143,35 @@ export const extractEntriesFromIndex = ({
             if (!targetFieldPlugin || !targetFieldPlugin.fromIndex) {
                 continue;
             }
+            /**
+             * We can safely cast as the code will not continue in case of no identifiers.
+             */
+            const identifiers = getFieldIdentifiers(entry.values, entry.rawValues, field);
+            if (!identifiers) {
+                continue;
+            }
+
             try {
-                indexValues[field.fieldId] = targetFieldPlugin.fromIndex({
+                indexValues[identifiers.valueIdentifier] = targetFieldPlugin.fromIndex({
                     plugins,
                     model,
                     field,
                     getFieldIndexPlugin,
                     getFieldTypePlugin,
-                    value: entry.values[field.fieldId],
+                    value: entry.values[
+                        identifiers.valueIdentifier || identifiers.rawValueIdentifier
+                    ],
                     /**
                      * Possibly no rawValues so we must check for the existence of the field.
                      */
-                    rawValue: entry.rawValues ? entry.rawValues[field.fieldId] : null
+                    rawValue: entry.rawValues
+                        ? entry.rawValues[
+                              identifiers.rawValueIdentifier || identifiers.valueIdentifier
+                          ]
+                        : null
                 });
             } catch (ex) {
-                throw new Error(
+                throw new WebinyError(
                     ex.message || "Could not transform entry field from index.",
                     ex.code || "FIELD_FROM_INDEX_ERROR",
                     {
@@ -165,7 +181,27 @@ export const extractEntriesFromIndex = ({
                 );
             }
         }
-        list.push({ ...entry, values: indexValues });
+        /**
+         * Let's have a new entry so we do not modify the original one.
+         */
+        const newEntry: CmsEntry = {
+            ...entry,
+            values: indexValues
+        };
+        /**
+         * If we want to remove the rawValues, TYPE, latest, published and __type, we must make them optional or ignore them.
+         */
+        // @ts-expect-error
+        delete newEntry["rawValues"];
+        // @ts-expect-error
+        delete newEntry["TYPE"];
+        // @ts-expect-error
+        delete newEntry["__type"];
+        // @ts-expect-error
+        delete newEntry["latest"];
+        // @ts-expect-error
+        delete newEntry["published"];
+        list.push({ ...newEntry });
     }
 
     return list;

@@ -1,91 +1,72 @@
-import { useContentGqlHandler } from "../utils/useContentGqlHandler";
-import { CmsEntry, CmsGroup } from "~/types";
-import models from "./mocks/contentModels";
-import { useReviewManageHandler } from "../utils/useReviewManageHandler";
-import { useProductManageHandler } from "../utils/useProductManageHandler";
-import { useCategoryManageHandler } from "../utils/useCategoryManageHandler";
-import { useReviewReadHandler } from "../utils/useReviewReadHandler";
-import { useAuthorManageHandler } from "../utils/useAuthorManageHandler";
+import { useGraphQLHandler } from "../testHelpers/useGraphQLHandler";
+import { CmsEntry } from "~/types";
+import { useReviewManageHandler } from "../testHelpers/useReviewManageHandler";
+import { useProductManageHandler } from "../testHelpers/useProductManageHandler";
+import { useCategoryManageHandler } from "../testHelpers/useCategoryManageHandler";
+import { useReviewReadHandler } from "../testHelpers/useReviewReadHandler";
+import { useAuthorManageHandler } from "../testHelpers/useAuthorManageHandler";
+import { useWrapManageHandler } from "~tests/testHelpers/useWrapManageHandler";
+import {
+    setupContentModelGroup,
+    setupContentModels as setupContentModelsBase
+} from "~tests/testHelpers/setup";
+import { useWrapReadHandler } from "~tests/testHelpers/useWrapReadHandler";
+
+interface CreateCategoryParams {
+    title?: string;
+    slug?: string;
+}
+
+interface CreateProductParams {
+    title?: string;
+    price?: number;
+    availableOn?: string;
+    color?: string;
+    availableSizes?: string[];
+    image?: string;
+}
+
+interface CreateAuthorParams {
+    fullName?: string;
+}
 
 describe("refField", () => {
     const manageOpts = { path: "manage/en-US" };
     const readOpts = { path: "read/en-US" };
 
-    const {
-        createContentModelMutation,
-        updateContentModelMutation,
-        createContentModelGroupMutation
-    } = useContentGqlHandler(manageOpts);
+    const mainHandler = useGraphQLHandler(manageOpts);
 
-    // This function is not directly within `beforeEach` as we don't always setup the same content model.
-    // We call this function manually at the beginning of each test, where needed.
-    const setupContentModelGroup = async (): Promise<CmsGroup> => {
-        const [createCMG] = await createContentModelGroupMutation({
-            data: {
-                name: "Group",
-                slug: "group",
-                icon: "ico/ico",
-                description: "description"
-            }
-        });
-        return createCMG.data.createContentModelGroup.data;
+    const setupContentModels = async (
+        handler: ReturnType<typeof useGraphQLHandler>,
+        models?: string[]
+    ) => {
+        const group = await setupContentModelGroup(handler);
+        return await setupContentModelsBase(
+            handler,
+            group,
+            models || ["category", "product", "review", "author"]
+        );
     };
 
-    const setupContentModel = async (contentModelGroup: CmsGroup, name: string) => {
-        const model = models.find(m => m.modelId === name);
-        // Create initial record
-        const [create] = await createContentModelMutation({
-            data: {
-                name: model.name,
-                modelId: model.modelId,
-                group: contentModelGroup.id
-            }
-        });
-
-        if (create.errors) {
-            console.error(`[beforeEach] ${create.errors[0].message}`);
-            process.exit(1);
-        } else if (create.data.createContentModel.data.error) {
-            console.error(`[beforeEach] ${create.data.createContentModel.data.error.message}`);
-            process.exit(1);
-        }
-
-        const [update] = await updateContentModelMutation({
-            modelId: create.data.createContentModel.data.modelId,
-            data: {
-                fields: model.fields,
-                layout: model.layout
-            }
-        });
-        return update.data.updateContentModel.data;
-    };
-    const setupContentModels = async (contentModelGroup: CmsGroup) => {
-        const models = {
-            category: null,
-            product: null,
-            review: null,
-            author: null
-        };
-        for (const name in models) {
-            models[name] = await setupContentModel(contentModelGroup, name);
-        }
-        return models;
-    };
-
-    const createCategory = async () => {
-        const { createCategory } = useCategoryManageHandler({
+    const createCategory = async (params?: CreateCategoryParams) => {
+        const { createCategory, publishCategory } = useCategoryManageHandler({
             ...manageOpts
         });
         const [createCategoryResponse] = await createCategory({
             data: {
                 title: "Vegetables",
-                slug: "vegetables"
+                slug: "vegetables",
+                ...params
             }
         });
-        return createCategoryResponse.data.createCategory.data as CmsEntry;
+        const [publishCategoryResponse] = await publishCategory({
+            revision: createCategoryResponse.data.createCategory.data.id
+        });
+
+        return publishCategoryResponse.data.publishCategory.data as CmsEntry;
     };
 
-    const createProduct = async (category: CmsEntry) => {
+    const createProduct = async (category: CmsEntry, params?: CreateProductParams) => {
         const { createProduct, publishProduct } = useProductManageHandler({
             ...manageOpts
         });
@@ -98,9 +79,21 @@ describe("refField", () => {
                 color: "white",
                 availableSizes: ["s", "m"],
                 image: "file.jpg",
+                ...params,
                 category: {
                     modelId: "category",
-                    entryId: category.id
+                    id: category.id
+                }
+            }
+        });
+
+        expect(createProductResponse).toMatchObject({
+            data: {
+                createProduct: {
+                    data: {
+                        id: expect.any(String)
+                    },
+                    error: null
                 }
             }
         });
@@ -112,13 +105,14 @@ describe("refField", () => {
         return publishProductResponse.data.publishProduct.data;
     };
 
-    const createAuthor = async () => {
+    const createAuthor = async (params?: CreateAuthorParams) => {
         const { createAuthor, publishAuthor } = useAuthorManageHandler({
             ...manageOpts
         });
         const [createResponse] = await createAuthor({
             data: {
-                fullName: "John Doe"
+                fullName: "John Doe",
+                ...params
             }
         });
 
@@ -129,16 +123,14 @@ describe("refField", () => {
         return publishAuthorResponse.data.publishAuthor.data;
     };
 
-    test("should create review connected to a product", async () => {
-        const contentModelGroup = await setupContentModelGroup();
-        await setupContentModels(contentModelGroup);
+    it("should create review connected to a product", async () => {
+        await setupContentModels(mainHandler);
 
         const category = await createCategory();
         const product = await createProduct(category);
         const author = await createAuthor();
 
         const {
-            until,
             createReview,
             getReview: manageGetReview,
             listReviews: manageListReviews,
@@ -151,11 +143,11 @@ describe("refField", () => {
             data: {
                 product: {
                     modelId: "product",
-                    entryId: product.id
+                    id: product.id
                 },
                 author: {
                     modelId: "author",
-                    entryId: author.id
+                    id: author.id
                 },
                 text: `review text`,
                 rating: 5
@@ -169,7 +161,7 @@ describe("refField", () => {
         });
 
         const publishedReview = publishResponse.data.publishReview.data;
-        const { publishedOn } = publishedReview.meta;
+        const { firstPublishedOn, modifiedOn, lastPublishedOn } = publishedReview;
 
         const [manageGetResponse] = await manageGetReview({
             revision: review.id
@@ -180,19 +172,22 @@ describe("refField", () => {
                 getReview: {
                     data: {
                         id: review.id,
+                        entryId: review.entryId,
                         createdOn: review.createdOn,
                         createdBy: {
-                            id: "12345678",
+                            id: "id-12345678",
                             displayName: "John Doe",
                             type: "admin"
                         },
                         savedOn: publishedReview.savedOn,
                         text: "review text",
                         rating: 5,
+                        lastPublishedOn,
+                        firstPublishedOn,
+                        modifiedOn,
                         meta: {
                             locked: true,
                             modelId: "review",
-                            publishedOn: publishedOn,
                             revisions: [
                                 {
                                     id: review.id,
@@ -204,25 +199,20 @@ describe("refField", () => {
                             version: 1
                         },
                         product: {
-                            entryId: product.id,
+                            id: product.id,
+                            entryId: product.entryId,
                             modelId: "product"
                         },
                         author: {
                             modelId: "author",
-                            entryId: author.id
+                            entryId: author.entryId,
+                            id: author.id
                         }
                     },
                     error: null
                 }
             }
         });
-
-        // If this `until` resolves successfully, we know entry is accessible via the "read" API
-        await until(
-            () => manageListReviews().then(([data]) => data),
-            ({ data }) => data.listReviews.data[0].meta.publishedOn === publishedOn,
-            { name: "manage list reviews" }
-        );
 
         const [manageListResponse] = await manageListReviews();
 
@@ -231,21 +221,25 @@ describe("refField", () => {
                 listReviews: {
                     data: [
                         {
+                            id: review.id,
+                            entryId: review.entryId,
                             author: {
-                                entryId: author.id,
+                                id: author.id,
+                                entryId: author.entryId,
                                 modelId: "author"
                             },
                             createdOn: review.createdOn,
                             createdBy: {
-                                id: "12345678",
+                                id: "id-12345678",
                                 displayName: "John Doe",
                                 type: "admin"
                             },
-                            id: review.id,
+                            lastPublishedOn,
+                            firstPublishedOn,
+                            modifiedOn,
                             meta: {
                                 locked: true,
                                 modelId: "review",
-                                publishedOn: publishedOn,
                                 revisions: [
                                     {
                                         id: review.id,
@@ -257,7 +251,8 @@ describe("refField", () => {
                                 version: 1
                             },
                             product: {
-                                entryId: product.id,
+                                id: product.id,
+                                entryId: product.entryId,
                                 modelId: "product"
                             },
                             rating: 5,
@@ -278,18 +273,6 @@ describe("refField", () => {
         const { getReview: readGetReview } = useReviewReadHandler({
             ...readOpts
         });
-
-        // If this `until` resolves successfully, we know entry is accessible via the "read" API
-        await until(
-            () =>
-                readGetReview({
-                    where: {
-                        id: review.id
-                    }
-                }).then(([data]) => data),
-            ({ data }) => data.getReview.data.id === review.id,
-            { name: "get created review" }
-        );
 
         const [response] = await readGetReview({
             where: {
@@ -316,6 +299,271 @@ describe("refField", () => {
                         }
                     },
                     error: null
+                }
+            }
+        });
+    });
+
+    it("should properly order related items from multiple models", async () => {
+        const manageHandler = useWrapManageHandler(manageOpts);
+        const readHandler = useWrapReadHandler({
+            ...readOpts
+        });
+        await setupContentModels(manageHandler, [
+            "wrap",
+            "category",
+            "author",
+            "product",
+            "fruit",
+            "bug"
+        ]);
+
+        const categoryOne = await createCategory({
+            title: "Category One",
+            slug: "category-one"
+        });
+        const categoryTwo = await createCategory({
+            title: "Category Two",
+            slug: "category-two"
+        });
+
+        const productOne = await createProduct(categoryOne, {
+            title: "Product One",
+            price: 100,
+            availableOn: "2020-12-25",
+            color: "white",
+            availableSizes: ["s", "m"],
+            image: "file.jpg"
+        });
+        const productTwo = await createProduct(categoryTwo, {
+            title: "Product Two",
+            price: 100,
+            availableOn: "2020-12-25",
+            color: "white",
+            availableSizes: ["s", "m"],
+            image: "file.jpg"
+        });
+
+        const authorOne = await createAuthor({
+            fullName: "Author One"
+        });
+        const authorTwo = await createAuthor({
+            fullName: "Author Two"
+        });
+
+        const references = [
+            {
+                id: productTwo.id,
+                modelId: "product"
+            },
+            {
+                id: categoryTwo.id,
+                modelId: "category"
+            },
+            {
+                id: authorTwo.id,
+                modelId: "author"
+            },
+            {
+                id: categoryOne.id,
+                modelId: "category"
+            },
+            {
+                id: productOne.id,
+                modelId: "product"
+            },
+
+            {
+                id: authorOne.id,
+                modelId: "author"
+            }
+        ];
+        const [createResponse] = await manageHandler.createWrap({
+            data: {
+                title: "Wrap One",
+                references
+            }
+        });
+        expect(createResponse).toMatchObject({
+            data: {
+                createWrap: {
+                    data: {
+                        title: "Wrap One",
+                        references
+                    },
+                    error: null
+                }
+            }
+        });
+
+        for (const index in references) {
+            const responseReference = createResponse.data.createWrap.data.references[index];
+            expect(responseReference).toMatchObject(references[index]);
+        }
+
+        const [publishResponse] = await manageHandler.publishWrap({
+            revision: createResponse.data.createWrap.data.id
+        });
+        expect(publishResponse).toMatchObject({
+            data: {
+                publishWrap: {
+                    data: {
+                        title: "Wrap One",
+                        references,
+                        meta: {
+                            status: "published"
+                        }
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [listResponse] = await readHandler.listWraps();
+
+        expect(listResponse.errors).toBeUndefined();
+
+        expect(listResponse).toMatchObject({
+            data: {
+                listWraps: {
+                    data: [
+                        {
+                            references
+                        }
+                    ],
+                    error: null,
+                    meta: {
+                        cursor: null,
+                        hasMoreItems: false,
+                        totalCount: 1
+                    }
+                }
+            }
+        });
+    });
+
+    it("should create a product which is not connected to category and list and filter by the category value", async () => {
+        await setupContentModels(mainHandler);
+        const { createProduct, listProducts } = useProductManageHandler({
+            ...manageOpts
+        });
+
+        const [listEmptyResult] = await listProducts({
+            where: {
+                category: null
+            }
+        });
+        expect(listEmptyResult).toMatchObject({
+            data: {
+                listProducts: {
+                    data: [],
+                    error: null,
+                    meta: {
+                        cursor: null,
+                        hasMoreItems: false,
+                        totalCount: 0
+                    }
+                }
+            }
+        });
+
+        const data = {
+            title: "Potato",
+            price: 100,
+            availableOn: "2020-12-25",
+            color: "white",
+            availableSizes: ["s", "m"],
+            image: "file.jpg",
+            category: null
+        };
+        const [createResponse] = await createProduct({
+            data
+        });
+
+        expect(createResponse).toMatchObject({
+            data: {
+                createProduct: {
+                    data: {
+                        id: expect.any(String),
+                        ...data,
+                        category: null
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [listResult] = await listProducts();
+
+        expect(listResult).toMatchObject({
+            data: {
+                listProducts: {
+                    data: [
+                        {
+                            id: expect.any(String),
+                            entryId: expect.any(String),
+                            ...data,
+                            category: null
+                        }
+                    ],
+                    error: null,
+                    meta: {
+                        cursor: null,
+                        hasMoreItems: false,
+                        totalCount: 1
+                    }
+                }
+            }
+        });
+
+        const [whereNullResult] = await listProducts({
+            where: {
+                category: null
+            }
+        });
+        expect(whereNullResult).toMatchObject({
+            data: {
+                listProducts: {
+                    data: [
+                        {
+                            id: expect.any(String),
+                            entryId: expect.any(String),
+                            ...data,
+                            category: null
+                        }
+                    ],
+                    error: null,
+                    meta: {
+                        cursor: null,
+                        hasMoreItems: false,
+                        totalCount: 1
+                    }
+                }
+            }
+        });
+
+        const [whereUndefinedResult] = await listProducts({
+            where: {
+                category: undefined
+            }
+        });
+        expect(whereUndefinedResult).toMatchObject({
+            data: {
+                listProducts: {
+                    data: [
+                        {
+                            id: expect.any(String),
+                            entryId: expect.any(String),
+                            ...data,
+                            category: null
+                        }
+                    ],
+                    error: null,
+                    meta: {
+                        cursor: null,
+                        hasMoreItems: false,
+                        totalCount: 1
+                    }
                 }
             }
         });

@@ -1,7 +1,8 @@
 {
   "name": "@webiny/aws-layers",
-  "version": "5.17.0",
+  "version": "0.0.0",
   "main": "index.js",
+  "types": "./index.d.ts",
   "repository": {
     "type": "git",
     "url": "https://github.com/webiny/webiny-js.git",
@@ -13,7 +14,7 @@
   ],
   "description": "A utility to streamline usage of Webiny layers",
   "dependencies": {
-    "chalk": "4.1.0"
+    "chalk": "^4.1.2"
   },
   "license": "MIT",
   "publishConfig": {

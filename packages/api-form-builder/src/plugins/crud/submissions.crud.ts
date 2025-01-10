@@ -1,28 +1,85 @@
-import mdbid from "mdbid";
 import fetch from "node-fetch";
 import pick from "lodash/pick";
 import WebinyError from "@webiny/error";
-import * as utils from "~/plugins/crud/utils";
-import * as models from "~/plugins/crud/forms.models";
 import {
     FbForm,
+    FbFormFieldValidatorPlugin,
+    FbFormTriggerHandlerPlugin,
     FbSubmission,
     FormBuilder,
     FormBuilderContext,
     FormBuilderStorageOperationsListSubmissionsParams,
+    OnFormSubmissionAfterCreate,
+    OnFormSubmissionAfterDelete,
+    OnFormSubmissionAfterUpdate,
+    OnFormSubmissionBeforeCreate,
+    OnFormSubmissionBeforeDelete,
+    OnFormSubmissionBeforeUpdate,
+    OnFormSubmissionsAfterExport,
+    OnFormSubmissionsBeforeExport,
     SubmissionsCRUD
 } from "~/types";
 import { NotFoundError } from "@webiny/handler-graphql";
 import { NotAuthorizedError } from "@webiny/api-security";
+import { createTopic } from "@webiny/pubsub";
+import { sanitizeFormSubmissionData } from "~/plugins/crud/utils/sanitizeFormSubmissionData";
+import { createZodError, mdbid } from "@webiny/utils";
+import { FormsPermissions } from "~/plugins/crud/permissions/FormsPermissions";
+import { isRecaptchaEnabled } from "~/plugins/crud/utils/isRecaptchaEnabled";
+import {
+    FormSubmissionCreateDataModel,
+    FormSubmissionUpdateDataModel
+} from "~/plugins/crud/forms.models";
 
-export interface Params {
+interface CreateSubmissionsCrudParams {
     context: FormBuilderContext;
+    formsPermissions: FormsPermissions;
 }
 
-export const createSubmissionsCrud = (params: Params): SubmissionsCRUD => {
-    const { context } = params;
+export const createSubmissionsCrud = (params: CreateSubmissionsCrudParams): SubmissionsCRUD => {
+    const { context, formsPermissions } = params;
+
+    // create
+    const onFormSubmissionBeforeCreate = createTopic<OnFormSubmissionBeforeCreate>(
+        "formBuilder.onFormBeforeSubmissionCreate"
+    );
+    const onFormSubmissionAfterCreate = createTopic<OnFormSubmissionAfterCreate>(
+        "formBuilder.onFormSubmissionAfterCreate"
+    );
+
+    // update
+    const onFormSubmissionBeforeUpdate = createTopic<OnFormSubmissionBeforeUpdate>(
+        "formBuilder.onFormSubmissionBeforeUpdate"
+    );
+    const onFormSubmissionAfterUpdate = createTopic<OnFormSubmissionAfterUpdate>(
+        "formBuilder.onFormSubmissionAfterUpdate"
+    );
+
+    // delete
+    const onFormSubmissionBeforeDelete = createTopic<OnFormSubmissionBeforeDelete>(
+        "formBuilder.onFormSubmissionBeforeDelete"
+    );
+    const onFormSubmissionAfterDelete = createTopic<OnFormSubmissionAfterDelete>(
+        "formBuilder.onFormSubmissionAfterDelete"
+    );
+
+    // export
+    const onFormSubmissionsBeforeExport = createTopic<OnFormSubmissionsBeforeExport>(
+        "formBuilder.onFormSubmissionsBeforeExport"
+    );
+    const onFormSubmissionsAfterExport = createTopic<OnFormSubmissionsAfterExport>(
+        "formBuilder.onFormSubmissionsAfterExport"
+    );
 
     return {
+        onFormSubmissionBeforeCreate,
+        onFormSubmissionAfterCreate,
+        onFormSubmissionBeforeUpdate,
+        onFormSubmissionAfterUpdate,
+        onFormSubmissionBeforeDelete,
+        onFormSubmissionAfterDelete,
+        onFormSubmissionsBeforeExport,
+        onFormSubmissionsAfterExport,
         async getSubmissionsByIds(this: FormBuilder, formId, submissionIds) {
             let form: FbForm;
             if (typeof formId === "string") {
@@ -62,9 +119,20 @@ export const createSubmissionsCrud = (params: Params): SubmissionsCRUD => {
             }
         },
         async listFormSubmissions(this: FormBuilder, formId, options = {}) {
-            const { submissions } = await utils.checkBaseFormPermissions(context);
+            await formsPermissions.ensure();
 
-            if (typeof submissions !== "undefined" && submissions !== true) {
+            const permissions = await formsPermissions.getPermissions();
+
+            let hasAccessToSubmissions = false;
+            for (let i = 0; i < permissions.length; i++) {
+                const { submissions } = permissions[i];
+                if (typeof submissions === "undefined" || submissions === true) {
+                    hasAccessToSubmissions = true;
+                    break;
+                }
+            }
+
+            if (!hasAccessToSubmissions) {
                 throw new NotAuthorizedError();
             }
 
@@ -81,7 +149,7 @@ export const createSubmissionsCrud = (params: Params): SubmissionsCRUD => {
                 where: {
                     tenant: form.tenant,
                     locale: form.locale,
-                    formId: formFormId
+                    formId: formFormId as string
                 },
                 after,
                 limit,
@@ -121,7 +189,7 @@ export const createSubmissionsCrud = (params: Params): SubmissionsCRUD => {
                 throwOnNotFound: true
             });
 
-            if (settings.reCaptcha && settings.reCaptcha.enabled) {
+            if (settings && isRecaptchaEnabled(settings, form)) {
                 if (!reCaptchaResponseToken) {
                     throw new Error("Missing reCAPTCHA response token - cannot verify.");
                 }
@@ -132,10 +200,8 @@ export const createSubmissionsCrud = (params: Params): SubmissionsCRUD => {
                     "https://www.google.com/recaptcha/api/siteverify",
                     {
                         method: "POST",
-                        body: JSON.stringify({
-                            secret: secretKey,
-                            response: reCaptchaResponseToken
-                        })
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                        body: `secret=${secretKey}&response=${reCaptchaResponseToken}`
                     }
                 );
 
@@ -155,7 +221,8 @@ export const createSubmissionsCrud = (params: Params): SubmissionsCRUD => {
             /**
              * Validate data
              */
-            const validatorPlugins = context.plugins.byType("fb-form-field-validator");
+            const validatorPlugins =
+                context.plugins.byType<FbFormFieldValidatorPlugin>("fb-form-field-validator");
             const { fields } = form;
 
             const data = pick(
@@ -167,7 +234,7 @@ export const createSubmissionsCrud = (params: Params): SubmissionsCRUD => {
                 throw new Error("Form data cannot be empty.");
             }
 
-            const invalidFields = {};
+            const invalidFields: Record<string, string> = {};
             for (let i = 0; i < fields.length; i++) {
                 const field = fields[i];
                 if (Array.isArray(field.validation)) {
@@ -210,7 +277,7 @@ export const createSubmissionsCrud = (params: Params): SubmissionsCRUD => {
              * Use model for data validation and default values.
              */
             const formFormId = form.formId || form.id.split("#").pop();
-            const submissionModel = new models.FormSubmissionCreateDataModel().populate({
+            const submissionInput = {
                 data,
                 meta,
                 form: {
@@ -219,17 +286,20 @@ export const createSubmissionsCrud = (params: Params): SubmissionsCRUD => {
                     name: form.name,
                     version: form.version,
                     fields: form.fields,
-                    layout: form.layout
+                    steps: form.steps
                 }
-            });
-
-            await submissionModel.validate();
-
-            const modelData: Pick<FbSubmission, "data" | "meta" | "form"> =
-                await submissionModel.toJSON();
+            };
+            const validation = FormSubmissionCreateDataModel.safeParse(submissionInput);
+            if (!validation.success) {
+                throw createZodError(validation.error);
+            }
 
             const submission: FbSubmission = {
-                ...modelData,
+                ...validation.data,
+                form: {
+                    layout: [],
+                    ...validation.data.form
+                },
                 createdOn: new Date().toISOString(),
                 savedOn: new Date().toISOString(),
                 id: mdbid(),
@@ -241,8 +311,16 @@ export const createSubmissionsCrud = (params: Params): SubmissionsCRUD => {
             };
 
             try {
+                await onFormSubmissionBeforeCreate.publish({
+                    form,
+                    submission
+                });
                 await this.storageOperations.createSubmission({
-                    input: modelData,
+                    input: validation.data,
+                    form,
+                    submission
+                });
+                await onFormSubmissionAfterCreate.publish({
                     form,
                     submission
                 });
@@ -252,7 +330,7 @@ export const createSubmissionsCrud = (params: Params): SubmissionsCRUD => {
                     ex.code || "CREATE_FORM_SUBMISSION_ERROR",
                     {
                         ...(ex.data || {}),
-                        input: modelData,
+                        input: validation.data,
                         form,
                         submission
                     }
@@ -269,16 +347,17 @@ export const createSubmissionsCrud = (params: Params): SubmissionsCRUD => {
                  * Execute triggers
                  */
                 if (form.triggers) {
-                    const plugins = context.plugins.byType("form-trigger-handler");
+                    const plugins =
+                        context.plugins.byType<FbFormTriggerHandlerPlugin>("form-trigger-handler");
                     for (let i = 0; i < plugins.length; i++) {
                         const plugin = plugins[i];
                         if (form.triggers[plugin.trigger]) {
                             await plugin.handle({
                                 form: form,
-                                addLog: log => {
+                                addLog: (log: Record<string, any>) => {
                                     submission.logs.push(log);
                                 },
-                                data,
+                                data: sanitizeFormSubmissionData(form.fields, data),
                                 meta,
                                 trigger: form.triggers[plugin.trigger]
                             });
@@ -307,10 +386,10 @@ export const createSubmissionsCrud = (params: Params): SubmissionsCRUD => {
             return submission;
         },
         async updateSubmission(this: FormBuilder, formId, input) {
-            const data = await new models.FormSubmissionUpdateDataModel().populate(input);
-            data.validate();
-
-            const updatedData = data.toJSON();
+            const validation = FormSubmissionUpdateDataModel.safeParse(input);
+            if (!validation.success) {
+                throw createZodError(validation.error);
+            }
 
             const submissionId = input.id;
 
@@ -329,13 +408,23 @@ export const createSubmissionsCrud = (params: Params): SubmissionsCRUD => {
             const submission: FbSubmission = {
                 ...original,
                 tenant: form.tenant,
-                logs: updatedData.logs,
+                logs: validation.data.logs,
                 webinyVersion: context.WEBINY_VERSION
             };
 
             try {
+                await onFormSubmissionBeforeUpdate.publish({
+                    form,
+                    original,
+                    submission
+                });
                 await this.storageOperations.updateSubmission({
-                    input: updatedData,
+                    input: validation.data,
+                    form,
+                    original,
+                    submission
+                });
+                await onFormSubmissionAfterUpdate.publish({
                     form,
                     original,
                     submission
@@ -346,7 +435,7 @@ export const createSubmissionsCrud = (params: Params): SubmissionsCRUD => {
                     ex.message || "Could not update form submission.",
                     ex.code || "UPDATE_SUBMISSION_ERROR",
                     {
-                        input: updatedData,
+                        input: validation.data,
                         original,
                         submission,
                         form: formId
@@ -362,7 +451,15 @@ export const createSubmissionsCrud = (params: Params): SubmissionsCRUD => {
                 throw new NotFoundError("Submission not found.");
             }
             try {
+                await onFormSubmissionBeforeDelete.publish({
+                    form,
+                    submission
+                });
                 await this.storageOperations.deleteSubmission({
+                    form,
+                    submission
+                });
+                await onFormSubmissionAfterDelete.publish({
                     form,
                     submission
                 });

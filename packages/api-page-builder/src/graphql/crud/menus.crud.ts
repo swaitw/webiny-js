@@ -1,84 +1,87 @@
-import { ContextPlugin } from "@webiny/handler/plugins/ContextPlugin";
+import prepareMenuItems from "./menus/prepareMenuItems";
+import WebinyError from "@webiny/error";
 import {
-    MenuStorageOperationsGetParams,
     Menu,
-    PbContext,
+    MenusCrud,
+    MenuStorageOperationsGetParams,
     MenuStorageOperationsListParams,
-    MenuStorageOperations
+    OnMenuAfterCreateTopicParams,
+    OnMenuAfterDeleteTopicParams,
+    OnMenuAfterUpdateTopicParams,
+    OnMenuBeforeCreateTopicParams,
+    OnMenuBeforeDeleteTopicParams,
+    OnMenuBeforeUpdateTopicParams,
+    PageBuilderContextObject,
+    PageBuilderStorageOperations,
+    PbContext
 } from "~/types";
 import { NotFoundError } from "@webiny/handler-graphql";
-import checkBasePermissions from "./utils/checkBasePermissions";
-import checkOwnPermissions from "./utils/checkOwnPermissions";
-import Error from "@webiny/error";
-import { validation } from "@webiny/validation";
-import { withFields, string } from "@commodo/fields";
-import { object } from "commodo-fields-object";
-import executeCallbacks from "./utils/executeCallbacks";
-import prepareMenuItems from "./menus/prepareMenuItems";
-import { MenuPlugin } from "~/plugins/MenuPlugin";
-import WebinyError from "@webiny/error";
-import { MenuStorageOperationsProviderPlugin } from "~/plugins/MenuStorageOperationsProviderPlugin";
-import { createStorageOperations } from "./storageOperations";
+import { createTopic } from "@webiny/pubsub";
+import {
+    createMenuCreateValidation,
+    createMenuUpdateValidation
+} from "~/graphql/crud/menus/validation";
+import { createZodError, removeUndefinedValues } from "@webiny/utils";
+import { MenusPermissions } from "~/graphql/crud/permissions/MenusPermissions";
 
-const CreateDataModel = withFields({
-    title: string({ validation: validation.create("required,minLength:1,maxLength:100") }),
-    slug: string({ validation: validation.create("required,minLength:1,maxLength:100") }),
-    description: string({ validation: validation.create("maxLength:100") }),
-    items: object()
-})();
+export interface CreateMenuCrudParams {
+    context: PbContext;
+    menusPermissions: MenusPermissions;
+    storageOperations: PageBuilderStorageOperations;
+    getTenantId: () => string;
+    getLocaleCode: () => string;
+}
 
-const UpdateDataModel = withFields({
-    title: string({ validation: validation.create("minLength:1,maxLength:100") }),
-    description: string({ validation: validation.create("maxLength:100") }),
-    items: object()
-})();
+export const createMenuCrud = (params: CreateMenuCrudParams): MenusCrud => {
+    const { context, storageOperations, getLocaleCode, getTenantId, menusPermissions } = params;
 
-const PERMISSION_NAME = "pb.menu";
-
-export default new ContextPlugin<PbContext>(async context => {
-    /**
-     * If pageBuilder is not defined on the context, do not continue, but log it.
-     */
-    if (!context.pageBuilder) {
-        console.log("Missing pageBuilder on context. Skipping Menus crud.");
-        return;
-    }
-
-    const storageOperations = await createStorageOperations<MenuStorageOperations>(
-        context,
-        MenuStorageOperationsProviderPlugin.type
+    // create
+    const onMenuBeforeCreate = createTopic<OnMenuBeforeCreateTopicParams>(
+        "pageBuilder.onMenuBeforeCreate"
+    );
+    const onMenuAfterCreate = createTopic<OnMenuAfterCreateTopicParams>(
+        "pageBuilder.onMenuAfterCreate"
+    );
+    // update
+    const onMenuBeforeUpdate = createTopic<OnMenuBeforeUpdateTopicParams>(
+        "pageBuilder.onMenuBeforeUpdate"
+    );
+    const onMenuAfterUpdate = createTopic<OnMenuAfterUpdateTopicParams>(
+        "pageBuilder.onMenuAfterUpdate"
+    );
+    // delete
+    const onMenuBeforeDelete = createTopic<OnMenuBeforeDeleteTopicParams>(
+        "pageBuilder.onMenuBeforeDelete"
+    );
+    const onMenuAfterDelete = createTopic<OnMenuAfterDeleteTopicParams>(
+        "pageBuilder.onMenuAfterDelete"
     );
 
-    const hookPlugins = context.plugins.byType<MenuPlugin>(MenuPlugin.type);
-
-    context.pageBuilder.menus = {
-        storageOperations,
-        async get(slug, options) {
-            let permission = undefined;
-            const auth = options && options.auth === false ? false : true;
-            if (auth) {
-                permission = await checkBasePermissions(context, PERMISSION_NAME, {
-                    rwd: "r"
-                });
+    return {
+        onMenuBeforeCreate,
+        onMenuAfterCreate,
+        onMenuBeforeUpdate,
+        onMenuAfterUpdate,
+        onMenuBeforeDelete,
+        onMenuAfterDelete,
+        async getMenu(slug, options) {
+            const { auth = true } = options || {};
+            if (auth !== false) {
+                await menusPermissions.ensure({ rwd: "r" });
             }
 
-            const tenant = context.tenancy.getCurrentTenant();
-            const locale = context.i18nContent.getLocale();
             const params: MenuStorageOperationsGetParams = {
                 where: {
                     slug,
-                    tenant: tenant.id,
-                    locale: locale.code
+                    tenant: getTenantId(),
+                    locale: getLocaleCode()
                 }
             };
 
-            let menu: Menu;
+            let menu: Menu | null;
 
             try {
-                menu = await storageOperations.get(params);
-                if (!menu) {
-                    return null;
-                }
+                menu = await storageOperations.menus.get(params);
             } catch (ex) {
                 throw new WebinyError(
                     ex.message || "Could not get menu by slug.",
@@ -89,12 +92,13 @@ export default new ContextPlugin<PbContext>(async context => {
                     }
                 );
             }
-
-            if (!permission) {
-                return menu;
+            if (!menu) {
+                return null;
             }
-            const identity = context.security.getIdentity();
-            checkOwnPermissions(identity, permission, menu);
+
+            if (auth !== false) {
+                await menusPermissions.ensure({ owns: menu.createdBy });
+            }
 
             return menu;
         },
@@ -103,8 +107,8 @@ export default new ContextPlugin<PbContext>(async context => {
          * Used to fetch menu data from a public website. Items are prepared for consumption too.
          * @param slug
          */
-        async getPublic(slug) {
-            const menu = await context.pageBuilder.menus.get(slug, {
+        async getPublicMenu(this: PageBuilderContextObject, slug) {
+            const menu = await this.getMenu(slug, {
                 auth: false
             });
 
@@ -116,31 +120,27 @@ export default new ContextPlugin<PbContext>(async context => {
             return menu;
         },
 
-        async list(params) {
-            const permission = await checkBasePermissions(context, PERMISSION_NAME, {
-                rwd: "r"
-            });
+        async listMenus(params) {
+            await menusPermissions.ensure({ rwd: "r" });
 
-            const tenant = context.tenancy.getCurrentTenant();
-            const locale = context.i18nContent.getLocale();
             const { sort } = params || {};
 
             const listParams: MenuStorageOperationsListParams = {
                 where: {
-                    tenant: tenant.id,
-                    locale: locale.code
+                    tenant: getTenantId(),
+                    locale: getLocaleCode()
                 },
                 sort: Array.isArray(sort) && sort.length > 0 ? sort : ["createdOn_ASC"]
             };
 
             // If user can only manage own records, let's add that to the listing.
-            if (permission.own) {
+            if (await menusPermissions.canAccessOnlyOwnRecords()) {
                 const identity = context.security.getIdentity();
                 listParams.where.createdBy = identity.id;
             }
 
             try {
-                const [items] = await storageOperations.list(listParams);
+                const [items] = await storageOperations.menus.list(listParams);
                 return items;
             } catch (ex) {
                 throw new WebinyError(
@@ -153,53 +153,54 @@ export default new ContextPlugin<PbContext>(async context => {
             }
         },
 
-        async create(input) {
-            await checkBasePermissions(context, PERMISSION_NAME, { rwd: "w" });
+        async createMenu(input) {
+            await menusPermissions.ensure({ rwd: "w" });
 
-            const createDataModel = new CreateDataModel().populate(input);
-            await createDataModel.validate();
+            const validationResult = await createMenuCreateValidation().safeParseAsync(input);
+            if (!validationResult.success) {
+                throw createZodError(validationResult.error);
+            }
 
-            const data: Menu = await createDataModel.toJSON();
+            const data = validationResult.data;
 
-            const tenant = context.tenancy.getCurrentTenant();
-            const locale = context.i18nContent.getLocale();
-
-            const existing = await storageOperations.get({
+            const existing = await storageOperations.menus.get({
                 where: {
                     slug: data.slug,
-                    tenant: tenant.id,
-                    locale: locale.code
+                    tenant: getTenantId(),
+                    locale: getLocaleCode()
                 }
             });
             if (existing) {
-                throw new Error(`Menu "${data.slug}" already exists.`);
+                throw new WebinyError(`Menu "${data.slug}" already exists.`);
             }
 
             const identity = context.security.getIdentity();
 
             const menu: Menu = {
                 ...data,
+                items: data.items || [],
                 createdOn: new Date().toISOString(),
                 createdBy: {
                     id: identity.id,
                     type: identity.type,
                     displayName: identity.displayName
                 },
-                tenant: tenant.id,
-                locale: locale.code
+                tenant: getTenantId(),
+                locale: getLocaleCode()
             };
 
             try {
-                await executeCallbacks<MenuPlugin["beforeCreate"]>(hookPlugins, "beforeCreate", {
-                    context,
-                    menu
-                });
-                const result = await storageOperations.create({
+                await onMenuBeforeCreate.publish({
                     input: data,
                     menu
                 });
-                await executeCallbacks<MenuPlugin["afterCreate"]>(hookPlugins, "afterCreate", {
-                    context,
+
+                const result = await storageOperations.menus.create({
+                    input: data,
+                    menu
+                });
+                await onMenuAfterCreate.publish({
+                    input: data,
                     menu: result
                 });
                 return result;
@@ -215,45 +216,45 @@ export default new ContextPlugin<PbContext>(async context => {
             }
         },
 
-        async update(slug, input) {
-            const permission = await checkBasePermissions(context, PERMISSION_NAME, {
-                rwd: "w"
-            });
+        async updateMenu(this: PageBuilderContextObject, slug, input) {
+            await menusPermissions.ensure({ rwd: "w" });
 
-            const original = await context.pageBuilder.menus.get(slug);
+            const original = await this.getMenu(slug);
             if (!original) {
                 throw new NotFoundError(`Menu "${slug}" not found.`);
             }
 
-            const identity = context.security.getIdentity();
-            checkOwnPermissions(identity, permission, original);
+            await menusPermissions.ensure({ owns: original.createdBy });
 
-            const updateDataModel = new UpdateDataModel().populate(input);
-            await updateDataModel.validate();
+            const validationResult = await createMenuUpdateValidation().safeParseAsync(input);
+            if (!validationResult.success) {
+                throw createZodError(validationResult.error);
+            }
 
-            const data: Partial<Menu> = await updateDataModel.toJSON({ onlyDirty: true });
+            const data = removeUndefinedValues(validationResult.data);
 
-            const menu: Menu = {
+            const menu = {
                 ...original,
                 ...data
             };
 
             try {
-                await executeCallbacks<MenuPlugin["beforeUpdate"]>(hookPlugins, "beforeUpdate", {
-                    context,
+                await onMenuBeforeUpdate.publish({
+                    original,
                     menu
                 });
 
-                const result = await storageOperations.update({
+                const result = await storageOperations.menus.update({
                     input: data,
                     original,
                     menu
                 });
 
-                await executeCallbacks<MenuPlugin["afterUpdate"]>(hookPlugins, "afterUpdate", {
-                    context,
+                await onMenuAfterUpdate.publish({
+                    original,
                     menu: result
                 });
+
                 return result;
             } catch (ex) {
                 throw new WebinyError(
@@ -267,33 +268,29 @@ export default new ContextPlugin<PbContext>(async context => {
                 );
             }
         },
-        async delete(slug) {
-            const permission = await checkBasePermissions(context, PERMISSION_NAME, {
-                rwd: "d"
-            });
+        async deleteMenu(this: PageBuilderContextObject, slug) {
+            await menusPermissions.ensure({ rwd: "d" });
 
-            const menu = await context.pageBuilder.menus.get(slug);
+            const menu = await this.getMenu(slug);
             if (!menu) {
                 throw new NotFoundError(`Menu "${slug}" not found.`);
             }
 
-            const identity = context.security.getIdentity();
-            checkOwnPermissions(identity, permission, menu);
+            await menusPermissions.ensure({ owns: menu.createdBy });
 
             try {
-                await executeCallbacks<MenuPlugin["beforeDelete"]>(hookPlugins, "beforeDelete", {
-                    context,
+                await onMenuBeforeDelete.publish({
                     menu
                 });
 
-                const result = await storageOperations.delete({
+                const result = await storageOperations.menus.delete({
                     menu
                 });
 
-                await executeCallbacks<MenuPlugin["afterDelete"]>(hookPlugins, "afterDelete", {
-                    context,
+                await onMenuAfterDelete.publish({
                     menu: result
                 });
+
                 return result;
             } catch (ex) {
                 throw new WebinyError(
@@ -307,4 +304,4 @@ export default new ContextPlugin<PbContext>(async context => {
             }
         }
     };
-});
+};

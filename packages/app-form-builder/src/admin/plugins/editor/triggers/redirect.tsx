@@ -3,13 +3,13 @@ import { Grid, Cell } from "@webiny/ui/Grid";
 import { Input } from "@webiny/ui/Input";
 import { ReactComponent as LinkIcon } from "./icons/round-link-24px.svg";
 import { ButtonPrimary } from "@webiny/ui/Button";
-import { get } from "lodash";
+import get from "lodash/get";
 import { i18n } from "@webiny/app/i18n";
 import { Alert } from "@webiny/ui/Alert";
-import { FbEditorTrigger } from "../../../../types";
+import { FbEditorTrigger } from "~/types";
 const t = i18n.namespace("FormsApp.Editor.RedirectTriggerSettings");
 
-export default {
+const plugin: FbEditorTrigger = {
     type: "form-editor-trigger",
     name: "form-editor-trigger-redirect",
     trigger: {
@@ -33,10 +33,15 @@ export default {
                         </Bind>
                     </Cell>
                     <Cell>
-                        <ButtonPrimary onClick={submit}>{t`Save`}</ButtonPrimary>
+                        <ButtonPrimary
+                            onClick={ev => {
+                                submit(ev);
+                            }}
+                        >{t`Save`}</ButtonPrimary>
                     </Cell>
                 </Grid>
             );
         }
     }
-} as FbEditorTrigger;
+};
+export default plugin;

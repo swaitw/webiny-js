@@ -1,11 +1,8 @@
 import React, { useEffect } from "react";
-import { useRecoilValue } from "recoil";
 import { css } from "emotion";
 import get from "lodash/get";
 import { Cell, Grid } from "@webiny/ui/Grid";
-import { PbEditorPageElementSettingsRenderComponentProps } from "../../../../types";
-import { activeElementAtom, elementByIdSelector } from "../../../recoil/modules";
-import ElementAnimation from "../../../../render/components/ElementAnimation";
+import { PbEditorElement, PbEditorPageElementSettingsRenderComponentProps } from "~/types";
 import useUpdateHandlers from "../useUpdateHandlers";
 // Components
 import DurationInput from "../components/SliderWithInput";
@@ -16,6 +13,7 @@ import Wrapper from "../components/Wrapper";
 import InputField from "../components/InputField";
 // Icon
 import { ReactComponent as TimerIcon } from "./icons/round-av_timer-24px.svg";
+import { useActiveElement } from "~/editor/hooks/useActiveElement";
 
 const classes = {
     grid: css({
@@ -40,25 +38,21 @@ const classes = {
 const STEP = 50;
 const MAX_VALUE = 3000;
 const DATA_NAMESPACE = "data.settings.animation";
-type SettingsPropsType = {
-    animation: any;
-};
-const Settings: React.FunctionComponent<
-    SettingsPropsType & PbEditorPageElementSettingsRenderComponentProps
-> = ({ defaultAccordionValue }) => {
-    const activeElementId = useRecoilValue(activeElementAtom);
-    const element = useRecoilValue(elementByIdSelector(activeElementId));
+const Settings = ({ defaultAccordionValue }: PbEditorPageElementSettingsRenderComponentProps) => {
+    const [element] = useActiveElement<PbEditorElement>();
 
     const { getUpdateValue, getUpdatePreview } = useUpdateHandlers({
         element,
         dataNamespace: DATA_NAMESPACE
     });
+
     const animationName = get(element, DATA_NAMESPACE + ".name", "");
     const animationDuration = get(element, DATA_NAMESPACE + ".duration", 0);
+
     // Trigger animation manually on "animation" type change.
     useEffect(() => {
         if (animationName) {
-            const animationElement = document.querySelector(`[data-aos=${animationName}]`);
+            const animationElement = document.getElementById(element.id);
             if (animationElement) {
                 animationElement.classList.remove("aos-animate");
                 setTimeout(
@@ -178,15 +172,9 @@ type AnimationSettingsPropsType = {
     title?: string;
     styleAttribute?: string;
 };
-const AnimationSettings: React.FunctionComponent<
-    AnimationSettingsPropsType & PbEditorPageElementSettingsRenderComponentProps
-> = props => {
-    return (
-        <ElementAnimation>
-            {animation => {
-                return <Settings {...props} animation={animation} />;
-            }}
-        </ElementAnimation>
-    );
+type AnimationSettingsProps = AnimationSettingsPropsType &
+    PbEditorPageElementSettingsRenderComponentProps;
+const AnimationSettings = (props: AnimationSettingsProps) => {
+    return <Settings {...props} />;
 };
 export default AnimationSettings;

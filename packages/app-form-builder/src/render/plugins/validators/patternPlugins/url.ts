@@ -1,11 +1,12 @@
 import { FbFormFieldPatternValidatorPlugin } from "~/types";
 
-export default {
+const plugin: FbFormFieldPatternValidatorPlugin = {
     type: "fb-form-field-validator-pattern",
     name: "form-field-validator-pattern-url",
     pattern: {
         name: "url",
-        regex: "^(ftp|http|https):\\/\\/(\\w+:{0,1}\\w*@)?(\\S+)(:[0-9]+)?(\\/|\\/([\\w#!:.?+=&%@!\\-\\/]))?$",
+        regex: "^((ftp|http|https):\\/\\/)?([a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)+.*)$",
         flags: "i"
     }
-} as FbFormFieldPatternValidatorPlugin;
+};
+export default plugin;

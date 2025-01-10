@@ -2,11 +2,19 @@ import React, { Fragment, useCallback, useMemo } from "react";
 import { Grid, Cell } from "@webiny/ui/Grid";
 import { Select } from "@webiny/ui/Select";
 import { i18n } from "@webiny/app/i18n";
-import { PermissionInfo, gridNoPaddingClass } from "@webiny/app-admin/components/Permissions";
+import {
+    CannotUseAaclAlert,
+    PermissionInfo,
+    gridNoPaddingClass
+} from "@webiny/app-admin/components/Permissions";
 import { Form } from "@webiny/form";
 import { Elevation } from "@webiny/ui/Elevation";
 import { Typography } from "@webiny/ui/Typography";
 import { Checkbox, CheckboxGroup } from "@webiny/ui/Checkbox";
+import { SecurityPermission } from "@webiny/app-security/types";
+import { FormBuilderSecurityPermission } from "~/types";
+import { useSecurity } from "@webiny/app-security";
+import { AaclPermission } from "@webiny/app-admin";
 
 const t = i18n.ns("app-form-builder/admin/plugins/permissionRenderer");
 
@@ -26,10 +34,31 @@ const pwOptions = [
     // { id: "c", name: t`Request changes` }
 ];
 
-export const FormBuilderPermissions = ({ value, onChange }) => {
+interface FormPermissionsData {
+    accessLevel: string;
+    formAccessLevel: string;
+    formRWD: string;
+    formPW: string;
+    submissionPermissions: string;
+    settingsAccessLevel: string;
+}
+
+interface FormBuilderPermissionsProps {
+    value: string;
+    onChange: (value: SecurityPermission[]) => void;
+}
+
+export const FormBuilderPermissions = ({ value, onChange }: FormBuilderPermissionsProps) => {
+    const { getPermission } = useSecurity();
+
+    // We disable form elements for custom permissions if AACL cannot be used.
+    const cannotUseAAcl = useMemo(() => {
+        return !getPermission<AaclPermission>("aacl", true);
+    }, []);
+
     const onFormChange = useCallback(
-        data => {
-            let newValue = [];
+        (data: FormPermissionsData) => {
+            let newValue: FormBuilderSecurityPermission[] = [];
             if (Array.isArray(value)) {
                 // Let's just filter out the `fb` permission objects, it's easier to build new ones from scratch.
                 newValue = value.filter(item => !item.name.startsWith(FB));
@@ -48,7 +77,7 @@ export const FormBuilderPermissions = ({ value, onChange }) => {
 
             // Handling custom access level.
             if (data.formAccessLevel && data.formAccessLevel !== NO_ACCESS) {
-                const permission = {
+                const permission: FormBuilderSecurityPermission = {
                     name: FB_ACCESS_FORM,
                     own: false,
                     rwd: undefined,
@@ -84,7 +113,7 @@ export const FormBuilderPermissions = ({ value, onChange }) => {
         [value]
     );
 
-    const formData = useMemo(() => {
+    const formData = useMemo((): Partial<FormPermissionsData> => {
         if (!Array.isArray(value)) {
             return { accessLevel: NO_ACCESS };
         }
@@ -101,11 +130,11 @@ export const FormBuilderPermissions = ({ value, onChange }) => {
         }
 
         // We're dealing with custom permissions. Let's first prepare data for "forms" and "submissions".
-        const data = {
+        const data: FormPermissionsData = {
             accessLevel: CUSTOM_ACCESS,
             formAccessLevel: NO_ACCESS,
-            formRWD: undefined,
-            formPW: undefined,
+            formRWD: "",
+            formPW: "",
             submissionPermissions: NO_ACCESS,
             settingsAccessLevel: NO_ACCESS
         };
@@ -138,6 +167,13 @@ export const FormBuilderPermissions = ({ value, onChange }) => {
         <Form data={formData} onChange={onFormChange}>
             {({ data, Bind, setValue }) => (
                 <Fragment>
+                    <Grid className={gridNoPaddingClass}>
+                        <Cell span={12}>
+                            {data.accessLevel === "custom" && cannotUseAAcl && (
+                                <CannotUseAaclAlert />
+                            )}
+                        </Cell>
+                    </Grid>
                     <Grid className={gridNoPaddingClass}>
                         <Cell span={6}>
                             <PermissionInfo title={t`Access Level`} />
@@ -172,6 +208,7 @@ export const FormBuilderPermissions = ({ value, onChange }) => {
                                                     }}
                                                 >
                                                     <Select
+                                                        disabled={cannotUseAAcl}
                                                         label={t`Access Scope`}
                                                         description={
                                                             "The scope of forms a user can access."
@@ -197,6 +234,7 @@ export const FormBuilderPermissions = ({ value, onChange }) => {
                                                             "Primary actions a user can perform on the forms."
                                                         }
                                                         disabled={
+                                                            cannotUseAAcl ||
                                                             data.formAccessLevel !== FULL_ACCESS
                                                         }
                                                     >
@@ -220,6 +258,7 @@ export const FormBuilderPermissions = ({ value, onChange }) => {
                                                             pwOptions.map(({ id, name }) => (
                                                                 <Checkbox
                                                                     disabled={
+                                                                        cannotUseAAcl ||
                                                                         !["full", "own"].includes(
                                                                             data.formAccessLevel
                                                                         )
@@ -242,6 +281,7 @@ export const FormBuilderPermissions = ({ value, onChange }) => {
                                                             "The scope of form submissions a user can access."
                                                         }
                                                         disabled={
+                                                            cannotUseAAcl ||
                                                             !data.formAccessLevel ||
                                                             data.formAccessLevel === NO_ACCESS
                                                         }
@@ -267,6 +307,7 @@ export const FormBuilderPermissions = ({ value, onChange }) => {
                                             <Cell span={12}>
                                                 <Bind name={"settingsAccessLevel"}>
                                                     <Select
+                                                        disabled={cannotUseAAcl}
                                                         label={t`Access Scope`}
                                                         description={
                                                             "The scope of app settings a user can access."

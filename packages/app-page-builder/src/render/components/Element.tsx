@@ -1,43 +1,18 @@
-import React, { useMemo } from "react";
-
-import { plugins } from "@webiny/plugins";
-import { PbElement, PbRenderElementPlugin, PbThemePlugin } from "~/types";
-import { usePageElements } from "@webiny/app-page-builder-elements/hooks/usePageElements";
+import React from "react";
+import { PbElement } from "~/types";
 import { Element as PeElement } from "@webiny/app-page-builder-elements/components/Element";
-import tryRenderingPlugin from "~/utils/tryRenderingPlugin";
+import { Element as ElementType } from "@webiny/app-page-builder-elements/types";
 
-export type ElementProps = {
-    element: PbElement;
-};
+export interface ElementProps {
+    element: PbElement | null;
+}
 
 const Element = (props: ElementProps) => {
     const { element } = props;
 
-    const theme = useMemo(
-        () => Object.assign({}, ...plugins.byType("pb-theme").map((pl: PbThemePlugin) => pl.theme)),
-        []
-    );
-
-    if (!element) {
-        return null;
-    }
-
-    const pageElements = usePageElements();
-    if (pageElements) {
-        return <PeElement element={element} />;
-    }
-
-    const plugin = plugins
-        .byType<PbRenderElementPlugin>("pb-render-page-element")
-        .find(pl => pl.elementType === element.type);
-
-    if (!plugin) {
-        return null;
-    }
-
-    const renderedPlugin = tryRenderingPlugin(() => plugin.render({ theme, element }));
-
-    return <>{renderedPlugin}</>;
+    // With the new engine, we can simply use the `PeElement` component
+    // and the rest of the rendering will happen recursively.
+    return <PeElement element={element as ElementType} />;
 };
 
 export default Element;

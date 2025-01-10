@@ -1,6 +1,13 @@
 import { Project, ArrayLiteralExpression, Node } from "ts-morph";
 
-export default async ({ scaffoldsIndexPath, importName, importPath }) => {
+interface Params {
+    scaffoldsIndexPath: string;
+    importName: string;
+    importPath: string;
+    pluginsArrayElement?: string;
+}
+export default async (params: Params): Promise<void> => {
+    const { scaffoldsIndexPath, importName, importPath, pluginsArrayElement } = params;
     const project = new Project();
     project.addSourceFileAtPath(scaffoldsIndexPath);
 
@@ -28,7 +35,7 @@ export default async ({ scaffoldsIndexPath, importName, importPath }) => {
         Node.isArrayLiteralExpression(node)
     ) as ArrayLiteralExpression;
 
-    pluginsArray.addElement(importName);
+    pluginsArray.addElement(pluginsArrayElement || importName);
 
     await source.save();
 };

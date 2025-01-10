@@ -1,9 +1,9 @@
 const path = require("path");
-const fs = require("fs");
 const { Worker } = require("worker_threads");
 const chalk = require("chalk");
 const execa = require("execa");
 const { getRandomColorForString } = require("../../utils");
+const { WebinyConfigFile } = require("./WebinyConfigFile");
 
 const parseMessage = message => {
     try {
@@ -17,7 +17,14 @@ const parseMessage = message => {
 };
 
 module.exports = async ({ inputs, output, context }) => {
-    const packages = await getPackages(inputs, context);
+    const packages = await getPackages({ inputs, output, context });
+    if (packages.length === 0) {
+        output.log({
+            type: "build",
+            message: `Could not watch any of the specified packages.`
+        });
+        return;
+    }
 
     if (inputs.debug) {
         context.debug("The following packages will be watched for changes:");
@@ -40,24 +47,19 @@ module.exports = async ({ inputs, output, context }) => {
 
     const log = createLog({ multipleWatches, output, context });
 
+    const commandOptions = { env, debug, logs: !multipleWatches || logs };
     const promises = [];
     for (let i = 0; i < packages.length; i++) {
         const current = packages[i];
-        const config = current.config;
-        if (typeof config.commands.watch !== "function") {
-            context.warning(
-                `Skipping watch of ${context.warning.hl(
-                    current.name
-                )} package - ${context.warning.hl(
-                    "watch"
-                )} command missing. Check package's ${context.warning.hl("webiny.config.ts")} file.`
-            );
-            continue;
-        }
-
         promises.push(
             new Promise(resolve => {
-                const worker = new Worker(path.join(__dirname, "./worker.js"));
+                const worker = new Worker(path.join(__dirname, "./worker.js"), {
+                    workerData: {
+                        options: commandOptions,
+                        package: { ...current.paths }
+                    }
+                });
+
                 worker.on("message", threadMessage => {
                     const { type, message } = parseMessage(threadMessage);
 
@@ -70,13 +72,15 @@ module.exports = async ({ inputs, output, context }) => {
                     }
                 });
 
-                worker.on("error", () => {
+                worker.on("error", e => {
                     log(
                         current.name,
                         `An unknown error occurred while watching ${context.error.hl(
                             current.name
                         )}:`
                     );
+
+                    log(e);
 
                     resolve({
                         package: current,
@@ -85,13 +89,6 @@ module.exports = async ({ inputs, output, context }) => {
                         }
                     });
                 });
-
-                worker.postMessage(
-                    JSON.stringify({
-                        options: { env, debug, logs },
-                        package: current
-                    })
-                );
             })
         );
     }
@@ -99,7 +96,7 @@ module.exports = async ({ inputs, output, context }) => {
     await Promise.all(promises);
 };
 
-const getPackages = async inputs => {
+const getPackages = async ({ inputs, context, output }) => {
     let packagesList = [];
     if (inputs.package) {
         packagesList = Array.isArray(inputs.package) ? inputs.package : [inputs.package];
@@ -138,25 +135,40 @@ const getPackages = async inputs => {
         const packages = [];
         for (const packageName in result) {
             const root = result[packageName];
-            const configPath = fs.existsSync(path.join(root, "webiny.config.ts"))
-                ? path.join(root, "webiny.config.ts")
-                : path.join(root, "webiny.config.js");
+            const configPath = WebinyConfigFile.forWorkspace(root).getAbsolutePath();
+
+            if (!configPath) {
+                continue;
+            }
 
             try {
-                const pckg = {
+                packages.push({
                     name: packageName,
                     config: require(configPath).default || require(configPath),
                     paths: {
                         root,
                         config: configPath
                     }
-                };
+                });
+            } catch (e) {
+                if (inputs.debug) {
+                    output.log({
+                        type: "build",
+                        message: `Warning: could not load ${context.warning.hl(
+                            configPath
+                        )} configuration file:`
+                    });
 
-                if (pckg.config.commands && typeof pckg.config.commands.watch === "function") {
-                    packages.push(pckg);
+                    output.log({
+                        type: "build",
+                        message: e.message
+                    });
+
+                    output.log({
+                        type: "build",
+                        message: e.stack
+                    });
                 }
-            } catch {
-                // Do nothing.
             }
         }
 
@@ -171,7 +183,7 @@ const createLog = ({ multipleWatches, output, context }) => {
             prefix = chalk.hex(getRandomColorForString(packageName))(packageName) + ": ";
         }
 
-        let send;
+        let send = "";
         if (Array.isArray(message)) {
             message = message.filter(Boolean);
             if (message.length) {

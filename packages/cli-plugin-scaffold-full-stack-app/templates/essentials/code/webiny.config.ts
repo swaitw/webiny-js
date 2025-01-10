@@ -1,5 +1,5 @@
 import invariant from "invariant";
-import { startApp, buildApp } from "@webiny/project-utils";
+import { createWatchApp, createBuildApp } from "@webiny/project-utils";
 import { getStackOutput } from "@webiny/cli-plugin-deploy-pulumi/utils";
 
 // Exports fundamental start (watch) and build commands.
@@ -7,8 +7,8 @@ import { getStackOutput } from "@webiny/cli-plugin-deploy-pulumi/utils";
 // output to retrieve the URL over which the GraphQL API is accessible. If needed, additional
 // information can be retrieved too, but remember to export it in the cloud infrastructure
 // code, in the following files:
-// - `project-applications-path/api/pulumi/dev/index.ts`
-// - `project-applications-path/api/pulumi/prod/index.ts`
+// - `project-applications-path/apps/api/pulumi/dev/index.ts`
+// - `project-applications-path/apps/api/pulumi/prod/index.ts`
 
 const API_MAP = {
     REACT_APP_API_URL: "${apiUrl}",
@@ -16,10 +16,14 @@ const API_MAP = {
 };
 
 const NO_ENV_MESSAGE = `Please specify the environment via the "--env" argument, for example: "--env dev".`;
-
+/**
+ * TODO @ts-refactor @adrian
+ * Figure out correct types for options.
+ */
 export default {
     commands: {
-        async watch(options, context) {
+        // @ts-expect-error
+        async watch(options) {
             invariant(options.env, NO_ENV_MESSAGE);
             Object.assign(
                 process.env,
@@ -30,10 +34,15 @@ export default {
                 })
             );
 
+            // Starts the local development server at port 3000.
+            Object.assign(process.env, { PORT: 3000 });
+
             // Starts local application development.
-            await startApp(options, context);
+            const watch = createWatchApp({ cwd: __dirname });
+            await watch(options);
         },
-        async build(options, context) {
+        // @ts-expect-error
+        async build(options) {
             invariant(options.env, NO_ENV_MESSAGE);
             Object.assign(
                 process.env,
@@ -46,7 +55,8 @@ export default {
 
             // Creates a production build of your application, ready to be deployed to
             // a hosting provider of your choice, for example Amazon S3.
-            await buildApp(options, context);
+            const build = createBuildApp({ cwd: __dirname });
+            await build(options);
         }
     }
 };

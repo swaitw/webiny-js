@@ -1,15 +1,21 @@
-import { Tenancy } from "~/types";
+import { getStorageOps } from "@webiny/project-utils/testing/environment";
+import { Tenancy, TenancyStorageOperations } from "~/types";
 import { createTenancy } from "~/createTenancy";
 
 describe(`Test "Tenancy" install`, () => {
-    // @ts-ignore
-    const { storageOperations } = __getStorageOperations();
-    let tenancy: Tenancy = null;
+    const { storageOperations } = getStorageOps<TenancyStorageOperations>("tenancy");
+    let tenancy: Tenancy;
 
     beforeEach(async () => {
         tenancy = await createTenancy({
             tenant: null,
-            storageOperations
+            storageOperations,
+            incrementWcpTenants: async () => {
+                return Promise.resolve();
+            },
+            decrementWcpTenants: async () => {
+                return Promise.resolve();
+            }
         });
     });
 
@@ -34,7 +40,15 @@ describe(`Test "Tenancy" install`, () => {
             id: "root",
             name: "Root",
             description: "The top-level Webiny tenant.",
-            webinyVersion: process.env.WEBINY_VERSION
+            tags: [],
+            webinyVersion: process.env.WEBINY_VERSION,
+            parent: null,
+            createdOn: expect.any(String),
+            savedOn: expect.any(String),
+            status: "active",
+            settings: {
+                domains: []
+            }
         });
 
         // There must be a version stored
@@ -45,9 +59,11 @@ describe(`Test "Tenancy" install`, () => {
         await tenancy.install();
         expect.assertions(2);
 
-        return tenancy.install().catch(err => {
+        try {
+            await tenancy.install();
+        } catch (err) {
             expect(err.message).toEqual("Tenancy is already installed.");
             expect(err.code).toEqual("TENANCY_INSTALL_ABORTED");
-        });
+        }
     });
 });

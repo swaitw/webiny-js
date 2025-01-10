@@ -1,24 +1,32 @@
-import * as React from "react";
-import { useSecurity } from "..";
+import React from "react";
+import { useSecurity } from "~/hooks/useSecurity";
 import { SecureRouteErrorPlugin } from "~/types";
 import { plugins } from "@webiny/plugins";
 
-export default ({
-    children,
-    permission
-}: {
-    children: any;
+interface SecureRouteProps {
+    children: React.ReactNode;
     permission?: string;
-}): React.ReactElement => {
-    const { identity } = useSecurity();
+}
+export default ({ children, permission }: SecureRouteProps): React.ReactElement | null => {
+    const security = useSecurity();
+
+    if (!security) {
+        return null;
+    }
+
+    const { identity, getPermission } = security;
+
+    if (!identity) {
+        return null;
+    }
 
     let hasPermission = false;
     if (identity) {
-        hasPermission = permission ? Boolean(identity.getPermission(permission)) : true;
+        hasPermission = permission ? Boolean(getPermission(permission)) : true;
     }
 
     if (hasPermission) {
-        return children;
+        return children as unknown as React.ReactElement;
     }
 
     const plugin = plugins.byName<SecureRouteErrorPlugin>("secure-route-error");

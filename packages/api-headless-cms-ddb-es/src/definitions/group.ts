@@ -1,12 +1,12 @@
-import { Entity, Table } from "dynamodb-toolbox";
+import { Entity, Table } from "@webiny/db-dynamodb/toolbox";
 import { Attributes } from "~/types";
 
-export interface Params {
-    table: Table;
+export interface CreateGroupEntityParams {
+    table: Table<string, string, string>;
     entityName: string;
     attributes: Attributes;
 }
-export const createGroupEntity = (params: Params): Entity<any> => {
+export const createGroupEntity = (params: CreateGroupEntityParams): Entity<any> => {
     const { table, attributes, entityName } = params;
     return new Entity({
         name: entityName,

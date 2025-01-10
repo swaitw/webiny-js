@@ -1,7 +1,6 @@
 import React from "react";
 import styled from "@emotion/styled";
-import Droppable from "../Droppable";
-import { DragObjectWithType } from "react-dnd";
+import { Droppable, IsVisibleCallable, OnDropCallable } from "../Droppable";
 
 const InnerDiv = styled("div")({
     height: 15,
@@ -19,7 +18,11 @@ const BackgroundColorDiv = styled("div")({
     height: "100%"
 });
 
-type OuterDivProps = { isOver: boolean; isDragging: boolean; last: boolean };
+interface OuterDivProps {
+    isOver: boolean;
+    isDragging: boolean;
+    last: boolean;
+}
 
 const OuterDiv = styled("div")(
     {
@@ -34,11 +37,11 @@ const OuterDiv = styled("div")(
     },
     (props: OuterDivProps) => ({
         [props.last ? "bottom" : "top"]: -15,
-        // @ts-ignore
+        // @ts-expect-error
         [InnerDiv]: {
             borderColor: props.isOver ? "var(--mdc-theme-primary)" : "var(--mdc-theme-secondary)",
             display: props.isDragging ? "block" : "none",
-            // @ts-ignore
+            // @ts-expect-error
             [BackgroundColorDiv]: {
                 opacity: 0.5,
                 backgroundColor: props.isOver
@@ -49,13 +52,13 @@ const OuterDiv = styled("div")(
     })
 );
 
-type HorizontalProps = {
-    onDrop(item: DragObjectWithType): void;
+export interface HorizontalProps {
+    onDrop: OnDropCallable;
     last?: boolean;
-    isVisible?: any;
-};
+    isVisible?: IsVisibleCallable;
+}
 
-const Horizontal = ({ last, onDrop, isVisible }: HorizontalProps) => {
+export const Horizontal = ({ last, onDrop, isVisible }: HorizontalProps) => {
     return (
         <Droppable onDrop={onDrop} isVisible={isVisible}>
             {({ isOver, isDragging, drop }) => (
@@ -71,7 +74,7 @@ const Horizontal = ({ last, onDrop, isVisible }: HorizontalProps) => {
                     }}
                     data-testid={last ? "fb.editor.dropzone.horizontal-last" : ""}
                 >
-                    <OuterDiv isOver={isOver} isDragging={isDragging} last={last}>
+                    <OuterDiv isOver={isOver} isDragging={isDragging} last={!!last}>
                         <InnerDiv>
                             <BackgroundColorDiv />
                         </InnerDiv>
@@ -81,5 +84,3 @@ const Horizontal = ({ last, onDrop, isVisible }: HorizontalProps) => {
         </Droppable>
     );
 };
-
-export default Horizontal;

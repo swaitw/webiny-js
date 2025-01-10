@@ -2,7 +2,7 @@ import React, { ReactElement } from "react";
 import { Cell, Grid } from "@webiny/ui/Grid";
 import { Typography } from "@webiny/ui/Typography";
 
-type WrapperPropsType = {
+interface WrapperPropsType {
     label: string;
     containerClassName?: string;
     leftCellSpan?: number;
@@ -10,7 +10,7 @@ type WrapperPropsType = {
     leftCellClassName?: string;
     rightCellClassName?: string;
     children: ReactElement;
-};
+}
 
 const Wrapper = ({
     label,
@@ -24,7 +24,7 @@ const Wrapper = ({
     return (
         <Grid className={containerClassName}>
             <Cell span={leftCellSpan} className={leftCellClassName}>
-                <Typography use={"subtitle2"}>{label}</Typography>
+                <Typography use={"body2"}>{label}</Typography>
             </Cell>
             <Cell span={rightCellSpan} className={rightCellClassName}>
                 {children}

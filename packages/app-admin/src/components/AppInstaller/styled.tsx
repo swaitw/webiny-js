@@ -39,11 +39,12 @@ export const InstallContent = styled("div")({
 });
 
 export const installerSplitView = css({
+    // height: "100vh",
     ".webiny-split-view__inner": {
-        height: "100vh",
-        ".webiny-split-view__right-panel-wrapper": {
-            height: "100vh"
-        }
+        height: "100vh"
+    },
+    ".webiny-split-view__right-panel-wrapper": {
+        height: "100vh"
     }
 });
 
@@ -51,7 +52,8 @@ export const SuccessDialog = styled("div")({
     padding: 40,
     textAlign: "center",
     p: {
-        paddingBottom: 40
+        paddingTop: 20,
+        paddingBottom: 30
     }
 });
 

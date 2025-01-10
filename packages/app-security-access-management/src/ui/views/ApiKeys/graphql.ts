@@ -1,4 +1,5 @@
 import gql from "graphql-tag";
+import { ApiKey } from "~/types";
 
 const fields = `
     id
@@ -9,7 +10,15 @@ const fields = `
     createdOn
 `;
 
-export const LIST_API_KEYS: any = gql`
+export interface ListApiKeysResponse {
+    security: {
+        apiKeys: {
+            data: ApiKey[];
+        };
+    };
+}
+
+export const LIST_API_KEYS = gql`
     query ListApiKeys {
         security {
             apiKeys: listApiKeys {
@@ -21,7 +30,7 @@ export const LIST_API_KEYS: any = gql`
     }
 `;
 
-export const READ_API_KEY: any = gql`
+export const READ_API_KEY = gql`
     query GetApiKey($id: ID!) {
         security {
             apiKey: getApiKey(id: $id){
@@ -37,7 +46,7 @@ export const READ_API_KEY: any = gql`
     }
 `;
 
-export const CREATE_API_KEY: any = gql`
+export const CREATE_API_KEY = gql`
     mutation CreateApiKey($data: SecurityApiKeyInput!){
         security {
             apiKey: createApiKey(data: $data) {
@@ -54,7 +63,7 @@ export const CREATE_API_KEY: any = gql`
     }
 `;
 
-export const UPDATE_API_KEY: any = gql`
+export const UPDATE_API_KEY = gql`
     mutation UpdateApiKey($id: ID!, $data: SecurityApiKeyInput!){
         security {
             apiKey: updateApiKey(id: $id, data: $data) {
@@ -71,7 +80,7 @@ export const UPDATE_API_KEY: any = gql`
     }
 `;
 
-export const DELETE_API_KEY: any = gql`
+export const DELETE_API_KEY = gql`
     mutation DeleteApiKey($id: ID!) {
         security {
             deleteApiKey(id: $id) {

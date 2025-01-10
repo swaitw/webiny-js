@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import TimeAgo from "timeago-react";
+import { TimeAgo } from "@webiny/ui/TimeAgo";
 import { css } from "emotion";
+import styled from "@emotion/styled";
 import { i18n } from "@webiny/app/i18n";
 import * as ListComponents from "@webiny/ui/List";
 import { Tooltip } from "@webiny/ui/Tooltip";
@@ -10,7 +11,8 @@ import { Scrollbar } from "@webiny/ui/Scrollbar";
 import FormSubmissionDialog from "./FormSubmissionDialog";
 import { ReactComponent as ImportExport } from "./icons/round-cloud_download-24px.svg";
 import Block from "../Block";
-import useSubmissions from "./useSubmissions";
+import { useSubmissions } from "./useSubmissions";
+import { FbFormSubmissionData } from "~/types";
 
 const t = i18n.namespace("FormsApp.FormsDataList");
 
@@ -24,7 +26,22 @@ const rightAlign = css({
     alignItems: "flex-end !important"
 });
 
-const FullName = ({ submission }) => {
+const InlineLoaderWrapper = styled.div`
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 40px;
+    background-color: var(--mdc-theme-surface);
+`;
+
+interface FullNameProps {
+    submission: FbFormSubmissionData;
+}
+const FullName = ({ submission }: FullNameProps) => {
     const {
         data: { firstName, lastName, email }
     } = submission;
@@ -33,44 +50,36 @@ const FullName = ({ submission }) => {
     return <span>{output || "N/A"}</span>;
 };
 
-const FormVersion = ({ submission }) => {
+interface FormVersionProps {
+    submission: FbFormSubmissionData;
+}
+const FormVersion = ({ submission }: FormVersionProps) => {
     return <span>Form revision #{submission.form.version}</span>;
 };
 
-type Props = {
+interface FormSubmissionsListProps {
     form: {
         id: string;
     };
-};
+}
 
 const { DataList, ListItem, ListItemMeta, ListItemText, ListTextOverline } = ListComponents;
 
-// const sorters = [
-//     {
-//         label: t`Newest to oldest`,
-//         sorters: { createdOn: -1 }
-//     },
-//     {
-//         label: t`Oldest to newest`,
-//         sorters: { createdOn: 1 }
-//     }
-// ];
-
-export const FormSubmissionsList = ({ form }: Props) => {
+export const FormSubmissionsList = ({ form }: FormSubmissionsListProps) => {
     const {
         loading,
+        fetchMoreLoading,
         refresh,
+        loadMoreOnScroll,
         submissions,
         setSorter,
-        nextPage,
-        previousPage,
-        hasPreviousPage,
-        hasNextPage,
         exportSubmissions,
         exportInProgress
     } = useSubmissions(form);
 
-    const [selectedFormSubmission, selectFormSubmission] = useState(null);
+    const [selectedFormSubmission, selectFormSubmission] = useState<FbFormSubmissionData | null>(
+        null
+    );
 
     return (
         <>
@@ -80,13 +89,7 @@ export const FormSubmissionsList = ({ form }: Props) => {
                     refresh={refresh}
                     data={submissions}
                     setSorters={setSorter}
-                    pagination={{
-                        hasNextPage,
-                        hasPreviousPage,
-                        setNextPage: nextPage,
-                        setPreviousPage: previousPage
-                    }}
-                    multiSelectAll={null}
+                    multiSelectAll={undefined}
                     multiSelectActions={
                         <Tooltip content={t`Export all form submissions`} placement={"bottom"}>
                             <IconButton
@@ -104,37 +107,47 @@ export const FormSubmissionsList = ({ form }: Props) => {
                         pagination: true
                     }}
                 >
-                    {({ data = [] }) => (
-                        <Scrollbar>
-                            {data.map(submission => {
-                                const submittedOn = submission.meta
-                                    ? submission.meta.submittedOn
-                                    : new Date();
+                    {({ data }: { data: FbFormSubmissionData[] }) => (
+                        <>
+                            <Scrollbar onScrollFrame={scrollFrame => loadMoreOnScroll(scrollFrame)}>
+                                {(data || []).map(submission => {
+                                    const submittedOn = submission.meta
+                                        ? new Date(submission.meta.submittedOn)
+                                        : new Date();
 
-                                return (
-                                    <ListItem key={submission.id}>
-                                        <ListItemText
-                                            onClick={() => selectFormSubmission(submission)}
-                                        >
-                                            <FullName submission={submission} />
-                                            <ListTextOverline>
-                                                Visitor IP:{" "}
-                                                {(submission.meta && submission.meta.ip) || "N/A"}
-                                            </ListTextOverline>
-                                        </ListItemText>
-                                        <ListItemMeta className={rightAlign}>
-                                            <Typography use={"subtitle2"}>
-                                                {t`Submitted: {time}.`({
-                                                    time: <TimeAgo datetime={submittedOn} />
-                                                })}
-                                                <br />
-                                                <FormVersion submission={submission} />
-                                            </Typography>
-                                        </ListItemMeta>
-                                    </ListItem>
-                                );
-                            })}
-                        </Scrollbar>
+                                    return (
+                                        <ListItem key={submission.id}>
+                                            <ListItemText
+                                                onClick={() => selectFormSubmission(submission)}
+                                            >
+                                                <FullName submission={submission} />
+                                                <ListTextOverline>
+                                                    Visitor IP:{" "}
+                                                    {(submission.meta && submission.meta.ip) ||
+                                                        "N/A"}
+                                                </ListTextOverline>
+                                            </ListItemText>
+                                            <ListItemMeta className={rightAlign}>
+                                                <Typography use={"body2"}>
+                                                    {t`Submitted: {time}.`({
+                                                        time: <TimeAgo datetime={submittedOn} />
+                                                    })}
+                                                    <br />
+                                                    <FormVersion submission={submission} />
+                                                </Typography>
+                                            </ListItemMeta>
+                                        </ListItem>
+                                    );
+                                })}
+                            </Scrollbar>
+                            {fetchMoreLoading && (
+                                <InlineLoaderWrapper>
+                                    <Typography
+                                        use={"overline"}
+                                    >{t`Loading more form submissions...`}</Typography>
+                                </InlineLoaderWrapper>
+                            )}
+                        </>
                     )}
                 </DataList>
             </Block>

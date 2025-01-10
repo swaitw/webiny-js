@@ -1,50 +1,46 @@
-// TODO remove
-// @ts-nocheck
 import React from "react";
-// eslint-disable-next-line
 import { Input } from "../index";
-import "jest-dom/extend-expect";
-import { render, cleanup } from "react-testing-library";
+import { cleanup, render } from "@testing-library/react";
 
 afterEach(cleanup);
 
-describe("Input tests", () => {
-    test("passes expected props to render prop", () => {
-        const { renderArg } = setup();
+interface SetupProps {
+    onChange?: () => void;
+}
 
-        expect(renderArg).toContainKeys(["value", "validation", "onChange", "onBlur"]);
-    });
+function setup(props: SetupProps = {}) {
+    const renderArg = {
+        // eslint-disable-next-line
+        onChange: (_: string) => {},
+        value: null
+    };
 
-    test("updates value via onChange", () => {
-        const { renderArg } = setup();
-        expect(renderArg.value).toBe("init-value");
-        renderArg.onChange("new-value");
-        expect(renderArg.value).toBe("new-value");
-        renderArg.onChange("third-value");
-        expect(renderArg.value).toBe("third-value");
-    });
-});
-
-function setup(props = {}) {
-    const renderArg = {};
+    // We cast "as unknown as React.ReactNode" here because renderProp has a "jest.Mock<null, [controllerArg: any]>" type,
+    // but the "Input" component expect React.ReactNode to be the type of the "children" property.
     const renderProp = jest.fn(controllerArg => {
         Object.assign(renderArg, controllerArg);
         return null;
-    });
+    }) as unknown as React.ReactNode;
+
+    const onChange = props.onChange
+        ? props.onChange
+        : () => {
+              return void 0;
+          };
 
     class Test extends React.Component {
-        state = { value: "init-value" };
+        public override state = { value: "init-value" };
 
-        onChange = value => {
+        onChange = (value: string) => {
             this.setState({ value });
         };
 
-        render() {
+        public override render() {
             return (
                 <Input
                     {...props}
                     value={this.state.value}
-                    onChange={callAll(props.onChange, this.onChange)}
+                    onChange={callAll(onChange, this.onChange)}
                 >
                     {renderProp}
                 </Input>
@@ -64,10 +60,27 @@ function setup(props = {}) {
  * @param {...Function} fns the functions to call
  * @return {Function} the function that calls all the functions
  */
-function callAll(...fns) {
-    return (...args) => {
+function callAll(...fns: ((...params: any) => void)[]) {
+    return (...args: any) => {
         fns.forEach(fn => {
             fn && fn(...args);
         });
     };
 }
+
+describe("Input tests", () => {
+    test("passes expected props to render prop", () => {
+        const { renderArg } = setup();
+
+        expect(renderArg).toContainKeys(["value", "validation", "onChange", "onBlur"]);
+    });
+
+    test("updates value via onChange", () => {
+        const { renderArg } = setup();
+        expect(renderArg.value).toBe("init-value");
+        renderArg.onChange("new-value");
+        expect(renderArg.value).toBe("new-value");
+        renderArg.onChange("third-value");
+        expect(renderArg.value).toBe("third-value");
+    });
+});

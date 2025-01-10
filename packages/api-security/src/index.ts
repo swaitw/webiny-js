@@ -1,5 +1,6 @@
-import { ContextPlugin } from "@webiny/handler/plugins/ContextPlugin";
+import { ContextPlugin } from "@webiny/api";
 import { TenancyContext } from "@webiny/api-tenancy/types";
+import { WcpContext } from "@webiny/api-wcp/types";
 import {
     SecurityAuthenticationPlugin,
     SecurityAuthorizationPlugin,
@@ -7,14 +8,16 @@ import {
     SecurityStorageOperations
 } from "./types";
 import graphqlPlugins from "./graphql";
+import gqlInterfaces from "./graphql/interfaces.gql";
 import { createSecurity } from "~/createSecurity";
 import { attachGroupInstaller } from "~/installation/groups";
 import {
     applyMultiTenancyGraphQLPlugins,
-    applyMultiTenancyPlugins,
     MultiTenancyAppConfig,
     MultiTenancyGraphQLConfig
 } from "~/enterprise/multiTenancy";
+import { SecurityRolePlugin } from "~/plugins/SecurityRolePlugin";
+import { SecurityTeamPlugin } from "~/plugins/SecurityTeamPlugin";
 
 export { default as NotAuthorizedResponse } from "./NotAuthorizedResponse";
 export { default as NotAuthorizedError } from "./NotAuthorizedError";
@@ -23,16 +26,34 @@ export interface SecurityConfig extends MultiTenancyAppConfig {
     storageOperations: SecurityStorageOperations;
 }
 
-type Context = SecurityContext & TenancyContext;
+export * from "./utils/AppPermissions";
+export * from "./utils/getPermissionsFromSecurityGroupsForLocale";
+export * from "./utils/IdentityValue";
+export * from "./utils/createGroupsTeamsAuthorizer";
 
-export const createSecurityContext = ({ storageOperations, ...config }: SecurityConfig) => {
+type Context = SecurityContext & TenancyContext & WcpContext;
+
+export const createSecurityContext = ({ storageOperations }: SecurityConfig) => {
     return new ContextPlugin<Context>(async context => {
+        context.plugins.register(gqlInterfaces);
+
+        const license = context.wcp.getProjectLicense();
+
         context.security = await createSecurity({
+            advancedAccessControlLayer: license?.package?.features?.advancedAccessControlLayer,
             getTenant: () => {
                 const tenant = context.tenancy.getCurrentTenant();
                 return tenant ? tenant.id : undefined;
             },
-            storageOperations
+            storageOperations,
+            groupsProvider: async () =>
+                context.plugins
+                    .byType<SecurityRolePlugin>(SecurityRolePlugin.type)
+                    .map(plugin => plugin.securityRole),
+            teamsProvider: async () =>
+                context.plugins
+                    .byType<SecurityTeamPlugin>(SecurityTeamPlugin.type)
+                    .map(plugin => plugin.securityTeam)
         });
 
         attachGroupInstaller(context.security);
@@ -55,19 +76,18 @@ export const createSecurityContext = ({ storageOperations, ...config }: Security
             });
 
         // Backwards Compatibility - END
-
-        if (context.tenancy.isMultiTenant()) {
-            applyMultiTenancyPlugins(config, context);
-        }
     });
 };
 
 export const createSecurityGraphQL = (config: MultiTenancyGraphQLConfig = {}) => {
     return new ContextPlugin<Context>(context => {
-        context.plugins.register(graphqlPlugins);
+        context.plugins.register(graphqlPlugins({ teams: context.wcp.canUseTeams() }));
 
         if (context.tenancy.isMultiTenant()) {
             applyMultiTenancyGraphQLPlugins(config, context);
         }
     });
 };
+
+export { createSecurityRolePlugin } from "./plugins/SecurityRolePlugin";
+export { createSecurityTeamPlugin } from "./plugins/SecurityTeamPlugin";

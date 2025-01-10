@@ -1,4 +1,5 @@
 import gql from "graphql-tag";
+import { Group } from "~/types";
 
 const fields = `
     id
@@ -6,26 +7,32 @@ const fields = `
     slug
     description
     permissions
+    system
+    plugin
     createdOn
 `;
 
-export const LIST_GROUPS: any = gql`
+export interface ListGroupsResponse {
+    security: {
+        groups: {
+            data: Group[];
+        };
+    };
+}
+
+export const LIST_GROUPS = gql`
     query listGroups {
         security {
             groups: listGroups {
                 data {
-                    id
-                    slug
-                    name
-                    description
-                    createdOn
+                    ${fields}
                 }
             }
         }
     }
 `;
 
-export const READ_GROUP: any = gql`
+export const READ_GROUP = gql`
     query getGroup($id: ID!) {
         security {
             group: getGroup(where: { id: $id }){
@@ -41,7 +48,7 @@ export const READ_GROUP: any = gql`
     }
 `;
 
-export const CREATE_GROUP: any = gql`
+export const CREATE_GROUP = gql`
     mutation createGroup($data: SecurityGroupCreateInput!){
         security {
             group: createGroup(data: $data) {
@@ -58,7 +65,7 @@ export const CREATE_GROUP: any = gql`
     }
 `;
 
-export const UPDATE_GROUP: any = gql`
+export const UPDATE_GROUP = gql`
     mutation updateGroup($id: ID!, $data: SecurityGroupUpdateInput!){
         security {
             group: updateGroup(id: $id, data: $data) {
@@ -75,7 +82,7 @@ export const UPDATE_GROUP: any = gql`
     }
 `;
 
-export const DELETE_GROUP: any = gql`
+export const DELETE_GROUP = gql`
     mutation deleteGroup($id: ID!) {
         security {
             deleteGroup(id: $id) {
@@ -83,6 +90,7 @@ export const DELETE_GROUP: any = gql`
                 error {
                     code
                     message
+                    data
                 }
             }
         }

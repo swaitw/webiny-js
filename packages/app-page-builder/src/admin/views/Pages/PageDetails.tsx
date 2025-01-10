@@ -4,12 +4,18 @@ import { useRouter } from "@webiny/react-router";
 import styled from "@emotion/styled";
 import { renderPlugins } from "@webiny/app/plugins";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
-import { GET_PAGE } from "../../graphql/pages";
-import ElementAnimation from "../../../render/components/ElementAnimation";
+import {
+    GET_PAGE,
+    GetPageQueryResponse,
+    GetPageQueryVariables,
+    PageResponseData
+} from "../../graphql/pages";
 import { ButtonDefault, ButtonIcon } from "@webiny/ui/Button";
 import EmptyView from "@webiny/app-admin/components/EmptyView";
 import { i18n } from "@webiny/app/i18n";
 import { ReactComponent as AddIcon } from "@webiny/app-admin/assets/icons/add-18px.svg";
+import { createUsePageHook, PageProvider } from "~/admin/contexts/Page";
+import { PbPageData } from "~/types";
 
 const t = i18n.ns("app-page-builder/admin/views/pages/page-details");
 
@@ -23,18 +29,22 @@ declare global {
         }
     }
 }
-const DetailsContainer = styled("div")({
-    height: "calc(100% - 10px)",
-    overflow: "hidden",
-    position: "relative",
-    nav: {
-        backgroundColor: "var(--mdc-theme-surface)"
+
+const DetailsContainer = styled("div")`
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+
+    .mdc-tab-bar {
+        background: var(--mdc-theme-surface);
     }
-});
-type EmptyPageDetailsProps = {
+`;
+
+interface EmptyPageDetailsProps {
     onCreatePage: (event?: React.SyntheticEvent) => void;
     canCreate: boolean;
-};
+}
+
 const EmptyPageDetails = ({ onCreatePage, canCreate }: EmptyPageDetailsProps) => {
     return (
         <EmptyView
@@ -46,24 +56,33 @@ const EmptyPageDetails = ({ onCreatePage, canCreate }: EmptyPageDetailsProps) =>
                     <ButtonDefault data-testid="new-record-button" onClick={onCreatePage}>
                         <ButtonIcon icon={<AddIcon />} /> {t`New Page`}
                     </ButtonDefault>
-                ) : null
+                ) : (
+                    <></>
+                )
             }
         />
     );
 };
-type PageDetailsProps = {
+
+function isValidPageData(data: PageResponseData | unknown): data is PageResponseData {
+    return data !== null;
+}
+
+interface PageDetailsProps {
     onCreatePage: (event?: React.SyntheticEvent) => void;
     canCreate: boolean;
-};
-const PageDetails = ({ onCreatePage, canCreate }: PageDetailsProps) => {
+    onDelete: () => void;
+}
+
+export const PageDetails = ({ onCreatePage, canCreate, onDelete }: PageDetailsProps) => {
     const { history, location } = useRouter();
     const { showSnackbar } = useSnackbar();
 
     const query = new URLSearchParams(location.search);
     const pageId = query.get("id");
 
-    const getPageQuery = useQuery(GET_PAGE, {
-        variables: { id: pageId },
+    const getPageQuery = useQuery<GetPageQueryResponse, GetPageQueryVariables>(GET_PAGE, {
+        variables: { id: String(pageId) },
         skip: !pageId,
         onCompleted: data => {
             const error = data?.pageBuilder?.getPage?.error;
@@ -74,26 +93,25 @@ const PageDetails = ({ onCreatePage, canCreate }: PageDetailsProps) => {
         }
     });
 
-    if (!pageId) {
+    const page = getPageQuery.data?.pageBuilder.getPage.data || {};
+
+    if (!pageId || !isValidPageData(page)) {
         return <EmptyPageDetails canCreate={canCreate} onCreatePage={onCreatePage} />;
     }
 
-    const page = getPageQuery.data?.pageBuilder?.getPage?.data || {};
-
     return (
-        <ElementAnimation>
-            {({ refresh }) => (
-                <DetailsContainer onScroll={refresh}>
-                    <test-id data-testid="pb-page-details">
-                        {renderPlugins("pb-page-details", {
-                            page,
-                            getPageQuery
-                        })}
-                    </test-id>
-                </DetailsContainer>
-            )}
-        </ElementAnimation>
+        <DetailsContainer>
+            <PageProvider<PageResponseData> page={page}>
+                <test-id data-testid="pb-page-details">
+                    {renderPlugins("pb-page-details", {
+                        page,
+                        getPageQuery,
+                        onDelete
+                    })}
+                </test-id>
+            </PageProvider>
+        </DetailsContainer>
     );
 };
 
-export default PageDetails;
+export const usePage = createUsePageHook<PbPageData>();

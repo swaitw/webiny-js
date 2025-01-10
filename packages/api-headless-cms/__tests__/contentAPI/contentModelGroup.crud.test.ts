@@ -1,6 +1,6 @@
-import { identity } from "../utils/helpers";
-import { toSlug } from "~/utils";
-import { useContentGqlHandler } from "../utils/useContentGqlHandler";
+import { identity } from "../testHelpers/helpers";
+import { toSlug } from "~/utils/toSlug";
+import { useGraphQLHandler } from "../testHelpers/useGraphQLHandler";
 
 enum TestHelperEnum {
     MODELS_AMOUNT = 3,
@@ -29,7 +29,7 @@ const createContentModelGroupData = ({
     };
 };
 
-const createPermissions = groups => [
+const createPermissions = (groups: string[]) => [
     {
         name: "cms.settings"
     },
@@ -60,7 +60,7 @@ describe("Cms Group crud test", () => {
         createContentModelGroupMutation,
         updateContentModelGroupMutation,
         deleteContentModelGroupMutation
-    } = useContentGqlHandler({ path: "manage/en-us" });
+    } = useGraphQLHandler({ path: "manage/en-us" });
 
     test("content model group create, read, update, delete and list all at once", async () => {
         const updatedContentModelGroups = [];
@@ -251,7 +251,11 @@ describe("Cms Group crud test", () => {
                     error: {
                         message: `Validation failed.`,
                         code: "VALIDATION_FAILED_INVALID_FIELDS",
-                        data: expect.any(Object)
+                        data: {
+                            invalidFields: {
+                                name: expect.any(Object)
+                            }
+                        }
                     }
                 }
             }
@@ -273,7 +277,11 @@ describe("Cms Group crud test", () => {
                     error: {
                         message: `Validation failed.`,
                         code: "VALIDATION_FAILED_INVALID_FIELDS",
-                        data: expect.any(Object)
+                        data: {
+                            invalidFields: {
+                                icon: expect.any(Object)
+                            }
+                        }
                     }
                 }
             }
@@ -295,7 +303,12 @@ describe("Cms Group crud test", () => {
                     error: {
                         message: `Validation failed.`,
                         code: "VALIDATION_FAILED_INVALID_FIELDS",
-                        data: expect.any(Object)
+                        data: {
+                            invalidFields: {
+                                name: expect.any(Object),
+                                icon: expect.any(Object)
+                            }
+                        }
                     }
                 }
             }
@@ -339,7 +352,7 @@ describe("Cms Group crud test", () => {
         const prefixes = Array.from(Array(TestHelperEnum.MODELS_AMOUNT).keys()).map(prefix => {
             return createContentModelGroupPrefix(prefix);
         });
-        const groups = [];
+        const groups: string[] = [];
         for (const prefix of prefixes) {
             const modelData = createContentModelGroupData({ prefix });
 
@@ -366,7 +379,7 @@ describe("Cms Group crud test", () => {
         }
 
         // Create listGroups query with permission for only specific groups
-        const { listContentModelGroupsQuery: listGroups } = useContentGqlHandler({
+        const { listContentModelGroupsQuery: listGroups } = useGraphQLHandler({
             path: "manage/en-us",
             permissions: createPermissions([groups[0]])
         });
@@ -375,5 +388,25 @@ describe("Cms Group crud test", () => {
         // Should only return valid content model group
         expect(response.data.listContentModelGroups.data.length).toEqual(1);
         expect(response.data.listContentModelGroups.data[0].id).toEqual(groups[0]);
+    });
+
+    it("should allow to create a group with custom ID", async () => {
+        const data = {
+            id: "a-custom-group-id",
+            name: "My Group With ID",
+            description: "A group with ID",
+            icon: "fa/fas"
+        };
+        const [response] = await createContentModelGroupMutation({
+            data
+        });
+        expect(response).toMatchObject({
+            data: {
+                createContentModelGroup: {
+                    data,
+                    error: null
+                }
+            }
+        });
     });
 });

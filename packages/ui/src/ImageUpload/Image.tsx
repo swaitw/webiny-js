@@ -1,4 +1,4 @@
-import * as React from "react";
+import React from "react";
 import classNames from "classnames";
 import { ReactComponent as AddImageIcon } from "./icons/round-add_photo_alternate-24px.svg";
 import { ReactComponent as RemoveImageIcon } from "./icons/round-close-24px.svg";
@@ -13,11 +13,12 @@ import {
     ImagePreviewWrapper,
     RemoveImage
 } from "./styled";
+import { BrowseFilesParams } from "react-butterfiles";
 
-type Props = {
-    uploadImage: Function;
-    removeImage?: Function;
-    editImage?: Function;
+interface ImageProps {
+    uploadImage: () => void;
+    removeImage?: (value: string | null) => void;
+    editImage?: (value: BrowseFilesParams | undefined) => void;
     value?: any;
     disabled?: boolean;
     loading?: boolean;
@@ -26,9 +27,9 @@ type Props = {
     renderImagePreview?: (props: any) => React.ReactElement<any>;
     round?: boolean;
     containerStyle?: React.CSSProperties;
-};
+}
 
-class Image extends React.Component<Props> {
+class Image extends React.Component<ImageProps> {
     static defaultProps = {
         placeholder: "Select an image",
         containerStyle: { height: "100%" }
@@ -80,11 +81,11 @@ class Image extends React.Component<Props> {
         }
 
         return (
-            <ImagePreviewWrapper>
+            <ImagePreviewWrapper data-testid={"image-preview"}>
                 {imagePreview}
 
                 {typeof removeImage === "function" && (
-                    <RemoveImage onClick={() => removeImage(null)}>
+                    <RemoveImage onClick={() => removeImage(null)} data-testid={"remove-image"}>
                         <RemoveImageIcon />
                     </RemoveImage>
                 )}
@@ -110,7 +111,7 @@ class Image extends React.Component<Props> {
         );
     }
 
-    render() {
+    public override render() {
         const { value, disabled, containerStyle } = this.props;
         return (
             <div className={classNames({ disabled })} style={containerStyle}>

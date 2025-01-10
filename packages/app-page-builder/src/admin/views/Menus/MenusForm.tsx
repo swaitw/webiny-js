@@ -13,19 +13,27 @@ import {
     SimpleFormHeader
 } from "@webiny/app-admin/components/SimpleForm";
 import { validation } from "@webiny/validation";
-import { GET_MENU, CREATE_MENU, UPDATE_MENU, LIST_MENUS } from "./graphql";
+import {
+    GET_MENU,
+    CREATE_MENU,
+    UPDATE_MENU,
+    LIST_MENUS,
+    GetMenuQueryResponse,
+    GetMenuQueryVariables
+} from "./graphql";
 import { useRouter } from "@webiny/react-router";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
 import { Input } from "@webiny/ui/Input";
 import MenuItems from "./MenusForm/MenuItems";
-import { useSecurity } from "@webiny/app-security";
-import pick from "object.pick";
+import pick from "lodash/pick";
 import get from "lodash/get";
 import set from "lodash/set";
 import isEmpty from "lodash/isEmpty";
 import omit from "lodash/omit";
 import EmptyView from "@webiny/app-admin/components/EmptyView";
 import { ReactComponent as AddIcon } from "@webiny/app-admin/assets/icons/add-18px.svg";
+import { useMenusPermissions } from "~/hooks/permissions";
+import { PbMenu } from "~/types";
 
 const t = i18n.ns("app-page-builder/admin/menus/form");
 const ButtonWrapper = styled("div")({
@@ -33,9 +41,10 @@ const ButtonWrapper = styled("div")({
     justifyContent: "space-between"
 });
 
-type MenusFormProps = {
+interface MenusFormProps {
     canCreate: boolean;
-};
+}
+
 const MenusForm = ({ canCreate }: MenusFormProps) => {
     const { location, history } = useRouter();
     const { showSnackbar } = useSnackbar();
@@ -62,14 +71,16 @@ const MenusForm = ({ canCreate }: MenusFormProps) => {
     const [update, updateMutation] = useMutation(UPDATE_MENU, {
         refetchQueries: [{ query: LIST_MENUS }],
         update: (cache, { data }) => {
-            const dataFromCache = cache.readQuery<Record<string, any>>({
+            const dataFromCache = cache.readQuery<GetMenuQueryResponse, GetMenuQueryVariables>({
                 query: GET_MENU,
-                variables: { slug }
+                variables: {
+                    slug: slug as string
+                }
             });
             const updatedData = get(data, "pageBuilder.menu.data");
 
-            if (updatedData) {
-                cache.writeQuery({
+            if (updatedData && dataFromCache) {
+                cache.writeQuery<GetMenuQueryResponse, GetMenuQueryVariables>({
                     query: GET_MENU,
                     data: set(dataFromCache, "pageBuilder.getMenu.data", updatedData)
                 });
@@ -82,9 +93,15 @@ const MenusForm = ({ canCreate }: MenusFormProps) => {
     const loading = [getQuery, createMutation, updateMutation].find(item => item.loading);
 
     const onSubmit = useCallback(
-        async formData => {
+        async (formData: PbMenu) => {
             const isUpdate = loadedMenu.slug;
             const data = pick(formData, ["slug", "title", "description", "items"]);
+
+            // We need to ensure `description` is always a string. Otherwise, backend validation will fail.
+            if (!data.description) {
+                data.description = "";
+            }
+
             const [operation, args] = isUpdate
                 ? [update, { variables: { slug: data.slug, data } }]
                 : [create, { variables: { data: data } }];
@@ -110,28 +127,7 @@ const MenusForm = ({ canCreate }: MenusFormProps) => {
         return data;
     }, [loadedMenu.slug]);
 
-    const { identity } = useSecurity();
-    const pbMenuPermission = useMemo(() => {
-        return identity.getPermission("pb.menu");
-    }, []);
-
-    const canSave = useMemo(() => {
-        // User should be able to save the form
-        // if it's a new entry and user has the "own" permission set.
-        if (!loadedMenu.slug && pbMenuPermission.own) {
-            return true;
-        }
-
-        if (pbMenuPermission.own) {
-            return loadedMenu?.createdBy?.id === identity.id;
-        }
-
-        if (typeof pbMenuPermission.rwd === "string") {
-            return pbMenuPermission.rwd.includes("w");
-        }
-
-        return true;
-    }, [loadedMenu.slug]);
+    const { canWrite } = useMenusPermissions();
 
     const showEmptyView = !newEntry && !loading && isEmpty(omit(data, "items"));
     // Render "No content selected" view.
@@ -149,7 +145,9 @@ const MenusForm = ({ canCreate }: MenusFormProps) => {
                         >
                             <ButtonIcon icon={<AddIcon />} /> {t`New Menu`}
                         </ButtonDefault>
-                    ) : null
+                    ) : (
+                        <></>
+                    )
                 }
             />
         );
@@ -165,22 +163,35 @@ const MenusForm = ({ canCreate }: MenusFormProps) => {
                         <Grid>
                             <Cell span={6}>
                                 <Bind name="title" validators={validation.create("required")}>
-                                    <Input label={t`Name`} />
+                                    <Input label={t`Name`} data-testid="pb.menu.create.name" />
                                 </Bind>
                             </Cell>
                             <Cell span={6}>
                                 <Bind name="slug" validators={validation.create("required")}>
-                                    <Input disabled={data.createdOn} label={t`Slug`} />
+                                    <Input
+                                        disabled={Boolean(data.createdOn)}
+                                        label={t`Slug`}
+                                        data-testid="pb.menu.create.slug"
+                                    />
                                 </Bind>
                             </Cell>
                             <Cell span={12}>
                                 <Bind name="description">
-                                    <Input rows={5} label={t`Description`} />
+                                    <Input
+                                        rows={5}
+                                        label={t`Description`}
+                                        data-testid="pb.menu.create.description"
+                                    />
                                 </Bind>
                             </Cell>
                         </Grid>
                         <Bind name="items">
-                            {props => <MenuItems {...props} canSave={canSave} />}
+                            {props => (
+                                <MenuItems
+                                    {...props}
+                                    canSave={canWrite(loadedMenu?.createdBy?.id)}
+                                />
+                            )}
                         </Bind>
                     </SimpleFormContent>
                     <SimpleFormFooter>
@@ -188,8 +199,13 @@ const MenusForm = ({ canCreate }: MenusFormProps) => {
                             <ButtonDefault
                                 onClick={() => history.push("/page-builder/menus")}
                             >{t`Cancel`}</ButtonDefault>
-                            {canSave && (
-                                <ButtonPrimary onClick={form.submit}>{t`Save menu`}</ButtonPrimary>
+                            {canWrite(loadedMenu?.createdBy?.id) && (
+                                <ButtonPrimary
+                                    data-testid="pb.menu.save.button"
+                                    onClick={ev => {
+                                        form.submit(ev);
+                                    }}
+                                >{t`Save menu`}</ButtonPrimary>
                             )}
                         </ButtonWrapper>
                     </SimpleFormFooter>

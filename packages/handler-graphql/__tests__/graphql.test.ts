@@ -1,65 +1,11 @@
 import useGqlHandler from "./useGqlHandler";
-import { GraphQLSchemaPlugin } from "../src/types";
-
-const books = [{ name: "Book 1" }, { name: "Book 2" }];
-
-const crudPlugin = {
-    type: "context",
-    apply(context) {
-        context.getBooks = () => {
-            console.log("getBooks");
-            console.table(books);
-            console.warn("Your store is quite empty!");
-            return books;
-        };
-    }
-};
-
-const booksSchema: GraphQLSchemaPlugin = {
-    type: "graphql-schema",
-    schema: {
-        typeDefs: /* GraphQL */ `
-            type Book {
-                name: String
-            }
-
-            extend type Query {
-                books: [Book]
-                book(name: String!): Book
-            }
-
-            extend type Mutation {
-                createBook: Boolean
-            }
-        `,
-        resolvers: {
-            Query: {
-                books(_, args, context: any) {
-                    console.group("books resolver");
-                    const books = context.getBooks();
-                    console.groupEnd();
-                    return books;
-                },
-                book(_, { name }) {
-                    console.log("Find book by name");
-                    const book = books.find(b => b.name === name);
-                    if (book) {
-                        console.log(`Found book "${book.name}"`);
-                        return book;
-                    }
-                    console.log(`Book not found!`);
-                    return null;
-                }
-            },
-            Mutation: {
-                createBook: () => true
-            }
-        }
-    }
-};
+import { booksSchema, booksCrudPlugin } from "~tests/mocks/booksSchema";
+import { createGraphQLSchemaPlugin } from "~/plugins";
+import { createResolverDecorator } from "~/index";
+import { Context } from "./types";
 
 describe("GraphQL Handler", () => {
-    test("should return errors if schema doesn't exist ", async () => {
+    test("should return errors if schema doesn't exist", async () => {
         const { introspect } = useGqlHandler();
 
         const [response] = await introspect();
@@ -76,7 +22,7 @@ describe("GraphQL Handler", () => {
     });
 
     test("should return logs in the extensions", async () => {
-        const { invoke } = useGqlHandler({ debug: true, plugins: [crudPlugin, booksSchema] });
+        const { invoke } = useGqlHandler({ debug: true, plugins: [booksCrudPlugin, booksSchema] });
         const [response] = await invoke({ body: { query: `{ books { name } }` } });
         expect(response.errors).toBeFalsy();
         expect(response.data.books.length).toBe(2);
@@ -84,7 +30,7 @@ describe("GraphQL Handler", () => {
     });
 
     test("should return logs for specific queries when executed in batch", async () => {
-        const { invoke } = useGqlHandler({ debug: true, plugins: [crudPlugin, booksSchema] });
+        const { invoke } = useGqlHandler({ debug: true, plugins: [booksCrudPlugin, booksSchema] });
         const [[r1, r2, r3]] = await invoke({
             body: [
                 { query: `{ books { name } }` },
@@ -132,5 +78,47 @@ describe("GraphQL Handler", () => {
                 { method: "log", args: ["Book not found!"] }
             ]
         });
+    });
+
+    test("should compose resolvers", async () => {
+        const lowerCaseName = createResolverDecorator<any, any, Context>(
+            resolver => async (parent, args, context, info) => {
+                const name = await resolver(parent, args, context, info);
+
+                return name.toLowerCase();
+            }
+        );
+
+        const listBooks = createResolverDecorator(() => async () => {
+            return [{ name: "Article 1" }];
+        });
+
+        const decorator1 = createGraphQLSchemaPlugin({
+            resolverDecorators: {
+                "Query.books": [listBooks],
+                "Book.name": [lowerCaseName]
+            }
+        });
+
+        const addNameSuffix = createResolverDecorator(resolver => async (...args) => {
+            const name = await resolver(...args);
+
+            return `${name} (suffix)`;
+        });
+
+        const decorator2 = createGraphQLSchemaPlugin({
+            resolverDecorators: {
+                "Book.name": [addNameSuffix]
+            }
+        });
+
+        const { invoke } = useGqlHandler({
+            debug: true,
+            plugins: [booksCrudPlugin, booksSchema, decorator1, decorator2]
+        });
+        const [response] = await invoke({ body: { query: `{ books { name } }` } });
+        expect(response.errors).toBeFalsy();
+        expect(response.data.books.length).toBe(1);
+        expect(response.data.books[0].name).toBe("article 1 (suffix)");
     });
 });

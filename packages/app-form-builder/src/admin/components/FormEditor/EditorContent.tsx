@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useCallback, useState } from "react";
 import { css } from "emotion";
 import styled from "@emotion/styled";
 import { SplitView, LeftPanel, RightPanel } from "@webiny/app-admin/components/SplitView";
@@ -43,9 +43,13 @@ const formTabs = css({
         }
     }
 });
+const EditorContent = () => {
+    const [activeTab, setActiveTab] = useState(0);
 
-export default function EditorContent() {
-    const tabsRef = useRef();
+    const onFieldDragStart = useCallback(() => {
+        setActiveTab(0);
+    }, []);
+
     return (
         <ContentContainer>
             <SplitView>
@@ -55,18 +59,11 @@ export default function EditorContent() {
                         <Typography use={"headline6"}>Form Elements</Typography>
                     </LeftBarTitle>
                     <LeftBarFieldList>
-                        <Fields
-                            onFieldDragStart={() => {
-                                if (tabsRef.current) {
-                                    // @ts-ignore
-                                    tabsRef.current.switchTab(0);
-                                }
-                            }}
-                        />
+                        <Fields onFieldDragStart={onFieldDragStart} />
                     </LeftBarFieldList>
                 </LeftPanel>
                 <RightPanel span={8}>
-                    <Tabs className={formTabs} ref={tabsRef}>
+                    <Tabs className={formTabs} value={activeTab} onActivate={setActiveTab}>
                         <Tab label={"Edit"}>
                             <EditTab />
                         </Tab>
@@ -81,4 +78,6 @@ export default function EditorContent() {
             </SplitView>
         </ContentContainer>
     );
-}
+};
+
+export default EditorContent;

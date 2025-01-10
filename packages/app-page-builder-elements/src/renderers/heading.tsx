@@ -1,35 +1,45 @@
 import React from "react";
-import { usePageElements } from "~/hooks/usePageElements";
-import { ElementRenderer } from "~/types";
+import { createRenderer } from "~/createRenderer";
+import { useRenderer } from "~/hooks/useRenderer";
+import { ElementInput } from "~/inputs/ElementInput";
+import { isJson } from "~/renderers/isJson";
+import { isHtml } from "~/renderers/isHtml";
 
-declare global {
-    //eslint-disable-next-line
-    namespace JSX {
-        interface IntrinsicElements {
-            "pb-heading": any;
+export const elementInputs = {
+    text: ElementInput.create<string>({
+        name: "text",
+        type: "lexical",
+        translatable: true,
+        getDefaultValue: ({ element }) => {
+            return element.data.text.data.text;
         }
-    }
-}
-
-const defaultStyles = { display: "block" };
-
-const Heading: ElementRenderer = ({ element }) => {
-    const { getClassNames, getElementClassNames, combineClassNames } = usePageElements();
-    const tag = element.data.text.desktop.tag || "h1";
-
-    const classNames = combineClassNames(
-        getClassNames(defaultStyles),
-        getElementClassNames(element)
-    );
-
-    return (
-        <pb-heading>
-            {React.createElement(tag, {
-                dangerouslySetInnerHTML: { __html: element.data.text.data.text },
-                className: classNames
-            })}
-        </pb-heading>
-    );
+    }),
+    /**
+     * `tag` is an element input which exists for backwards compatibility with older rich-text implementations.
+     */
+    tag: ElementInput.create<string>({
+        name: "tag",
+        type: "htmlTag",
+        getDefaultValue: ({ element }) => {
+            return element.data.text.desktop.tag;
+        }
+    })
 };
 
-export const createHeading = () => Heading;
+export const HeadingRenderer = createRenderer<unknown, typeof elementInputs>(
+    () => {
+        const { getInputValues } = useRenderer();
+        const inputs = getInputValues<typeof elementInputs>();
+        const content = inputs.text || "";
+        const tag = inputs.tag || "h1";
+
+        if (isJson(content) || !isHtml(content)) {
+            return null;
+        }
+
+        return React.createElement(tag, {
+            dangerouslySetInnerHTML: { __html: content }
+        });
+    },
+    { inputs: elementInputs }
+);

@@ -1,39 +1,50 @@
-import { I18NContext, I18NContextObject, I18NSystem } from "~/types";
-import { ContextPlugin } from "@webiny/handler/plugins/ContextPlugin";
+import {
+    I18NContext,
+    I18NSystem,
+    I18NSystemStorageOperations,
+    OnSystemAfterInstallTopicParams,
+    OnSystemBeforeInstallTopicParams,
+    SystemCRUD
+} from "~/types";
 import WebinyError from "@webiny/error";
-import { SystemStorageOperationsProviderPlugin } from "~/plugins/SystemStorageOperationsProviderPlugin";
+import { NotAuthorizedError } from "@webiny/api-security";
+import { createTopic } from "@webiny/pubsub";
+import { Tenant } from "@webiny/api-tenancy/types";
 
-export default new ContextPlugin<I18NContext>(async context => {
-    if (!context.i18n) {
-        context.i18n = {} as I18NContextObject;
-    }
-    const pluginType = SystemStorageOperationsProviderPlugin.type;
+interface CreateSystemCrudParams {
+    context: I18NContext;
+    storageOperations: I18NSystemStorageOperations;
+    getTenant: () => Tenant;
+}
+export const createSystemCrud = (params: CreateSystemCrudParams): SystemCRUD => {
+    const { context, storageOperations, getTenant } = params;
 
-    const providerPlugin = context.plugins
-        .byType<SystemStorageOperationsProviderPlugin>(pluginType)
-        .find(() => true);
+    const getTenantId = (): string => {
+        return getTenant().id;
+    };
 
-    if (!providerPlugin) {
-        throw new WebinyError(`Missing "${pluginType}" plugin.`, "PLUGIN_NOT_FOUND", {
-            type: pluginType
-        });
-    }
+    const onSystemBeforeInstall = createTopic<OnSystemBeforeInstallTopicParams>(
+        "i18n.onSystemBeforeInstall"
+    );
+    const onSystemAfterInstall = createTopic<OnSystemAfterInstallTopicParams>(
+        "i18n.onSystemAfterInstall"
+    );
 
-    const storageOperations = await providerPlugin.provide({
-        context
-    });
-
-    context.i18n.system = {
-        getVersion: async () => {
+    return {
+        onSystemBeforeInstall,
+        onSystemAfterInstall,
+        storageOperations,
+        async getSystemVersion() {
             const system = await storageOperations.get();
 
             return system ? system.version : null;
         },
-        setVersion: async version => {
+        async setSystemVersion(version) {
             const original = await storageOperations.get();
 
             const system: I18NSystem = {
-                ...(original || ({} as any)),
+                ...(original || {}),
+                tenant: original?.tenant || getTenantId(),
                 version
             };
             if (original) {
@@ -68,19 +79,36 @@ export default new ContextPlugin<I18NContext>(async context => {
                 );
             }
         },
-        install: async ({ code }) => {
-            const { i18n } = context;
-            const version = await i18n.system.getVersion();
-            if (version) {
-                throw new WebinyError("I18N is already installed.", "INSTALL_ERROR", {
-                    version
-                });
-            }
-            await i18n.locales.create({
-                code,
-                default: true
+        async installSystem(this: SystemCRUD, { code }) {
+            /**
+             * `i18n` installation needs to run with authorization disabled, because permission loading needs a locale.
+             * Since the locale doesn't exist yet, the system would assume the user has no permissions, and throw an error.
+             *
+             * @see packages/api-security/src/utils/getPermissionsFromSecurityGroupsForLocale.ts
+             */
+            await context.security.withoutAuthorization(async () => {
+                const identity = context.security.getIdentity();
+
+                if (!identity) {
+                    throw new NotAuthorizedError();
+                }
+
+                const { i18n } = context;
+
+                const version = await this.getSystemVersion();
+
+                if (version) {
+                    throw new WebinyError("I18N is already installed.", "INSTALL_ERROR", {
+                        version
+                    });
+                }
+                await onSystemBeforeInstall.publish({ code });
+
+                await i18n.locales.createLocale({ code, default: true });
+
+                await this.setSystemVersion(context.WEBINY_VERSION);
+                await onSystemAfterInstall.publish({ code });
             });
-            await i18n.system.setVersion(context.WEBINY_VERSION);
         }
     };
-});
+};

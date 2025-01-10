@@ -1,14 +1,15 @@
 import React from "react";
 import get from "lodash/get";
 import { i18n } from "@webiny/app/i18n";
-import { CmsEditorFieldRendererPlugin } from "~/types";
+import { Input } from "@webiny/ui/Input";
+import { DelayedOnChange } from "@webiny/ui/DelayedOnChange";
+import { CmsModelFieldRendererPlugin } from "~/types";
 import { ReactComponent as DeleteIcon } from "~/admin/icons/close.svg";
 import DynamicSection from "../DynamicSection";
-import { Input } from "@webiny/ui/Input";
 
 const t = i18n.ns("app-headless-cms/admin/fields/text");
 
-const plugin: CmsEditorFieldRendererPlugin = {
+const plugin: CmsModelFieldRendererPlugin = {
     type: "cms-editor-field-renderer",
     name: "cms-editor-field-renderer-text-inputs",
     renderer: {
@@ -18,7 +19,7 @@ const plugin: CmsEditorFieldRendererPlugin = {
         canUse({ field }) {
             return (
                 field.type === "text" &&
-                field.multipleValues &&
+                !!field.multipleValues &&
                 !get(field, "predefinedValues.enabled")
             );
         },
@@ -26,18 +27,23 @@ const plugin: CmsEditorFieldRendererPlugin = {
             return (
                 <DynamicSection {...props}>
                     {({ bind, index }) => (
-                        <Input
-                            {...bind.index}
-                            autoFocus
-                            onEnter={() => bind.field.appendValue("")}
-                            label={t`Value {number}`({ number: index + 1 })}
-                            trailingIcon={
-                                index > 0 && {
+                        <DelayedOnChange
+                            value={bind.index.value}
+                            onChange={bind.index.onChange}
+                            onBlur={bind.index.validate}
+                        >
+                            <Input
+                                validation={bind.index.validation}
+                                onEnter={() => bind.field.appendValue("")}
+                                label={t`Value {number}`({ number: index + 1 })}
+                                placeholder={props.field.placeholderText}
+                                data-testid={`fr.input.texts.${props.field.label}.${index + 1}`}
+                                trailingIcon={{
                                     icon: <DeleteIcon />,
                                     onClick: () => bind.field.removeValue(index)
-                                }
-                            }
-                        />
+                                }}
+                            />
+                        </DelayedOnChange>
                     )}
                 </DynamicSection>
             );

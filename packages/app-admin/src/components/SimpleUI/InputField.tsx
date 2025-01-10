@@ -49,23 +49,35 @@ const labelStyle = css({
     }
 });
 
-const getValue = ({ value, defaultValue, type }) => {
+interface GetValueParams {
+    value: string | number | undefined;
+    defaultValue: string | number;
+    type: "number" | "string";
+}
+const getValue = (params: GetValueParams): string => {
+    const { value, defaultValue, type } = params;
     if (type === "number") {
-        return isNaN(value) ? defaultValue : value;
+        return (isNaN(value as number) ? defaultValue : value) as string;
     }
-    return value || defaultValue;
+    return (value || defaultValue) as string;
 };
 
-type InputBoxProps = {
+export type OnKeyDownProps = React.SyntheticEvent<HTMLInputElement, Event> &
+    React.KeyboardEvent<HTMLInputElement>;
+
+interface InputBoxProps {
     value?: string | number;
     onChange?: (value: any) => void;
+    onKeyDown?: (e: OnKeyDownProps) => any;
     defaultValue?: string | number;
+    type?: "string" | "number";
     [key: string]: any;
-};
+}
 const InputField = ({
     className,
     value,
     onChange,
+    onKeyDown,
     label,
     description,
     validation = { isValid: true },
@@ -76,14 +88,22 @@ const InputField = ({
         <React.Fragment>
             {label && (
                 <div className={labelStyle}>
-                    <Typography use={"subtitle2"}>{label}</Typography>
+                    <Typography use={"body2"}>{label}</Typography>
                 </div>
             )}
             <input
                 className={classNames(inputStyle, className)}
-                value={getValue({ value, type: props.type, defaultValue })}
-                onChange={({ target: { value } }) => {
-                    onChange(value.toLowerCase());
+                value={getValue({
+                    value,
+                    type: props.type || "string",
+                    defaultValue
+                })}
+                onKeyDown={onKeyDown}
+                onChange={ev => {
+                    if (!onChange) {
+                        return;
+                    }
+                    onChange((ev.target.value || "").toLowerCase());
                 }}
                 {...omit(props, "validate")}
             />

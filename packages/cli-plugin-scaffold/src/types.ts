@@ -1,30 +1,15 @@
 import { QuestionCollection } from "inquirer";
-import { CliContext } from "@webiny/cli/types";
+import {
+    CliContext,
+    GenericRecord,
+    CliCommandPlugin,
+    CliCommandPluginArgs
+} from "@webiny/cli/types";
 import { Plugin } from "@webiny/plugins/types";
 import { Ora } from "ora";
 import inquirer from "inquirer";
 
-/**
- * Arguments for CliPlugin.create
- *
- * @category Cli
- */
-export interface CliCommandPluginArgs {
-    yargs: any;
-    context: CliContext;
-}
-
-/**
- * A plugin defining cli-command type.
- *
- * @category Plugin
- * @category Cli
- */
-export interface CliCommandPlugin extends Plugin {
-    type: "cli-command";
-    name: string;
-    create: (args: CliCommandPluginArgs) => void;
-}
+export { CliCommandPlugin, CliCommandPluginArgs };
 
 /**
  * Arguments for the CliCommandScaffoldQuestionsCallable.
@@ -54,7 +39,7 @@ export type CliCommandScaffoldQuestionsCallable = (
  * @category Scaffold
  * @category Template
  */
-export interface CliCommandScaffoldCallableArgs<T extends Record<string, any>> {
+export interface CliCommandScaffoldCallableArgs<T extends GenericRecord> {
     input: T;
     context: CliContext;
     wait: (ms?: number) => Promise<void>;
@@ -68,7 +53,7 @@ export interface CliCommandScaffoldCallableArgs<T extends Record<string, any>> {
  * @category Scaffold
  * @category Template
  */
-export interface CliCommandScaffoldCallableWithErrorArgs<T extends Record<string, any>>
+export interface CliCommandScaffoldCallableWithErrorArgs<T extends GenericRecord>
     extends CliCommandScaffoldCallableArgs<T> {
     error: Error;
 }
@@ -79,7 +64,7 @@ export interface CliCommandScaffoldCallableWithErrorArgs<T extends Record<string
  * @category Scaffold
  * @category Template
  */
-interface CliCommandScaffold<T extends Record<string, any>> {
+export interface CliCommandScaffold<T extends GenericRecord> {
     /**
      * Name of the scaffold to be picked from list of choices.
      */
@@ -117,12 +102,19 @@ interface CliCommandScaffold<T extends Record<string, any>> {
  * @category Scaffold
  * @category Template
  */
-export interface CliCommandScaffoldTemplate<T extends Record<string, any> = Record<string, any>>
+export interface CliCommandScaffoldTemplate<T extends GenericRecord = GenericRecord>
     extends Plugin {
     /**
      * A type of the plugin.
      */
     type: "cli-plugin-scaffold-template";
+
+    /**
+     * Template name. Can be used when running the scaffold command in
+     * non-interactive mode (for example: `webiny scaffold new-template`).
+     */
+    templateName?: string;
+
     /**
      * The scaffold definition.
      */
@@ -140,6 +132,8 @@ export interface PackageJson {
     name: string;
     dependencies: Record<string, string>;
     devDependencies: Record<string, string>;
+    peerDependencies: Record<string, string>;
+    keywords?: string[];
     workspaces: {
         packages: string[];
     };

@@ -1,4 +1,4 @@
-import * as React from "react";
+import React from "react";
 import {
     List as RmwcList,
     ListProps as RmwcListProps,
@@ -11,9 +11,9 @@ import {
     SimpleListItem as RmwcSimpleListItem,
     SimpleListItemProps as RmwcSimpleListItemProps
 } from "@rmwc/list";
-import { Typography } from "../Typography";
+import { Typography } from "~/Typography";
 import classNames from "classnames";
-import styled from "@emotion/styled";
+import { SelectBoxWrapper, webinyList } from "./styled";
 
 export type ListItemProps = RmwcListItemProps & {
     children: React.ReactNode;
@@ -44,15 +44,19 @@ export type ListProps = RmwcListProps & {
  * Use List component to display data and offer additional actions if needed.
  */
 export class List extends React.Component<ListProps> {
-    render() {
-        return <RmwcList {...this.props}>{this.props.children}</RmwcList>;
+    public override render() {
+        return (
+            <RmwcList {...this.props} className={classNames(webinyList, this.props.className)}>
+                {this.props.children}
+            </RmwcList>
+        );
     }
 }
 
 export type ListItemTextProps = RmwcListItemTextProps & {
     children: React.ReactNode;
     className?: string;
-    onClick?: (e: React.SyntheticEvent<MouseEvent>) => void;
+    onClick?: (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
 };
 
 /**
@@ -103,7 +107,10 @@ export type ListItemGraphicProps = { children: React.ReactNode; className?: stri
  */
 export const ListItemGraphic = (props: ListItemGraphicProps) => {
     return (
-        <div {...props} className={classNames("mdc-list-item__graphic", props.className)}>
+        <div
+            {...props}
+            className={classNames("mdc-deprecated-list-item__graphic", props.className)}
+        >
             {props.children}
         </div>
     );
@@ -119,7 +126,7 @@ export type ListItemMetaProps = { children: React.ReactNode; className?: string 
  */
 export const ListItemMeta = (props: ListItemMetaProps) => {
     return (
-        <span {...props} className={classNames("mdc-list-item__meta", props.className)}>
+        <span {...props} className={classNames("mdc-deprecated-list-item__meta", props.className)}>
             {props.children}
         </span>
     );
@@ -196,16 +203,6 @@ export const ListActions = (props: ListActionsProps) => {
         </span>
     );
 };
-
-const SelectBoxWrapper = styled("div")({
-    overflow: "hidden",
-    width: 25,
-    height: 25,
-    display: "flex",
-    position: "relative",
-    alignItems: "center",
-    justifyContent: "center"
-});
 
 export type ListSelectBoxProps = {
     children: React.ReactNode;

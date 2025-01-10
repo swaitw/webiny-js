@@ -1,8 +1,9 @@
-import { PbEditorElement } from "~/types";
-import { SaveRevisionActionArgsType } from "~/editor/recoil/actions/saveRevision/types";
+import { PbEditorElement, PbEditorElementTree } from "~/types";
 
-export type UpdateElementActionArgsType = SaveRevisionActionArgsType & {
-    element: PbEditorElement;
+export interface UpdateElementActionArgsType {
+    element: PbEditorElement | PbEditorElementTree;
     history: boolean;
     triggerUpdateElementTree?: boolean;
-};
+    debounce?: boolean;
+    onFinish?: () => void;
+}

@@ -3,7 +3,7 @@ import React, { useState } from "react";
 interface Props {
     id?: number;
 }
-const Target: React.FunctionComponent<Props> = ({ id }) => {
+const Target = ({ id }: Props) => {
     const [randomNumber, setRandomNumber] = useState<number>();
 
     return (

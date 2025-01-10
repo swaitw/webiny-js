@@ -1,9 +1,9 @@
 import { SecurityIdentity } from "@webiny/api-security/types";
 import { CmsGroup } from "~/types";
-import { useContentGqlHandler } from "../utils/useContentGqlHandler";
+import { useGraphQLHandler } from "../testHelpers/useGraphQLHandler";
 import models from "./mocks/contentModels";
-import { useCategoryManageHandler } from "../utils/useCategoryManageHandler";
-import { useCategoryReadHandler } from "../utils/useCategoryReadHandler";
+import { useCategoryManageHandler } from "../testHelpers/useCategoryManageHandler";
+import { useCategoryReadHandler } from "../testHelpers/useCategoryReadHandler";
 
 const createIdentity = (permissions: any[] = []): SecurityIdentity => {
     return {
@@ -53,7 +53,7 @@ describe("MANAGE - resolvers - api key", () => {
         updateContentModelMutation,
         createContentModelGroupMutation,
         installMutation
-    } = useContentGqlHandler(manageOpts);
+    } = useGraphQLHandler(manageOpts);
 
     beforeEach(async () => {
         await installMutation();
@@ -69,12 +69,17 @@ describe("MANAGE - resolvers - api key", () => {
         contentModelGroup = createCMG.data.createContentModelGroup.data;
 
         const category = models.find(m => m.modelId === "category");
+        if (!category) {
+            throw new Error(`Could not find model "category".`);
+        }
 
         // Create initial record
         const [create] = await createContentModelMutation({
             data: {
                 name: category.name,
                 modelId: category.modelId,
+                singularApiName: category.singularApiName,
+                pluralApiName: category.pluralApiName,
                 group: contentModelGroup.id
             }
         });
@@ -105,17 +110,11 @@ describe("MANAGE - resolvers - api key", () => {
                 rwd: "rwd"
             }
         ]);
-        const {
-            until,
-            createCategory,
-            updateCategory,
-            getCategory,
-            listCategories,
-            deleteCategory
-        } = useCategoryManageHandler({
-            ...manageOpts,
-            identity
-        });
+        const { createCategory, updateCategory, getCategory, listCategories, deleteCategory } =
+            useCategoryManageHandler({
+                ...manageOpts,
+                identity
+            });
 
         const { listCategories: listCategoriesRead } = useCategoryReadHandler({
             ...readOpts,
@@ -132,7 +131,7 @@ describe("MANAGE - resolvers - api key", () => {
             headers
         );
 
-        expect(createResponse).toEqual({
+        expect(createResponse).toMatchObject({
             data: {
                 createCategory: {
                     data: {
@@ -147,20 +146,25 @@ describe("MANAGE - resolvers - api key", () => {
                             type: "api-key"
                         },
                         savedOn: expect.stringMatching(/^20/),
+                        lastPublishedOn: null,
                         meta: {
                             locked: false,
                             modelId: "category",
-                            publishedOn: null,
                             revisions: [
                                 {
                                     id: expect.any(String),
                                     slug: "vegetables",
-                                    title: "Vegetables"
+                                    title: "Vegetables",
+                                    meta: {
+                                        status: "draft",
+                                        version: 1
+                                    }
                                 }
                             ],
                             status: "draft",
                             version: 1,
-                            title: "Vegetables"
+                            title: "Vegetables",
+                            data: {}
                         }
                     },
                     error: null
@@ -170,13 +174,6 @@ describe("MANAGE - resolvers - api key", () => {
 
         const category = createResponse.data.createCategory.data;
 
-        // If this `until` resolves successfully, we know entry is accessible via the "read" API
-        await until(
-            () => listCategories({}, headers).then(([data]) => data),
-            ({ data }) => data.listCategories.data[0].id === category.id,
-            { name: "create category" }
-        );
-
         const [getResponse] = await getCategory(
             {
                 revision: category.id
@@ -184,7 +181,7 @@ describe("MANAGE - resolvers - api key", () => {
             headers
         );
 
-        expect(getResponse).toEqual({
+        expect(getResponse).toMatchObject({
             data: {
                 getCategory: {
                     data: {
@@ -199,20 +196,25 @@ describe("MANAGE - resolvers - api key", () => {
                             type: "api-key"
                         },
                         savedOn: category.savedOn,
+                        lastPublishedOn: null,
                         meta: {
                             locked: false,
                             modelId: "category",
-                            publishedOn: null,
                             revisions: [
                                 {
                                     id: category.id,
                                     slug: "vegetables",
-                                    title: "Vegetables"
+                                    title: "Vegetables",
+                                    meta: {
+                                        status: "draft",
+                                        version: 1
+                                    }
                                 }
                             ],
                             status: "draft",
                             version: 1,
-                            title: "Vegetables"
+                            title: "Vegetables",
+                            data: {}
                         }
                     },
                     error: null
@@ -231,7 +233,7 @@ describe("MANAGE - resolvers - api key", () => {
             headers
         );
 
-        expect(updateResponse).toEqual({
+        expect(updateResponse).toMatchObject({
             data: {
                 updateCategory: {
                     data: {
@@ -246,20 +248,25 @@ describe("MANAGE - resolvers - api key", () => {
                             type: "api-key"
                         },
                         savedOn: expect.stringMatching(/^20/),
+                        lastPublishedOn: null,
                         meta: {
                             locked: false,
                             modelId: "category",
-                            publishedOn: null,
                             revisions: [
                                 {
                                     id: expect.any(String),
                                     slug: "green-vegetables",
-                                    title: "Green vegetables"
+                                    title: "Green vegetables",
+                                    meta: {
+                                        status: "draft",
+                                        version: 1
+                                    }
                                 }
                             ],
                             status: "draft",
                             version: 1,
-                            title: "Green vegetables"
+                            title: "Green vegetables",
+                            data: {}
                         }
                     },
                     error: null
@@ -269,14 +276,9 @@ describe("MANAGE - resolvers - api key", () => {
 
         const updatedCategory = updateResponse.data.updateCategory.data;
 
-        // If this `until` resolves successfully, we know entry is accessible via the "read" API
-        const listResponse = await until(
-            () => listCategories({}, headers).then(([data]) => data),
-            ({ data }) => data.listCategories.data[0].slug === updatedCategory.slug,
-            { name: `waiting for green-vegetables slug on list categories` }
-        );
+        const [listResponse] = await listCategories({}, headers);
 
-        expect(listResponse).toEqual({
+        expect(listResponse).toMatchObject({
             data: {
                 listCategories: {
                     data: [
@@ -292,20 +294,25 @@ describe("MANAGE - resolvers - api key", () => {
                                 type: "api-key"
                             },
                             savedOn: updatedCategory.savedOn,
+                            lastPublishedOn: null,
                             meta: {
                                 locked: false,
                                 modelId: "category",
-                                publishedOn: null,
                                 revisions: [
                                     {
                                         id: updatedCategory.id,
                                         slug: updatedCategory.slug,
-                                        title: updatedCategory.title
+                                        title: updatedCategory.title,
+                                        meta: {
+                                            status: "draft",
+                                            version: 1
+                                        }
                                     }
                                 ],
                                 status: "draft",
                                 version: 1,
-                                title: updatedCategory.title
+                                title: updatedCategory.title,
+                                data: {}
                             }
                         }
                     ],
@@ -334,16 +341,6 @@ describe("MANAGE - resolvers - api key", () => {
                 }
             }
         });
-        /**
-         * There should be no categories in the manage API.
-         */
-        await until(
-            () => listCategories({}, headers).then(([data]) => data),
-            ({ data }) => {
-                return data.listCategories.data.length === 0;
-            },
-            { name: "after delete list categories" }
-        );
 
         const [listAfterDelete] = await listCategories({}, headers);
 
@@ -360,14 +357,6 @@ describe("MANAGE - resolvers - api key", () => {
                 }
             }
         });
-        /**
-         * There should be no categories in the read API.
-         */
-        await until(
-            () => listCategoriesRead({}, headers).then(([data]) => data),
-            ({ data }) => data.listCategories.data.length === 0,
-            { name: "after delete list read categories" }
-        );
 
         const [listReadAfterDelete] = await listCategoriesRead({}, headers);
 

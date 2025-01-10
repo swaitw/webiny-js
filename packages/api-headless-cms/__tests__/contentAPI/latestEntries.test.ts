@@ -1,9 +1,9 @@
-import { useContentGqlHandler } from "../utils/useContentGqlHandler";
+import { useGraphQLHandler } from "../testHelpers/useGraphQLHandler";
 import { CmsModel, CmsGroup } from "~/types";
 import models from "./mocks/contentModels";
-import { useCategoryManageHandler } from "../utils/useCategoryManageHandler";
-import { useArticleManageHandler } from "../utils/useArticleManageHandler";
-import { useArticleReadHandler } from "../utils/useArticleReadHandler";
+import { useCategoryManageHandler } from "../testHelpers/useCategoryManageHandler";
+import { useArticleManageHandler } from "../testHelpers/useArticleManageHandler";
+import { useArticleReadHandler } from "../testHelpers/useArticleReadHandler";
 
 jest.setTimeout(100000);
 
@@ -16,7 +16,7 @@ describe("latest entries", function () {
         createContentModelMutation,
         updateContentModelMutation,
         createContentModelGroupMutation
-    } = useContentGqlHandler(manageOpts);
+    } = useGraphQLHandler(manageOpts);
 
     const { createCategory, createCategoryFrom, updateCategory, publishCategory } =
         useCategoryManageHandler({
@@ -40,11 +40,16 @@ describe("latest entries", function () {
 
     const setupContentModel = async (contentModelGroup: CmsGroup, name: string) => {
         const model = models.find(m => m.modelId === name);
+        if (!model) {
+            throw new Error(`Could not find model "${name}".`);
+        }
         // Create initial record
         const [create] = await createContentModelMutation({
             data: {
                 name: model.name,
                 modelId: model.modelId,
+                singularApiName: model.singularApiName,
+                pluralApiName: model.pluralApiName,
                 group: contentModelGroup.id
             }
         });
@@ -64,7 +69,7 @@ describe("latest entries", function () {
         return update.data.updateContentModel.data;
     };
 
-    const createCategoryEntry = async ({ title, slug }) => {
+    const createCategoryEntry = async ({ title, slug }: { title: string; slug: string }) => {
         const [createResponse] = await createCategory({
             data: {
                 title,
@@ -85,7 +90,7 @@ describe("latest entries", function () {
         return publishedEntry;
     };
 
-    const updateCategoryEntry = async (original, { title }) => {
+    const updateCategoryEntry = async (original: any, { title }: { title: string }) => {
         /**
          * We need to create category from the original one and then update the new one.
          */
@@ -118,9 +123,9 @@ describe("latest entries", function () {
     let categoryModel: CmsModel;
     let articleModel: CmsModel;
 
-    let fruitCategory;
-    let vehicleCategory;
-    let animalCategory;
+    let fruitCategory: any;
+    let vehicleCategory: any;
+    let animalCategory: any;
 
     beforeEach(async () => {
         const group = await setupContentModelGroup();
@@ -142,21 +147,24 @@ describe("latest entries", function () {
     });
 
     it("should load all the latest categories in the article ref field", async () => {
-        const { createArticle, publishArticle, until } = useArticleManageHandler(manageOpts);
+        const { createArticle, publishArticle } = useArticleManageHandler(manageOpts);
         const { listArticles: previewListArticles } = useArticleReadHandler(previewOpts);
         const { listArticles } = useArticleReadHandler(readOpts);
         const title = "Test article";
         const categories = [
             {
-                entryId: fruitCategory.id,
+                id: fruitCategory.id,
+                entryId: fruitCategory.entryId,
                 modelId: categoryModel.modelId
             },
             {
-                entryId: vehicleCategory.id,
+                id: vehicleCategory.id,
+                entryId: vehicleCategory.entryId,
                 modelId: categoryModel.modelId
             },
             {
-                entryId: animalCategory.id,
+                id: animalCategory.id,
+                entryId: animalCategory.entryId,
                 modelId: categoryModel.modelId
             }
         ];
@@ -165,7 +173,12 @@ describe("latest entries", function () {
             data: {
                 title,
                 body,
-                categories
+                categories: categories.map(category => {
+                    return {
+                        id: category.id,
+                        modelId: category.modelId
+                    };
+                })
             }
         });
         /**
@@ -178,16 +191,17 @@ describe("latest entries", function () {
                         id: expect.any(String),
                         entryId: expect.any(String),
                         createdOn: expect.any(String),
-                        createdBy: expect.any(Object),
-                        ownedBy: expect.any(Object),
+                        modifiedOn: null,
                         savedOn: expect.any(String),
+                        createdBy: expect.any(Object),
                         category: null,
+                        lastPublishedOn: null,
+                        firstPublishedOn: null,
                         meta: {
                             title,
                             modelId: articleModel.modelId,
                             version: 1,
                             locked: false,
-                            publishedOn: null,
                             status: "draft",
                             revisions: [
                                 {
@@ -216,24 +230,6 @@ describe("latest entries", function () {
             title: "Fruit 2"
         });
 
-        /**
-         * Need to wait propagation of the updated fruit category on the preview API.
-         */
-        await until(
-            () => previewListArticles().then(([data]) => data),
-            ({ data }) => {
-                const targetArticle = data?.listArticles?.data[0];
-                if (targetArticle.savedOn !== article.savedOn) {
-                    return false;
-                }
-                const categories = targetArticle.categories || [];
-                return categories.some(category => {
-                    return category.id === updatedFruitCategory.id;
-                });
-            },
-            { name: "list all articles", tries: 10 }
-        );
-
         const [listResponse] = await previewListArticles();
 
         expect(listResponse).toEqual({
@@ -244,23 +240,31 @@ describe("latest entries", function () {
                             id: article.id,
                             entryId: article.entryId,
                             createdOn: article.createdOn,
-                            createdBy: article.createdBy,
-                            ownedBy: article.ownedBy,
+                            modifiedOn: article.modifiedOn,
                             savedOn: article.savedOn,
+                            createdBy: article.createdBy,
+                            firstPublishedOn: article.firstPublishedOn,
+                            lastPublishedOn: article.lastPublishedOn,
                             category: null,
                             title,
                             body,
                             categories: [
                                 {
                                     id: updatedFruitCategory.id,
+                                    entryId: updatedFruitCategory.entryId,
+                                    modelId: "category",
                                     title: updatedFruitCategory.title
                                 },
                                 {
                                     id: vehicleCategory.id,
+                                    entryId: vehicleCategory.entryId,
+                                    modelId: "category",
                                     title: vehicleCategory.title
                                 },
                                 {
                                     id: animalCategory.id,
+                                    entryId: animalCategory.entryId,
+                                    modelId: "category",
                                     title: animalCategory.title
                                 }
                             ]
@@ -282,7 +286,7 @@ describe("latest entries", function () {
             revision: updatedFruitCategory.id
         });
 
-        expect(publishFruitResponse).toEqual({
+        expect(publishFruitResponse).toMatchObject({
             data: {
                 publishCategory: {
                     data: {
@@ -291,25 +295,34 @@ describe("latest entries", function () {
                         createdOn: expect.any(String),
                         createdBy: expect.any(Object),
                         savedOn: expect.any(String),
+                        lastPublishedOn: expect.stringMatching(/^20/),
                         meta: {
                             title: "Fruit 2",
                             modelId: categoryModel.modelId,
                             version: 2,
                             locked: true,
-                            publishedOn: expect.stringMatching(/^20/),
                             status: "published",
                             revisions: [
                                 {
                                     id: `${updatedFruitCategory.id}`,
                                     title: updatedFruitCategory.title,
-                                    slug: updatedFruitCategory.slug
+                                    slug: updatedFruitCategory.slug,
+                                    meta: {
+                                        status: "published",
+                                        version: 2
+                                    }
                                 },
                                 {
                                     id: fruitCategory.id,
                                     title: fruitCategory.title,
-                                    slug: fruitCategory.slug
+                                    slug: fruitCategory.slug,
+                                    meta: {
+                                        status: "unpublished",
+                                        version: 1
+                                    }
                                 }
-                            ]
+                            ],
+                            data: {}
                         },
                         title: updatedFruitCategory.title,
                         slug: updatedFruitCategory.slug
@@ -319,19 +332,6 @@ describe("latest entries", function () {
             }
         });
         const publishedFruitCategory = publishFruitResponse?.data?.publishCategory?.data;
-        /**
-         * Need to wait propagation of the updated fruit category on the read API.
-         */
-        await until(
-            () => listArticles().then(([data]) => data),
-            ({ data }) => {
-                const categories = data?.listArticles?.data[0]?.categories || [];
-                return categories.some(category => {
-                    return category.id === publishedFruitCategory.id;
-                });
-            },
-            { name: "list all articles after published fruit category", tries: 5 }
-        );
 
         const [listReadResponse] = await listArticles();
 
@@ -343,23 +343,31 @@ describe("latest entries", function () {
                             id: article.id,
                             entryId: article.entryId,
                             createdOn: article.createdOn,
-                            createdBy: article.createdBy,
-                            ownedBy: article.ownedBy,
+                            modifiedOn: article.modifiedOn,
                             savedOn: article.savedOn,
+                            firstPublishedOn: article.firstPublishedOn,
+                            lastPublishedOn: article.lastPublishedOn,
+                            createdBy: article.createdBy,
                             category: null,
                             title,
                             body,
                             categories: [
                                 {
                                     id: publishedFruitCategory.id,
+                                    entryId: publishedFruitCategory.entryId,
+                                    modelId: "category",
                                     title: updatedFruitCategory.title
                                 },
                                 {
                                     id: vehicleCategory.id,
+                                    entryId: vehicleCategory.entryId,
+                                    modelId: "category",
                                     title: vehicleCategory.title
                                 },
                                 {
                                     id: animalCategory.id,
+                                    entryId: animalCategory.entryId,
+                                    modelId: "category",
                                     title: animalCategory.title
                                 }
                             ]

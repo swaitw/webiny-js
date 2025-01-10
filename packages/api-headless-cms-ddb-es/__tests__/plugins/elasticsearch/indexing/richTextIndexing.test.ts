@@ -1,5 +1,7 @@
 import richTextIndexingPlugin from "~/elasticsearch/indexing/richTextIndexing";
-import { CmsModelField } from "@webiny/api-headless-cms/types";
+import { CmsModelField, CmsModelFieldToGraphQLPlugin } from "@webiny/api-headless-cms/types";
+import { PluginsContainer } from "@webiny/plugins";
+import { CmsModelFieldToElasticsearchPlugin } from "~/types";
 
 const mockValue = [
     {
@@ -7,7 +9,6 @@ const mockValue = [
         content: "some long text"
     }
 ];
-const mockContext: any = {};
 const mockModel: any = {};
 
 const mockField: CmsModelField = {
@@ -20,6 +21,7 @@ const mockField: CmsModelField = {
     renderer: {
         name: "any"
     },
+    storageId: "text",
     fieldId: "text",
     predefinedValues: {
         enabled: false,
@@ -29,43 +31,42 @@ const mockField: CmsModelField = {
     helpText: "text"
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const getFieldTypePlugin = (fieldType: string) => {
-    return null;
+const getFieldTypePlugin = (): CmsModelFieldToGraphQLPlugin => {
+    return null as unknown as CmsModelFieldToGraphQLPlugin;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const getFieldIndexPlugin = (fieldType: string) => {
-    return null;
+const getFieldIndexPlugin = () => {
+    return null as unknown as CmsModelFieldToElasticsearchPlugin;
 };
 
 describe("richTextIndexing", () => {
     test("toIndex should return transformed objects", () => {
-        const plugin = richTextIndexingPlugin();
+        const plugin = richTextIndexingPlugin() as Required<CmsModelFieldToElasticsearchPlugin>;
 
         const result = plugin.toIndex({
             value: mockValue,
+            rawValue: mockValue,
             field: mockField,
             model: mockModel,
-            context: mockContext,
+            plugins: new PluginsContainer(),
             getFieldTypePlugin,
             getFieldIndexPlugin
         });
 
-        // here we receive new values and rawValues objects that are populated, in rawValues case, and values being without given fieldId
+        // here we receive new values and rawValues objects that are populated, in rawValues case, and values being without given storageId
         expect(result).toEqual({
             rawValue: mockValue
         });
     });
 
     test("fromIndex should return transformed objects", () => {
-        const plugin = richTextIndexingPlugin();
+        const plugin = richTextIndexingPlugin() as Required<CmsModelFieldToElasticsearchPlugin>;
         const result = plugin.fromIndex({
             value: undefined,
             rawValue: mockValue,
             field: mockField,
             model: mockModel,
-            context: mockContext,
+            plugins: new PluginsContainer(),
             getFieldTypePlugin,
             getFieldIndexPlugin
         });

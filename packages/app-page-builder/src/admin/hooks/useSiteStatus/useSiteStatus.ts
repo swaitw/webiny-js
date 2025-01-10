@@ -1,14 +1,29 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { pingSite } from "./utils";
 
-export const useSiteStatus = url => {
+type UseSiteStatus = [boolean, () => void];
+export const useSiteStatus = (url: string): UseSiteStatus => {
     const [active, setActive] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
+
+    const pingSiteCallback = useCallback(async () => {
+        isMounted && (await pingSite({ url, cb: setActive, ignoreCache: false }));
+    }, [isMounted, url]);
 
     useEffect(() => {
-        if (url) {
-            pingSite({ url, cb: setActive, ignoreCache: false });
+        setIsMounted(true);
+        return () => {
+            setIsMounted(false);
+        };
+    }, []);
+
+    useEffect((): void => {
+        if (!url) {
+            return;
         }
-    }, [url]);
+
+        pingSiteCallback();
+    }, [url, pingSiteCallback]);
 
     return [
         active,

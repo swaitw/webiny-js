@@ -14,6 +14,86 @@ For more information, please visit
 yarn add @webiny/db-dynamodb
 ```
 
+### Helper classes
+We have some classes that ease the use of dynamodb-toolbox.
+#### [Table](./src/utils/table/Table.ts)
+```typescript
+import { createTable } from "@webiny/db-dynamodb";
+
+const table = createTable({...params});
+const writer = table.createWriter(); // see TableWriteBatch
+const reader = table.createReader(); // see TableReadBatch
+
+const result = await table.scan({...params}); // see scan
+```
+
+#### [Entity](./src/utils/entity/Entity.ts)
+```typescript
+
+import { createEntity } from "@webiny/db-dynamodb";
+
+const entity = createEntity({...params});
+const writer = entity.createWriter(); // see EntityWriteBatch
+const reader = entity.createReader(); // see EntityReadBatch
+const tableWriter = entity.createTableWriter(); // see TableWriteBatch
+
+const getResult = await entity.get({...params}); // see get
+const getCleanResult = await entity.getClean({...params}); // see get
+const queryAllResult = await entity.queryAll({...params}); // see queryAllClean
+const queryOneResult = await entity.queryOne({...params}); // see queryOneClean
+const putResult = await entity.put({...params}); // see put
+
+```
+
+#### [EntityWriteBatch](./src/utils/entity/EntityWriteBatch.ts)
+```typescript
+import { createEntityWriteBatch } from "@webiny/db-dynamodb";
+
+const writer = createEntityWriteBatch({...params});
+
+writer.put({...item});
+writer.delete({...keys});
+writer.delete({...moreKeys});
+
+await writer.execute();
+```
+
+#### [EntityReadBatch](./src/utils/entity/EntityReadBatch.ts)
+```typescript
+import { createEntityReadBatch } from "@webiny/db-dynamodb";
+
+const reader = createEntityReadBatch({...params});
+
+reader.get({...keys});
+reader.get({...moreKeys});
+
+const result = await reader.execute();
+```
+#### [TableWriteBatch](./src/utils/table/TableWriteBatch.ts)
+```typescript
+import { createTableWriteBatch } from "@webiny/db-dynamodb";
+
+const writer = createTableWriteBatch({...params});
+
+writer.put(entity, {...item});
+writer.delete(entity, {...keys});
+writer.delete(entity, {...moreKeys});
+
+await writer.execute();
+```
+#### [TableReadBatch](./src/utils/table/TableReadBatch.ts)
+```typescript
+import {createTableReadBatch} from "@webiny/db-dynamodb";
+
+const reader = createTableReadBatch({...params});
+
+writer.get(entity, {...keys});
+writer.get(entity, {...moreKeys});
+
+const result = await reader.execute();
+```
+
+
 
 ### Helper functions
 We have a number [helper](./src/utils) functions that ease the use of either dynamodb-toolbox, filtering, sorting or just creating proper response.

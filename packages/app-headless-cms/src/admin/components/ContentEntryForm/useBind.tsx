@@ -1,98 +1,160 @@
 import React, { useRef, useCallback, cloneElement } from "react";
-import { BindComponent, BindComponentRenderProp } from "@webiny/form";
-import { createValidators } from "./functions/createValidators";
-import { CmsEditorField } from "~/types";
-
-interface FieldBindProps extends BindComponentRenderProp {
-    appendValue: (value: any) => void;
-    prependValue: (value: any) => void;
-    appendValues: (values: any[]) => void;
-    removeValue: (index: number) => void;
-}
+import { Validator } from "@webiny/validation/types";
+import { useForm } from "@webiny/form";
+import { createValidators } from "~/utils/createValidators";
+import { BindComponent, CmsModelField } from "~/types";
 
 interface UseBindProps {
-    field: CmsEditorField;
-    Bind: BindComponent & { parentName?: string };
+    field: CmsModelField;
+    Bind: BindComponent;
 }
 
-export function useBind({ Bind: ParentBind, field }: UseBindProps) {
-    const memoizedBindComponents = useRef({});
+interface UseBindParams {
+    name?: string;
+    validators?: Validator | Validator[];
+    children?: any;
+    defaultValue?: any;
+}
+
+const createFieldCacheKey = (field: CmsModelField) => {
+    return [
+        field.id,
+        field.fieldId,
+        JSON.stringify(field.validation),
+        JSON.stringify(field.listValidation)
+    ].join(";");
+};
+
+export interface GetBindCallable {
+    (index?: number): BindComponent;
+}
+
+const emptyValidators: Validator[] = [];
+
+export function useBind({ Bind, field }: UseBindProps) {
+    const memoizedBindComponents = useRef<Record<string, BindComponent>>({});
+    const cacheKey = createFieldCacheKey(field);
+    const form = useForm();
 
     return useCallback(
         (index = -1) => {
-            const { parentName } = ParentBind;
+            const { parentName } = Bind;
+
             // If there's a parent name assigned to the given Bind component, we need to include it in the new field "name".
             // This allows us to have nested fields (like "object" field with nested properties)
             const name = [parentName, field.fieldId, index >= 0 ? index : undefined]
                 .filter(v => v !== undefined)
                 .join(".");
 
-            if (memoizedBindComponents.current[name]) {
-                return memoizedBindComponents.current[name];
+            const componentId = `${name};${cacheKey}`;
+
+            if (memoizedBindComponents.current[componentId]) {
+                return memoizedBindComponents.current[componentId];
             }
 
-            const validators = createValidators(field.validation || []);
-            const listValidators = createValidators(field.listValidation || []);
-            const defaultValue = field.multipleValues ? [] : undefined;
+            const validators = createValidators(field, field.validation || emptyValidators);
+            const listValidators = createValidators(field, field.listValidation || emptyValidators);
             const isMultipleValues = index === -1 && field.multipleValues;
             const inputValidators = isMultipleValues ? listValidators : validators;
 
-            memoizedBindComponents.current[name] = function UseBind({
-                name: childName,
-                validators: childValidators,
-                children
-            }) {
+            // We only use default values for single-value fields.
+            const defaultValueFromSettings = !isMultipleValues
+                ? field.settings?.defaultValue
+                : null;
+
+            memoizedBindComponents.current[componentId] = function UseBind(params: UseBindParams) {
+                const {
+                    name: childName,
+                    validators: childValidators,
+                    children,
+                    defaultValue = defaultValueFromSettings
+                } = params;
+
                 return (
-                    <ParentBind
+                    <Bind
                         name={childName || name}
                         validators={childValidators || inputValidators}
-                        defaultValue={index === -1 ? defaultValue : null}
+                        defaultValue={defaultValue ?? null}
                     >
                         {bind => {
                             // Multiple-values functions below.
-                            const props: Partial<FieldBindProps> = { ...bind };
+                            const props = { ...bind };
                             if (field.multipleValues && index === -1) {
-                                props.appendValue = newValue => {
-                                    bind.onChange([...bind.value, newValue]);
+                                props.appendValue = (newValue: any, index?: number) => {
+                                    const currentValue = bind.value || [];
+                                    const newIndex = index ?? currentValue.length;
+
+                                    bind.onChange([
+                                        ...currentValue.slice(0, newIndex),
+                                        newValue,
+                                        ...currentValue.slice(newIndex)
+                                    ]);
                                 };
-                                props.prependValue = newValue => {
-                                    bind.onChange([newValue, ...bind.value]);
+                                props.prependValue = (newValue: any) => {
+                                    bind.onChange([newValue, ...(bind.value || [])]);
                                 };
-                                props.appendValues = newValues => {
-                                    bind.onChange([...bind.value, ...newValues]);
+                                props.appendValues = (newValues: any[]) => {
+                                    bind.onChange([...(bind.value || []), ...newValues]);
                                 };
 
-                                props.removeValue = index => {
-                                    if (index >= 0) {
-                                        let value = bind.value;
-                                        value = [
-                                            ...value.slice(0, index),
-                                            ...value.slice(index + 1)
-                                        ];
-
-                                        bind.onChange(value);
-
-                                        // To make sure the field is still valid, we must trigger validation.
-                                        bind.form.validateInput(field.fieldId);
+                                props.removeValue = (index: number) => {
+                                    if (index < 0) {
+                                        return;
                                     }
+
+                                    const value = [
+                                        ...bind.value.slice(0, index),
+                                        ...bind.value.slice(index + 1)
+                                    ];
+
+                                    bind.onChange(value.length === 0 ? null : value);
+
+                                    // To make sure the field is still valid, we must trigger validation.
+                                    form.validateInput(field.fieldId);
+                                };
+
+                                props.moveValueUp = (index: number) => {
+                                    if (index <= 0) {
+                                        return;
+                                    }
+
+                                    const value = [...bind.value];
+                                    value.splice(index, 1);
+                                    value.splice(index - 1, 0, bind.value[index]);
+
+                                    bind.onChange(value);
+                                };
+
+                                props.moveValueDown = (index: number) => {
+                                    if (index >= bind.value.length) {
+                                        return;
+                                    }
+
+                                    const value = [...bind.value];
+                                    value.splice(index, 1);
+                                    value.splice(index + 1, 0, bind.value[index]);
+
+                                    bind.onChange(value);
                                 };
                             }
 
-                            if (typeof children === "function") {
-                                return children(props);
-                            }
+                            const element =
+                                typeof children === "function"
+                                    ? children(props)
+                                    : cloneElement(children, props);
 
-                            return cloneElement(children, props);
+                            return element;
                         }}
-                    </ParentBind>
+                    </Bind>
                 );
-            };
+            } as BindComponent;
 
             // We need to keep track of current field name, to support nested fields.
-            memoizedBindComponents.current[name].parentName = name;
+            memoizedBindComponents.current[componentId].parentName = name;
+            memoizedBindComponents.current[componentId].displayName = `Bind<${name}>`;
 
-            return memoizedBindComponents.current[name];
+            return memoizedBindComponents.current[componentId];
         },
-        [field.fieldId]
+        [field.fieldId, cacheKey]
     );
 }

@@ -1,33 +1,43 @@
 import React from "react";
-import { BindComponent } from "@webiny/form";
 import { Cell, Grid } from "@webiny/ui/Grid";
-import RenderFieldElement from "./RenderFieldElement";
-import { CmsEditorContentModel, CmsEditorField, CmsEditorFieldsLayout } from "~/types";
+import { FieldElement } from "./FieldElement";
+import {
+    CmsEditorContentModel,
+    CmsModelField,
+    CmsEditorFieldsLayout,
+    BindComponent
+} from "~/types";
 
-interface Props {
+interface FieldsProps {
     Bind: BindComponent;
     contentModel: CmsEditorContentModel;
-    fields: CmsEditorField[];
+    fields: CmsModelField[];
     layout: CmsEditorFieldsLayout;
     gridClassName?: string;
 }
 
-const getFieldById = (fields, id): CmsEditorField => fields.find(field => field.id === id);
+const getFieldById = (fields: CmsModelField[], id: string): CmsModelField | null => {
+    return fields.find(field => field.id === id) || null;
+};
 
-export const Fields = ({ Bind, fields, layout, contentModel, gridClassName }: Props) => {
+export const Fields = ({ Bind, fields, layout, contentModel, gridClassName }: FieldsProps) => {
     return (
         <Grid className={gridClassName}>
             {layout.map((row, rowIndex) => (
                 <React.Fragment key={rowIndex}>
-                    {row.map(fieldId => (
-                        <Cell span={Math.floor(12 / row.length)} key={fieldId}>
-                            <RenderFieldElement
-                                field={getFieldById(fields, fieldId)}
-                                Bind={Bind}
-                                contentModel={contentModel}
-                            />
-                        </Cell>
-                    ))}
+                    {row.map(fieldId => {
+                        const field = getFieldById(fields, fieldId) as CmsModelField;
+
+                        return (
+                            <Cell span={Math.floor(12 / row.length)} key={fieldId}>
+                                <FieldElement
+                                    field={field}
+                                    Bind={Bind}
+                                    contentModel={contentModel}
+                                />
+                            </Cell>
+                        );
+                    })}
                 </React.Fragment>
             ))}
         </Grid>

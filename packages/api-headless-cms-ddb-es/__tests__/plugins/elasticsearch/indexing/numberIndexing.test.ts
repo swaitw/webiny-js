@@ -1,9 +1,14 @@
 import numberIndexing from "~/elasticsearch/indexing/numberIndexing";
+import {
+    CmsModelFieldToElasticsearchFromParams,
+    CmsModelFieldToElasticsearchPlugin,
+    CmsModelFieldToElasticsearchToParams
+} from "~/types";
 
 describe("numberIndexing", () => {
-    const plugin = numberIndexing();
+    const plugin = numberIndexing() as Required<CmsModelFieldToElasticsearchPlugin>;
 
-    const numbers = [
+    const numbers: any[] = [
         [1, 1],
         [4382, 4382],
         [3924032, 3924032],
@@ -21,13 +26,16 @@ describe("numberIndexing", () => {
     ];
     test.each(numbers)("toIndex should transform %j to %j", (num: any, expected: any) => {
         const field: any = {
-            fieldId: "number"
+            storageId: "number"
         };
-        const result = plugin.toIndex({ value: num, field } as any);
+        const result = plugin.toIndex({
+            value: num,
+            field
+        } as CmsModelFieldToElasticsearchToParams);
 
         expect(result.value).toEqual(expected);
     });
-    const strings = [
+    const strings: any[] = [
         ["1", 1],
         ["4382", 4382],
         ["3924032", 3924032],
@@ -46,9 +54,12 @@ describe("numberIndexing", () => {
     ];
     test.each(strings)("fromIndex should transform %j back to %j", (str: any, expected: any) => {
         const field: any = {
-            fieldId: "number"
+            storageId: "number"
         };
-        const result = plugin.fromIndex({ value: str, field } as any);
+        const result = plugin.fromIndex({
+            value: str,
+            field
+        } as CmsModelFieldToElasticsearchFromParams);
 
         expect(result).toEqual(expected);
     });

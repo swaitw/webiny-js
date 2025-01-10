@@ -1,24 +1,26 @@
 import React, { useCallback, useRef } from "react";
 
-type SimpleTextPropsType = {
+interface SimpleTextPropsType {
     value?: string;
+    variableValue?: string;
     onFocus?: () => void;
     onBlur?: () => void;
     onChange: (value: string) => void;
-    options?: Record<keyof HTMLElement, any>;
+    options?: Partial<Record<keyof HTMLElement, any>>;
     element?: string;
     className?: string;
     focusInput?: boolean;
-};
-const SimpleEditableText: React.FunctionComponent<SimpleTextPropsType> = ({
+}
+const SimpleEditableText = ({
     value: defaultValue = "",
+    variableValue,
     onFocus,
     onBlur,
     onChange,
     options = {},
     element,
     className
-}) => {
+}: SimpleTextPropsType) => {
     const value = useRef<string>(defaultValue);
     const inputRef = useRef(null);
 
@@ -33,6 +35,7 @@ const SimpleEditableText: React.FunctionComponent<SimpleTextPropsType> = ({
                 return false;
             }
             value.current = elementValue;
+            return true;
         },
         [onChange]
     );
@@ -53,13 +56,13 @@ const SimpleEditableText: React.FunctionComponent<SimpleTextPropsType> = ({
     }, [onFocus]);
 
     return React.createElement(element || "div", {
-        className: className,
+        className: className || "",
         contentEditable: true,
         onInput: onChangeHandler,
         onBlur: onBlurHandler,
         onFocus: onFocusHandler,
         dangerouslySetInnerHTML: {
-            __html: value.current
+            __html: variableValue || value.current
         },
         ref: inputRef,
         ...options

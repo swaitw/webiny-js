@@ -1,8 +1,8 @@
-import * as React from "react";
+import React from "react";
 import styled from "@emotion/styled";
 import { css } from "emotion";
-import { Typography } from "../Typography";
-import { Elevation } from "../Elevation";
+import { Typography } from "~/Typography";
+import { Elevation } from "~/Elevation";
 
 const SectionWrapper = styled("div")({
     backgroundColor: "var(--mdc-theme-background)",
@@ -27,10 +27,10 @@ const ElevationContent = styled("div")({
     backgroundColor: "#fff"
 });
 
-type SectionProps = {
-    children?: React.ReactNode;
-    title?: String;
-};
+interface SectionProps {
+    title?: string;
+    children: React.ReactNode;
+}
 
 const Section = ({ children, title, ...props }: SectionProps) => {
     return (

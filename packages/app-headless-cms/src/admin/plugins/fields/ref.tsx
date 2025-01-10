@@ -1,25 +1,105 @@
 import React, { useCallback, useMemo } from "react";
-import get from "lodash/get";
-import { useQuery } from "../../hooks";
-import { LIST_CONTENT_MODELS } from "../../viewsGraphql";
+import {
+    LIST_CONTENT_MODELS,
+    ListCmsModelsQueryResponse,
+    withoutBeingDeletedModels
+} from "../../viewsGraphql";
 import { validation, ValidationError } from "@webiny/validation";
 import { Cell, Grid } from "@webiny/ui/Grid";
 import { MultiAutoComplete } from "@webiny/ui/AutoComplete";
-import { CircularProgress } from "@webiny/ui/Progress";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
-import { CmsEditorFieldTypePlugin } from "~/types";
+import { CmsModel, CmsModelFieldTypePlugin } from "~/types";
 import { ReactComponent as RefIcon } from "./icons/round-link-24px.svg";
-
 import { i18n } from "@webiny/app/i18n";
+import { Bind, BindComponentRenderProp, useForm } from "@webiny/form";
+import { useModel, useQuery } from "~/admin/hooks";
+import { renderInfo } from "./ref/renderInfo";
+import { CMS_MODEL_SINGLETON_TAG } from "@webiny/app-headless-cms-common";
 
 const t = i18n.ns("app-headless-cms/admin/fields");
 
-const plugin: CmsEditorFieldTypePlugin = {
+const RefFieldSettings = () => {
+    const { model } = useModel();
+    const { data: formData } = useForm();
+    const lockedFields = model.lockedFields || [];
+    const fieldId = (formData || {}).fieldId || null;
+    const isFieldLocked = lockedFields.some(
+        lockedField => fieldId && lockedField.fieldId === fieldId
+    );
+
+    const { data, loading, error } = useQuery<ListCmsModelsQueryResponse>(LIST_CONTENT_MODELS);
+    const { showSnackbar } = useSnackbar();
+
+    if (error) {
+        showSnackbar(error.message);
+        return null;
+    }
+
+    // Format options for the Autocomplete component.
+    const options = useMemo(() => {
+        if (!data?.listContentModels?.data) {
+            return [];
+        }
+        const models = withoutBeingDeletedModels(data.listContentModels.data);
+        return (
+            models
+                /**
+                 * Remove singleton models from the list of options.
+                 */
+                .filter(model => {
+                    return !model.tags?.includes(CMS_MODEL_SINGLETON_TAG);
+                })
+                .map(model => {
+                    return { id: model.modelId, name: model.name };
+                })
+        );
+    }, [data]);
+
+    const atLeastOneItem = useCallback(async (value: Pick<CmsModel, "modelId">) => {
+        try {
+            await validation.validate(value, "required,minLength:1");
+        } catch (err) {
+            throw new ValidationError(`Please select at least 1 item`);
+        }
+    }, []);
+
+    return (
+        <Grid>
+            <Cell span={12}>
+                <Bind name={"settings.models"} validators={atLeastOneItem}>
+                    {(bind: BindComponentRenderProp<CmsModel[]>) => {
+                        // Format value prop for MultiAutoComplete component.
+                        const formattedValueForAutoComplete = options.filter(option =>
+                            bind.value.some(({ modelId }) => option.id === modelId)
+                        );
+
+                        return (
+                            <MultiAutoComplete
+                                {...bind}
+                                value={formattedValueForAutoComplete}
+                                onChange={(values: CmsModel[]) => {
+                                    bind.onChange(values.map(value => ({ modelId: value.id })));
+                                }}
+                                label={loading ? t`Loading models...` : t`Content models`}
+                                description={t`Cannot be changed later`}
+                                options={options}
+                                disabled={isFieldLocked || loading}
+                            />
+                        );
+                    }}
+                </Bind>
+            </Cell>
+        </Grid>
+    );
+};
+
+const plugin: CmsModelFieldTypePlugin = {
     type: "cms-editor-field-type",
     name: "cms-editor-field-type-ref",
     field: {
         type: "ref",
-        validators: [],
+        validators: ["required"],
+        listValidators: ["minLength", "maxLength"],
         label: t`Reference`,
         description: t`Reference existing content entries. For example, a book can reference one or more authors.`,
         icon: <RefIcon />,
@@ -38,74 +118,18 @@ const plugin: CmsEditorFieldTypePlugin = {
                 }
             };
         },
-        renderSettings({ form: { Bind, data: formData }, contentModel }) {
-            const lockedFields = get(contentModel, "lockedFields", []);
-            const fieldId = get(formData, "fieldId", null);
-            const lockedField = lockedFields.find(lockedField => lockedField.fieldId === fieldId);
-
-            const { data, loading, error } = useQuery(LIST_CONTENT_MODELS);
-            const { showSnackbar } = useSnackbar();
-
-            if (error) {
-                showSnackbar(error.message);
-                return null;
-            }
-
-            // Format options for the Autocomplete component.
-            const options = useMemo(() => {
-                return get(data, "listContentModels.data", []).map(model => {
-                    return { id: model.modelId, name: model.name };
-                });
-            }, [data]);
-
-            const atLeastOneItem = useCallback(async value => {
-                try {
-                    await validation.validate(value, "required,minLength:1");
-                } catch (err) {
-                    throw new ValidationError(`Please select at least 1 item`);
-                }
-            }, []);
-
-            return (
-                <Grid>
-                    {loading && <CircularProgress />}
-                    <Cell span={12}>
-                        <Bind name={"settings.models"} validators={atLeastOneItem}>
-                            {bind => {
-                                // Format value prop for MultiAutoComplete component.
-                                const formattedValueForAutoComplete = options.filter(option =>
-                                    bind.value.some(({ modelId }) => option.id === modelId)
-                                );
-
-                                return (
-                                    <MultiAutoComplete
-                                        {...bind}
-                                        value={formattedValueForAutoComplete}
-                                        onChange={values => {
-                                            bind.onChange(
-                                                values.map(value => ({ modelId: value.id }))
-                                            );
-                                        }}
-                                        label={t`Content Models`}
-                                        description={t`Cannot be changed later`}
-                                        options={options}
-                                        disabled={lockedField && lockedField.modelId}
-                                    />
-                                );
-                            }}
-                        </Bind>
-                    </Cell>
-                </Grid>
-            );
+        renderSettings() {
+            return <RefFieldSettings />;
         },
         graphql: {
             queryField: /* GraphQL */ `
                 {
                     modelId
-                    entryId
+                    id
                 }
             `
-        }
+        },
+        renderInfo
     }
 };
 

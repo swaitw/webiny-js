@@ -1,14 +1,14 @@
-import { Table } from "dynamodb-toolbox";
-import { DocumentClient } from "aws-sdk/clients/dynamodb";
+import { Table } from "@webiny/db-dynamodb/toolbox";
+import { DynamoDBDocument } from "@webiny/aws-sdk/client-dynamodb";
 
-export interface Params {
-    table: string;
-    documentClient: DocumentClient;
+interface CreateTableParams {
+    table?: string;
+    documentClient: DynamoDBDocument;
 }
 
-export const createTable = ({ table, documentClient }: Params) => {
+export const createTable = ({ table, documentClient }: CreateTableParams) => {
     return new Table({
-        name: table || process.env.DB_TABLE_PAGE_BUILDER || process.env.DB_TABLE,
+        name: table || process.env.DB_TABLE_PAGE_BUILDER || (process.env.DB_TABLE as string),
         partitionKey: "PK",
         sortKey: "SK",
         DocumentClient: documentClient,
@@ -17,6 +17,8 @@ export const createTable = ({ table, documentClient }: Params) => {
                 partitionKey: "GSI1_PK",
                 sortKey: "GSI1_SK"
             }
-        }
+        },
+        autoExecute: true,
+        autoParse: true
     });
 };

@@ -1,3 +1,4 @@
+import WebinyError from "@webiny/error";
 import {
     CmsModel,
     CmsModelStorageOperations,
@@ -7,11 +8,11 @@ import {
     CmsModelStorageOperationsListParams,
     CmsModelStorageOperationsUpdateParams
 } from "@webiny/api-headless-cms/types";
-import { Entity } from "dynamodb-toolbox";
-import WebinyError from "@webiny/error";
-import { get as getRecord } from "@webiny/db-dynamodb/utils/get";
-import { cleanupItem, cleanupItems } from "@webiny/db-dynamodb/utils/cleanup";
-import { queryAll, QueryAllParams } from "@webiny/db-dynamodb/utils/query";
+import { Entity } from "@webiny/db-dynamodb/toolbox";
+import { getClean } from "@webiny/db-dynamodb/utils/get";
+import { cleanupItem } from "@webiny/db-dynamodb/utils/cleanup";
+import { queryAllClean, QueryAllParams } from "@webiny/db-dynamodb/utils/query";
+import { deleteItem, put } from "@webiny/db-dynamodb";
 
 interface PartitionKeysParams {
     tenant: string;
@@ -19,6 +20,11 @@ interface PartitionKeysParams {
 }
 const createPartitionKey = (params: PartitionKeysParams): string => {
     const { tenant, locale } = params;
+    if (!tenant) {
+        throw new WebinyError(`Missing tenant variable when creating model partitionKey.`);
+    } else if (!locale) {
+        throw new WebinyError(`Missing locale variable when creating model partitionKey.`);
+    }
     return `T#${tenant}#L#${locale}#CMS#CM`;
 };
 
@@ -44,10 +50,12 @@ const createType = (): string => {
     return "cms.model";
 };
 
-export interface Params {
+interface CreateModelsStorageOperationsParams {
     entity: Entity<any>;
 }
-export const createModelsStorageOperations = (params: Params): CmsModelStorageOperations => {
+export const createModelsStorageOperations = (
+    params: CreateModelsStorageOperationsParams
+): CmsModelStorageOperations => {
     const { entity } = params;
 
     const create = async (params: CmsModelStorageOperationsCreateParams) => {
@@ -56,10 +64,13 @@ export const createModelsStorageOperations = (params: Params): CmsModelStorageOp
         const keys = createKeys(model);
 
         try {
-            await entity.put({
-                ...model,
-                ...keys,
-                TYPE: createType()
+            await put({
+                entity,
+                item: {
+                    ...cleanupItem(entity, model),
+                    ...keys,
+                    TYPE: createType()
+                }
             });
             return model;
         } catch (ex) {
@@ -72,25 +83,27 @@ export const createModelsStorageOperations = (params: Params): CmsModelStorageOp
     };
 
     const update = async (params: CmsModelStorageOperationsUpdateParams) => {
-        const { original, model } = params;
+        const { model } = params;
 
         const keys = createKeys(model);
 
         try {
-            await entity.put({
-                ...model,
-                ...keys,
-                TYPE: createType()
+            await put({
+                entity,
+                item: {
+                    ...cleanupItem(entity, model),
+                    ...keys,
+                    TYPE: createType()
+                }
             });
             return model;
         } catch (ex) {
             throw new WebinyError(
-                ex.messatge || "Could not update model.",
+                ex.message || "Could not update model.",
                 ex.code || "MODEL_UPDATE_ERROR",
                 {
                     error: ex,
                     model,
-                    original,
                     keys
                 }
             );
@@ -102,11 +115,14 @@ export const createModelsStorageOperations = (params: Params): CmsModelStorageOp
         const keys = createKeys(model);
 
         try {
-            await entity.delete(keys);
+            await deleteItem({
+                entity,
+                keys
+            });
             return model;
         } catch (ex) {
             throw new WebinyError(
-                ex.messatge || "Could not delete model.",
+                ex.message || "Could not delete model.",
                 ex.code || "MODEL_DELETE_ERROR",
                 {
                     error: ex,
@@ -121,14 +137,13 @@ export const createModelsStorageOperations = (params: Params): CmsModelStorageOp
         const keys = createKeys(params);
 
         try {
-            const item = await getRecord<CmsModel>({
+            return await getClean<CmsModel>({
                 entity,
                 keys
             });
-            return cleanupItem(entity, item);
         } catch (ex) {
             throw new WebinyError(
-                ex.messatge || "Could not get model.",
+                ex.message || "Could not get model.",
                 ex.code || "MODEL_GET_ERROR",
                 {
                     error: ex,
@@ -148,12 +163,10 @@ export const createModelsStorageOperations = (params: Params): CmsModelStorageOp
             }
         };
         try {
-            const items = await queryAll<CmsModel>(queryAllParams);
-
-            return cleanupItems(entity, items);
+            return await queryAllClean<CmsModel>(queryAllParams);
         } catch (ex) {
             throw new WebinyError(
-                ex.messatge || "Could not list models.",
+                ex.message || "Could not list models.",
                 ex.code || "MODEL_LIST_ERROR",
                 {
                     error: ex,

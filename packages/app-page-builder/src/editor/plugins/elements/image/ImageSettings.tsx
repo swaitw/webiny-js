@@ -1,20 +1,20 @@
 import React, { useCallback } from "react";
 import { useRecoilValue } from "recoil";
 import { css } from "emotion";
+import { activeElementAtom, elementByIdSelector } from "~/editor/recoil/modules";
+import { PbEditorElement, PbEditorPageElementSettingsRenderComponentProps } from "~/types";
 // Components
-import Accordion from "../../elementSettings/components/Accordion";
-import Wrapper from "../../elementSettings/components/Wrapper";
-import InputField from "../../elementSettings/components/InputField";
-import SpacingPicker from "../../elementSettings/components/SpacingPicker";
-import useUpdateHandlers from "../../elementSettings/useUpdateHandlers";
-import { justifySelfEndStyle } from "../../elementSettings/components/StyledComponents";
-import { PbEditorPageElementSettingsRenderComponentProps } from "../../../../types";
-import { activeElementAtom, elementByIdSelector } from "../../../recoil/modules";
-
+import Accordion from "~/editor/plugins/elementSettings/components/Accordion";
+import Wrapper from "~/editor/plugins/elementSettings/components/Wrapper";
+import InputField from "~/editor/plugins/elementSettings/components/InputField";
+import SpacingPicker from "~/editor/plugins/elementSettings/components/SpacingPicker";
+import useUpdateHandlers from "~/editor/plugins/elementSettings/useUpdateHandlers";
+import { justifySelfEndStyle } from "~/editor/plugins/elementSettings/components/StyledComponents";
 import {
     WIDTH_UNIT_OPTIONS,
     HEIGHT_UNIT_OPTIONS
-} from "../../elementSettings/elementSettingsUtils";
+} from "~/editor/plugins/elementSettings/elementSettingsUtils";
+import SelectField from "~/editor/plugins/elementSettings/components/SelectField";
 
 const classes = {
     grid: css({
@@ -32,20 +32,24 @@ const spacingPickerStyle = css({
     }
 });
 
-const ImageSettings: React.FunctionComponent<PbEditorPageElementSettingsRenderComponentProps> = ({
+const ImageSettings = ({
     defaultAccordionValue = false
-}) => {
-    const activeElementId = useRecoilValue(activeElementAtom);
-    const element = useRecoilValue(elementByIdSelector(activeElementId));
+}: PbEditorPageElementSettingsRenderComponentProps) => {
+    const activeElementId = useRecoilValue(activeElementAtom) as string;
+    const element = useRecoilValue(elementByIdSelector(activeElementId)) as PbEditorElement;
     const {
         data: { image }
     } = element;
 
     const { getUpdateValue } = useUpdateHandlers({ element, dataNamespace: "data.image" });
 
-    const updateTitle = useCallback(value => getUpdateValue("title")(value), []);
-    const updateWidth = useCallback(value => getUpdateValue("width")(value), []);
-    const updateHeight = useCallback(value => getUpdateValue("height")(value), []);
+    const updateTitle = useCallback((value: string) => getUpdateValue("title")(value), []);
+    const updateWidth = useCallback((value: string | number) => getUpdateValue("width")(value), []);
+    const updateHeight = useCallback(
+        (value: string | number) => getUpdateValue("height")(value),
+        []
+    );
+    const updateHtmlTag = useCallback((value: string) => getUpdateValue("htmlTag")(value), []);
 
     return (
         <Accordion title={"Image"} defaultValue={defaultAccordionValue}>
@@ -59,7 +63,7 @@ const ImageSettings: React.FunctionComponent<PbEditorPageElementSettingsRenderCo
                     rightCellClassName={justifySelfEndStyle}
                 >
                     <SpacingPicker
-                        value={image?.width || ""}
+                        value={(image?.width as string) || ""}
                         onChange={updateWidth}
                         options={WIDTH_UNIT_OPTIONS}
                         useDefaultStyle={false}
@@ -72,12 +76,24 @@ const ImageSettings: React.FunctionComponent<PbEditorPageElementSettingsRenderCo
                     rightCellClassName={justifySelfEndStyle}
                 >
                     <SpacingPicker
-                        value={image?.height || ""}
+                        value={(image?.height as string) || ""}
                         onChange={updateHeight}
                         options={HEIGHT_UNIT_OPTIONS}
                         useDefaultStyle={false}
                         className={spacingPickerStyle}
                     />
+                </Wrapper>
+                <Wrapper
+                    label={"HTML Tag"}
+                    containerClassName={classes.grid}
+                    leftCellSpan={4}
+                    rightCellSpan={8}
+                >
+                    <SelectField value={image?.htmlTag || "img"} onChange={updateHtmlTag}>
+                        <option value={"auto"}>{"Auto-detect"}</option>
+                        <option value={"img"}>{"<img>"}</option>
+                        <option value={"object"}>{"<object>"} (for SVGs)</option>
+                    </SelectField>
                 </Wrapper>
             </>
         </Accordion>

@@ -1,18 +1,33 @@
-type StackOutput = Record<string, any>;
+import { Pulumi, Options } from "@webiny/pulumi-sdk";
 
-export function tagResources(tags: Record<string, string>): void;
-
-export function crawlDirectory(dir: string, callback: (path: string) => void): void;
-
-export function getStackOutput(
+export function getStackOutput<TStackOutput = Record<string, unknown>>(
     folder: string,
     env: string,
     map?: Record<string, string>
-): StackOutput;
+): TStackOutput;
 
-export function getStackOutput(options: {
+export function getStackOutput<TStackOutput = Record<string, any>>(options: {
     folder: string;
     env: string;
     map?: Record<string, string>;
     cwd?: string;
-}): StackOutput;
+}): TStackOutput;
+
+export function getStackExport<TStackOutput = Record<string, any>>(options: {
+    folder: string;
+    env: string;
+    cwd?: string;
+}): TStackOutput;
+
+export function getDeploymentId(params: { env: string }): string;
+
+interface GetPulumiParams {
+    projectApplication?: Record<string, unknown>;
+    pulumi?: Options;
+    install?: boolean;
+}
+
+export function getPulumi(params: GetPulumiParams): Pulumi;
+
+export * from "./GracefulError";
+export * from "./GracefulPulumiError";

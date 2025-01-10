@@ -1,20 +1,22 @@
 import WebinyError from "@webiny/error";
 import { SearchBody as esSearchBody } from "elastic-ts";
-import { decodeCursor } from "@webiny/api-elasticsearch/cursors";
+import {
+    applyWhere,
+    createLimit,
+    createSort,
+    decodeCursor,
+    getElasticsearchOperatorPluginsByLocale,
+    isSharedElasticsearchIndex
+} from "@webiny/api-elasticsearch";
 import { ElasticsearchBoolQueryConfig } from "@webiny/api-elasticsearch/types";
-import { PageStorageOperationsListWhere, PbContext } from "@webiny/api-page-builder/types";
-import { createSort } from "@webiny/api-elasticsearch/sort";
-import { createLimit } from "@webiny/api-elasticsearch/limit";
-import { ElasticsearchFieldPlugin } from "@webiny/api-elasticsearch/plugins/definition/ElasticsearchFieldPlugin";
-import { ElasticsearchQueryBuilderOperatorPlugin } from "@webiny/api-elasticsearch/plugins/definition/ElasticsearchQueryBuilderOperatorPlugin";
+import { PageStorageOperationsListWhere } from "@webiny/api-page-builder/types";
 import { PageElasticsearchFieldPlugin } from "~/plugins/definitions/PageElasticsearchFieldPlugin";
 import { PageElasticsearchSortModifierPlugin } from "~/plugins/definitions/PageElasticsearchSortModifierPlugin";
 import { PageElasticsearchQueryModifierPlugin } from "~/plugins/definitions/PageElasticsearchQueryModifierPlugin";
 import { PageElasticsearchBodyModifierPlugin } from "~/plugins/definitions/PageElasticsearchBodyModifierPlugin";
-import { applyWhere } from "@webiny/api-elasticsearch/where";
+import { PluginsContainer } from "@webiny/plugins";
 
 interface CreateElasticsearchQueryArgs {
-    context: PbContext;
     where: PageStorageOperationsListWhere;
 }
 
@@ -26,7 +28,7 @@ interface CreateElasticsearchQueryArgs {
 const createInitialQueryValue = (
     args: CreateElasticsearchQueryArgs
 ): ElasticsearchBoolQueryConfig => {
-    const { where, context } = args;
+    const { where } = args;
 
     const query: ElasticsearchBoolQueryConfig = {
         must: [],
@@ -35,14 +37,6 @@ const createInitialQueryValue = (
         filter: []
     };
 
-    /**
-     * When ES index is shared between tenants, we need to filter records by tenant ID
-     */
-    const sharedIndex = process.env.ELASTICSEARCH_SHARED_INDEXES === "true";
-    if (sharedIndex) {
-        const tenant = context.tenancy.getCurrentTenant();
-        query.must.push({ term: { "tenant.keyword": tenant.id } });
-    }
     /**
      * We must transform published and latest where args into something that is understandable by our Elasticsearch
      */
@@ -84,43 +78,34 @@ const createInitialQueryValue = (
 };
 
 interface CreateElasticsearchBodyParams {
-    context: PbContext;
+    plugins: PluginsContainer;
     where: PageStorageOperationsListWhere;
     limit: number;
-    after?: string;
+    after: string | null;
     sort: string[];
+    fieldPlugins: Record<string, PageElasticsearchFieldPlugin>;
 }
 
-const createElasticsearchQuery = (
-    params: CreateElasticsearchBodyParams & { plugins: Record<string, ElasticsearchFieldPlugin> }
-) => {
-    const { context, where: initialWhere, plugins: fieldPlugins } = params;
+const createElasticsearchQuery = (params: CreateElasticsearchBodyParams) => {
+    const { plugins, where: initialWhere, fieldPlugins } = params;
     const query = createInitialQueryValue({
-        context,
         where: initialWhere
     });
     /**
      * Be aware that, if having more registered operator plugins of same type, the last one will be used.
      */
-    const operatorPlugins: Record<string, ElasticsearchQueryBuilderOperatorPlugin> = context.plugins
-        .byType<ElasticsearchQueryBuilderOperatorPlugin>(
-            ElasticsearchQueryBuilderOperatorPlugin.type
-        )
-        .reduce((acc, plugin) => {
-            acc[plugin.getOperator()] = plugin;
-            return acc;
-        }, {});
+    const operatorPlugins = getElasticsearchOperatorPluginsByLocale(plugins, initialWhere.locale);
 
-    const where: PageStorageOperationsListWhere = {
+    const where: Partial<PageStorageOperationsListWhere> = {
         ...initialWhere
     };
     /**
      * Tags are specific so extract them and remove from where.
      */
-    const { tags_in: tags, tags_rule: tagsRule } = where;
+    const { tags_in: tags, tags_rule: tagsRule } = initialWhere;
     delete where["tags_in"];
     delete where["tags_rule"];
-    if (Array.isArray(tags) === true && tags.length > 0) {
+    if (tags && Array.isArray(tags) === true && tags.length > 0) {
         if (tagsRule === "any") {
             query.filter.push({
                 terms: {
@@ -160,9 +145,9 @@ const createElasticsearchQuery = (
      *
      * When ES index is shared between tenants, we need to filter records by tenant ID.
      */
-    const sharedIndex = process.env.ELASTICSEARCH_SHARED_INDEXES === "true";
+    const sharedIndex = isSharedElasticsearchIndex();
     if (sharedIndex) {
-        const tenant = where["tenant"] || context.tenancy.getCurrentTenant().id;
+        const tenant = initialWhere.tenant;
         query.must.push({ term: { "tenant.keyword": tenant } });
         /**
          * Remove so it is not applied again later.
@@ -183,31 +168,23 @@ const createElasticsearchQuery = (
     return query;
 };
 
-interface CreateElasticsearchBodyParams {
-    context: PbContext;
-    where: PageStorageOperationsListWhere;
-    limit: number;
-    after?: string;
-    sort: string[];
-}
-
 export const createElasticsearchQueryBody = (
-    params: CreateElasticsearchBodyParams
-): esSearchBody => {
-    const { context, where, limit: initialLimit, sort: initialSort, after } = params;
+    params: Omit<CreateElasticsearchBodyParams, "fieldPlugins">
+): esSearchBody & Pick<Required<esSearchBody>, "sort"> => {
+    const { plugins, where, limit: initialLimit, sort: initialSort, after } = params;
 
-    const fieldPlugins: Record<string, PageElasticsearchFieldPlugin> = context.plugins
+    const fieldPlugins = plugins
         .byType<PageElasticsearchFieldPlugin>(PageElasticsearchFieldPlugin.type)
         .reduce((acc, plugin) => {
             acc[plugin.field] = plugin;
             return acc;
-        }, {});
+        }, {} as Record<string, PageElasticsearchFieldPlugin>);
 
     const limit = createLimit(initialLimit, 100);
 
     const query = createElasticsearchQuery({
         ...params,
-        plugins: fieldPlugins
+        fieldPlugins
     });
 
     const sort = createSort({
@@ -215,22 +192,25 @@ export const createElasticsearchQueryBody = (
         fieldPlugins
     });
 
-    const queryModifiers = context.plugins.byType<PageElasticsearchQueryModifierPlugin>(
+    const queryModifiers = plugins.byType<PageElasticsearchQueryModifierPlugin>(
         PageElasticsearchQueryModifierPlugin.type
     );
     for (const plugin of queryModifiers) {
         plugin.modifyQuery({
             query,
-            where
+            where,
+            sort,
+            limit
         });
     }
 
-    const sortModifiers = context.plugins.byType<PageElasticsearchSortModifierPlugin>(
+    const sortModifiers = plugins.byType<PageElasticsearchSortModifierPlugin>(
         PageElasticsearchSortModifierPlugin.type
     );
     for (const plugin of sortModifiers) {
         plugin.modifySort({
-            sort
+            sort,
+            where
         });
     }
 
@@ -245,21 +225,17 @@ export const createElasticsearchQueryBody = (
             }
         },
         size: limit + 1,
-        /**
-         * Casting as any is required due to search_after is accepting an array of values.
-         * Which is correct in some cases. In our case, it is not.
-         * https://www.elastic.co/guide/en/elasticsearch/reference/7.13/paginate-search-results.html
-         */
-        search_after: decodeCursor(after) as any,
+        search_after: decodeCursor(after),
         sort
     };
 
-    const bodyModifiers = context.plugins.byType<PageElasticsearchBodyModifierPlugin>(
+    const bodyModifiers = plugins.byType<PageElasticsearchBodyModifierPlugin>(
         PageElasticsearchBodyModifierPlugin.type
     );
     for (const plugin of bodyModifiers) {
         plugin.modifyBody({
-            body
+            body,
+            where
         });
     }
 

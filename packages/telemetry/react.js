@@ -1,31 +1,42 @@
 const baseSendEvent = require("./sendEvent");
+const { WTS } = require("wts-client/admin");
 
-const setProperties = data => {
-    return sendEvent("$identify", data);
-};
-
-const sendEvent = (event, data = {}) => {
-    if (process.env.REACT_APP_WEBINY_TELEMETRY === "false") {
+const sendEvent = async (event, properties = {}) => {
+    const shouldSend = process.env.REACT_APP_WEBINY_TELEMETRY !== "false";
+    if (!shouldSend) {
         return;
     }
 
-    let properties = {};
-    let extraPayload = {};
-    if (event !== "$identify") {
-        properties = data;
-    } else {
-        extraPayload = {
-            $set: data
-        };
+    const wts = new WTS();
+
+    const wcpProperties = {};
+    const [wcpOrgId, wcpProjectId] = getWcpOrgProjectId();
+    if (wcpOrgId && wcpProjectId) {
+        wcpProperties.wcpOrgId = wcpOrgId;
+        wcpProperties.wcpProjectId = wcpProjectId;
     }
 
     return baseSendEvent({
         event,
-        properties,
-        extraPayload,
-        user: process.env.REACT_APP_USER_ID,
-        version: process.env.REACT_APP_WEBINY_VERSION
+        user: process.env.REACT_APP_WEBINY_TELEMETRY_USER_ID,
+        properties: {
+            ...properties,
+            ...wcpProperties,
+            version: process.env.REACT_APP_WEBINY_VERSION,
+            ci: process.env.REACT_APP_IS_CI === "true",
+            newUser: process.env.REACT_APP_WEBINY_TELEMETRY_NEW_USER === "true"
+        },
+        wts
     });
 };
 
-module.exports = { setProperties, sendEvent };
+const getWcpOrgProjectId = () => {
+    // In React applications, WCP project ID is stored in the `REACT_APP_WCP_PROJECT_ID` environment variable.
+    const id = process.env.REACT_APP_WCP_PROJECT_ID;
+    if (typeof id === "string") {
+        return id.split("/");
+    }
+    return [];
+};
+
+module.exports = { sendEvent };

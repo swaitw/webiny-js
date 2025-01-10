@@ -1,30 +1,32 @@
 import React from "react";
 import { IconButton } from "@webiny/ui/Button";
 import { ReactComponent as BackIcon } from "./icons/round-arrow_back-24px.svg";
-import { css } from "emotion";
+import styled from "@emotion/styled";
 import { useRouter } from "@webiny/react-router";
-import { match } from "react-router";
 
-const backStyles = css({
-    marginLeft: -10
-});
+const BackButtonWrapper = styled.div`
+    margin-left: -10px;
+`;
 
 const BackButton = React.memo(() => {
-    const router = useRouter();
+    const { params, history } = useRouter();
 
-    const matched: match<{
-        id?: string;
-    }> = router.match;
-
-    const { id } = matched.params;
+    const id = params ? params["id"] : undefined;
 
     return (
-        <IconButton
-            data-testid="fb-editor-back-button"
-            className={backStyles}
-            onClick={() => router.history.push(`/form-builder/forms?id=${id}`)}
-            icon={<BackIcon />}
-        />
+        <BackButtonWrapper>
+            <IconButton
+                data-testid="fb-editor-back-button"
+                onClick={() => {
+                    if (!id) {
+                        console.error("Could not determine FormID from params.");
+                        return;
+                    }
+                    history.push(`/form-builder/forms?id=${id}`);
+                }}
+                icon={<BackIcon />}
+            />
+        </BackButtonWrapper>
     );
 });
 

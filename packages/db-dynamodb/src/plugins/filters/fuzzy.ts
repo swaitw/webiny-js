@@ -1,15 +1,38 @@
 import Fuse from "fuse.js";
-import { MatchesParams, ValueFilterPlugin } from "../definitions/ValueFilterPlugin";
+import {
+    ValueFilterPlugin,
+    ValueFilterPluginParamsMatchesParams
+} from "../definitions/ValueFilterPlugin";
 
-export default new ValueFilterPlugin({
+const plugin = new ValueFilterPlugin({
     operation: "fuzzy",
-    matches: ({ value, compareValue }: MatchesParams) => {
-        if (typeof value !== "string") {
+    matches: ({
+        value: initialValue,
+        compareValue: initialCompareValue
+    }: ValueFilterPluginParamsMatchesParams<
+        string | null | undefined,
+        string | null | undefined
+    >) => {
+        if (typeof initialValue !== "string" || typeof initialCompareValue !== "string") {
             return false;
         }
-        const f = new Fuse([value], {});
+        const value = initialValue.replaceAll("/", " ");
+        const compareValue = initialCompareValue.replaceAll("/", " ");
+
+        const f = new Fuse([value], {
+            includeScore: true,
+            minMatchCharLength: 3,
+            threshold: 0.5,
+            isCaseSensitive: false,
+            findAllMatches: true,
+            ignoreLocation: true
+        });
         const result = f.search(compareValue);
 
         return result.length > 0;
     }
 });
+
+plugin.name = "dynamodb.value.filter.fuzzy";
+
+export default plugin;

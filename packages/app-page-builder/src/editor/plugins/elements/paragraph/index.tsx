@@ -1,23 +1,26 @@
 import React from "react";
 import kebabCase from "lodash/kebabCase";
-import { DisplayMode, PbEditorPageElementPlugin, PbEditorTextElementPluginsArgs } from "~/types";
-import Paragraph, { textClassName } from "./Paragraph";
-import { createInitialTextValue } from "../utils/textUtils";
+import {
+    DisplayMode,
+    PbEditorElement,
+    PbEditorPageElementPlugin,
+    PbEditorTextElementPluginsArgs,
+    PbElement
+} from "~/types";
+import { Paragraph, textClassName } from "./Paragraph";
 import { createInitialPerDeviceSettingValue } from "../../elementSettings/elementSettingsUtils";
+import { defaultText, displayText } from "~/editor/plugins/elements/paragraph/elementText";
+
+export * from "./ActiveParagraphRenderer";
 
 export default (args: PbEditorTextElementPluginsArgs = {}): PbEditorPageElementPlugin => {
-    const defaultText = `Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-     Suspendisse varius enim in eros elementum tristique.
-     Duis cursus, mi quis viverra ornare, eros dolor interdum nulla, ut commodo diam libero vitae erat.
-     Aenean faucibus nibh et justo cursus id rutrum lorem imperdiet. Nunc ut sem vitae risus tristique posuere.`;
-
     const elementType = kebabCase(args.elementType || "paragraph");
 
     const defaultToolbar = {
         title: "Paragraph",
         group: "pb-editor-element-group-basic",
         preview() {
-            return <p className={textClassName}>{defaultText}</p>;
+            return <p className={textClassName}>{displayText}</p>;
         }
     };
 
@@ -36,25 +39,19 @@ export default (args: PbEditorTextElementPluginsArgs = {}): PbEditorPageElementP
         name: `pb-editor-page-element-${elementType}`,
         type: "pb-editor-page-element",
         elementType: elementType,
+        // @ts-expect-error
         toolbar: typeof args.toolbar === "function" ? args.toolbar(defaultToolbar) : defaultToolbar,
         settings:
             typeof args.settings === "function" ? args.settings(defaultSettings) : defaultSettings,
-        target: ["cell", "block"],
-        create({ content = {}, ...options }) {
+        target: ["cell", "block", "repeater"],
+        create({ content = {}, ...options }: Partial<PbElement> & { content?: any }) {
             const previewText = content.text || defaultText;
 
-            const defaultValue = {
+            const defaultValue: Partial<PbEditorElement> = {
                 type: this.elementType,
                 elements: [],
                 data: {
                     text: {
-                        ...createInitialPerDeviceSettingValue(
-                            createInitialTextValue({
-                                type: this.elementType,
-                                tag: "p"
-                            }),
-                            DisplayMode.DESKTOP
-                        ),
                         data: {
                             text: previewText
                         }
@@ -75,10 +72,9 @@ export default (args: PbEditorTextElementPluginsArgs = {}): PbEditorPageElementP
 
             return typeof args.create === "function" ? args.create(defaultValue) : defaultValue;
         },
-        render({ element }) {
-            return (
-                <Paragraph elementId={element.id} mediumEditorOptions={args.mediumEditorOptions} />
-            );
+
+        render(props) {
+            return <Paragraph {...props} mediumEditorOptions={args.mediumEditorOptions} />;
         }
     };
 };

@@ -1,19 +1,26 @@
-import groupAuthorization from "~/plugins/groupAuthorization";
-const { DocumentClient } = require("aws-sdk/clients/dynamodb");
+import tenantLinkAuthorization from "~/plugins/tenantLinkAuthorization";
 import { createHandler } from "@webiny/handler-aws";
 import graphqlHandlerPlugins from "@webiny/handler-graphql";
 import { PluginCollection } from "@webiny/plugins/types";
-import { createStorageOperations as tenancyStorageOperations } from "@webiny/api-tenancy-so-ddb";
 import { authenticateUsingHttpHeader } from "~/plugins/authenticateUsingHttpHeader";
-import { createSecurityGraphQL, createSecurityContext } from "~/index";
+import { createSecurityContext, createSecurityGraphQL } from "~/index";
+
 // Graphql
 import {
-    UPDATE_SECURITY_GROUP,
     CREATE_SECURITY_GROUP,
     DELETE_SECURITY_GROUP,
     GET_SECURITY_GROUP,
-    LIST_SECURITY_GROUPS
+    LIST_SECURITY_GROUPS,
+    UPDATE_SECURITY_GROUP
 } from "./graphql/groups";
+
+import {
+    CREATE_SECURITY_TEAM,
+    DELETE_SECURITY_TEAM,
+    GET_SECURITY_TEAM,
+    LIST_SECURITY_TEAMS,
+    UPDATE_SECURITY_TEAM
+} from "./graphql/teams";
 
 import {
     CREATE_API_KEY,
@@ -29,82 +36,98 @@ import { customGroupAuthorizer } from "./mocks/customGroupAuthorizer";
 import { customAuthenticator } from "./mocks/customAuthenticator";
 import { triggerAuthentication } from "./mocks/triggerAuthentication";
 import { createTenancyContext, createTenancyGraphQL } from "@webiny/api-tenancy";
+import { TenancyStorageOperations } from "@webiny/api-tenancy/types";
+import { getStorageOps } from "@webiny/project-utils/testing/environment";
+import { SecurityStorageOperations } from "~/types";
+import { APIGatewayEvent, LambdaContext } from "@webiny/handler-aws/types";
+import { DecryptedWcpProjectLicense } from "@webiny/wcp/types";
+import { createWcpContext } from "@webiny/api-wcp";
 
 type UseGqlHandlerParams = {
     plugins?: PluginCollection;
+    wcpLicense?: DecryptedWcpProjectLicense;
 };
-
-const documentClient = new DocumentClient({
-    convertEmptyValues: true,
-    endpoint: process.env.MOCK_DYNAMODB_ENDPOINT || "http://localhost:8001",
-    sslEnabled: false,
-    region: "local",
-    accessKeyId: "test",
-    secretAccessKey: "test"
-});
 
 export default (opts: UseGqlHandlerParams = {}) => {
     const defaults = { plugins: [] };
     opts = Object.assign({}, defaults, opts);
 
-    // @ts-ignore
-    if (typeof __getStorageOperations !== "function") {
-        throw new Error(`There is no global "__getStorageOperations" function.`);
-    }
-    // @ts-ignore
-    const { storageOperations } = __getStorageOperations();
+    const tenancyStorage = getStorageOps<TenancyStorageOperations>("tenancy");
+    const securityStorage = getStorageOps<SecurityStorageOperations>("security");
 
     // Creates the actual handler. Feel free to add additional plugins if needed.
     const handler = createHandler({
         plugins: [
             graphqlHandlerPlugins(),
-            // TODO: tenancy storage operations need to be loaded dynamically, but for now this will do since we only have DDB storage for this app.
+            createWcpContext({ testProjectLicense: opts.wcpLicense }),
             createTenancyContext({
-                storageOperations: tenancyStorageOperations({
-                    documentClient,
-                    table: table => ({ ...table, name: process.env.DB_TABLE })
-                })
+                storageOperations: tenancyStorage.storageOperations
             }),
             createTenancyGraphQL(),
-            createSecurityContext({ storageOperations }),
+            createSecurityContext({ storageOperations: securityStorage.storageOperations }),
             createSecurityGraphQL(),
             authenticateUsingHttpHeader(),
             triggerAuthentication(),
             customAuthenticator(),
             customGroupAuthorizer(),
-            groupAuthorization({ identityType: "admin" }),
-            ...opts.plugins
-        ].filter(Boolean)
+            tenantLinkAuthorization({ identityType: "admin" }),
+            opts.plugins
+        ].filter(Boolean) as PluginCollection
     });
 
     // Let's also create the "invoke" function. This will make handler invocations in actual tests easier and nicer.
-    const invoke = async ({ httpMethod = "POST", body, headers = {}, ...rest }) => {
-        const response = await handler({
-            httpMethod,
-            headers,
-            body: JSON.stringify(body),
-            ...rest
-        });
+    const invoke = async ({ httpMethod = "POST", body = {}, headers = {}, ...rest }) => {
+        const response = await handler(
+            {
+                path: "/graphql",
+                httpMethod,
+                headers: {
+                    ["x-tenant"]: "root",
+                    ["Content-Type"]: "application/json",
+                    ...headers
+                },
+                body: JSON.stringify(body),
+                ...rest
+            } as unknown as APIGatewayEvent,
+            {} as LambdaContext
+        );
 
         // The first element is the response body, and the second is the raw response.
         return [JSON.parse(response.body), response];
     };
 
     const securityGroup = {
-        async create(variables) {
+        async create(variables = {}) {
             return invoke({ body: { query: CREATE_SECURITY_GROUP, variables } });
         },
-        async update(variables) {
+        async update(variables = {}) {
             return invoke({ body: { query: UPDATE_SECURITY_GROUP, variables } });
         },
-        async delete(variables) {
+        async delete(variables = {}) {
             return invoke({ body: { query: DELETE_SECURITY_GROUP, variables } });
         },
         async list(variables = {}, headers = {}) {
             return invoke({ body: { query: LIST_SECURITY_GROUPS, variables }, headers });
         },
-        async get(variables) {
+        async get(variables = {}) {
             return invoke({ body: { query: GET_SECURITY_GROUP, variables } });
+        }
+    };
+    const securityTeam = {
+        async create(variables = {}) {
+            return invoke({ body: { query: CREATE_SECURITY_TEAM, variables } });
+        },
+        async update(variables = {}) {
+            return invoke({ body: { query: UPDATE_SECURITY_TEAM, variables } });
+        },
+        async delete(variables = {}) {
+            return invoke({ body: { query: DELETE_SECURITY_TEAM, variables } });
+        },
+        async list(variables = {}, headers = {}) {
+            return invoke({ body: { query: LIST_SECURITY_TEAMS, variables }, headers });
+        },
+        async get(variables = {}) {
+            return invoke({ body: { query: GET_SECURITY_TEAM, variables } });
         }
     };
 
@@ -112,16 +135,16 @@ export default (opts: UseGqlHandlerParams = {}) => {
         async list(variables = {}) {
             return invoke({ body: { query: LIST_API_KEYS, variables } });
         },
-        async get(variables) {
+        async get(variables = {}) {
             return invoke({ body: { query: GET_API_KEY, variables } });
         },
-        async create(variables) {
+        async create(variables = {}) {
             return invoke({ body: { query: CREATE_API_KEY, variables } });
         },
-        async update(variables) {
+        async update(variables = {}) {
             return invoke({ body: { query: UPDATE_API_KEY, variables } });
         },
-        async delete(variables) {
+        async delete(variables = {}) {
             return invoke({ body: { query: DELETE_API_KEY, variables } });
         }
     };
@@ -150,6 +173,7 @@ export default (opts: UseGqlHandlerParams = {}) => {
         invoke,
         securityIdentity,
         securityGroup,
+        securityTeam,
         securityApiKeys,
         install
     };

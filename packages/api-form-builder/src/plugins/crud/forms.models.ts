@@ -1,131 +1,132 @@
-import { validation } from "@webiny/validation";
-import { boolean, fields, string, withFields, number } from "@commodo/fields";
-import { object } from "commodo-fields-object";
+import zod from "zod";
 
-export const FormFieldsModel = withFields({
-    _id: string({ validation: validation.create("required") }),
-    type: string({ validation: validation.create("required") }),
-    name: string({ validation: validation.create("required") }),
-    fieldId: string({ validation: validation.create("required") }),
-    /**
-     * Note: We've replaced "i18nString()" with "string()"
-     */
-    label: string({ validation: validation.create("maxLength:100") }),
-    helpText: string({ validation: validation.create("maxLength:100") }),
-    placeholderText: string({ validation: validation.create("maxLength:100") }),
-    options: fields({
-        list: true,
-        value: [],
-        instanceOf: withFields({
-            label: string({ validation: validation.create("maxLength:100") }),
-            value: string({ value: "" })
-        })()
-    }),
-    validation: fields({
-        list: true,
-        value: [],
-        instanceOf: withFields({
-            name: string({ validation: validation.create("required") }),
-            message: string({ validation: validation.create("maxLength:100") }),
-            settings: object({ value: {} })
-        })()
-    }),
-    settings: object({ value: {} })
-})();
+export const FormFieldsModel = zod.object({
+    _id: zod.string(),
+    type: zod.string(),
+    name: zod.string(),
+    fieldId: zod.string(),
+    label: zod.string(),
+    helpText: zod.string().optional().nullish().default(""),
+    placeholderText: zod.string().optional().nullish().default(""),
+    options: zod
+        .array(
+            zod.object({
+                label: zod.string().optional().default(""),
+                value: zod.string().optional().default("")
+            })
+        )
+        .optional()
+        .default([]),
+    validation: zod
+        .array(
+            zod.object({
+                name: zod.string(),
+                message: zod.string().optional().default(""),
+                settings: zod.object({}).passthrough().optional().default({})
+            })
+        )
+        .optional()
+        .default([]),
+    settings: zod.object({}).optional().default({})
+});
 
-export const FormSettingsModel = withFields({
-    layout: fields({
-        value: {},
-        instanceOf: withFields({
-            renderer: string({ value: "default" })
-        })()
-    }),
-    /**
-     * Note: We've replaced "i18nString()" with "string()"
-     */
-    submitButtonLabel: string({ validation: validation.create("maxLength:100") }),
-    /**
-     * Note: We've replaced "i18nObject()" with "object()"
-     */
-    successMessage: object(),
-    termsOfServiceMessage: fields({
-        instanceOf: withFields({
-            message: object(),
-            errorMessage: string({ validation: validation.create("maxLength:100") }),
-            enabled: boolean()
-        })()
-    }),
-    reCaptcha: fields({
-        value: {},
-        instanceOf: withFields({
-            enabled: boolean(),
+export const FormStepsModel = zod.object({
+    title: zod.string(),
+    layout: zod.array(zod.array(zod.string())).optional().default([])
+});
+
+export const FormSettingsModel = zod.object({
+    layout: zod
+        .object({
+            renderer: zod.string().optional().default("default")
+        })
+        .optional()
+        .default({
+            renderer: "default"
+        }),
+    submitButtonLabel: zod.string().optional().default("").nullable(),
+    fullWidthSubmitButton: zod.boolean().optional().default(false),
+    successMessage: zod.object({}).passthrough().optional().nullable(),
+    termsOfServiceMessage: zod
+        .object({
+            message: zod.object({}).optional().default({}),
+            errorMessage: zod.string().optional().default("").nullable(),
+            enabled: zod.boolean().optional().nullish().default(null)
+        })
+        .default({
+            message: {},
+            errorMessage: "",
+            enabled: null
+        }),
+    reCaptcha: zod
+        .object({
+            enabled: zod.boolean().optional().nullish().default(null),
             /**
              * Note: We've replaced "i18nString()" with "string()"
              */
-            errorMessage: string({
-                value: "Please verify that you are not a robot.",
-                validation: validation.create("maxLength:100")
-            })
-        })()
+            errorMessage: zod
+                .string()
+                .optional()
+                .default("Please verify that you are not a robot."),
+            secretKey: zod.string().optional().nullish().default("").nullable(),
+            siteKey: zod.string().optional().nullish().default("").nullable()
+        })
+        .passthrough()
+        .optional()
+        .default({
+            enabled: null
+        })
+});
+
+export const FormCreateDataModel = zod.object({
+    name: zod.string()
+});
+
+export const FormUpdateDataModel = zod.object({
+    name: zod.string().optional(),
+    fields: zod.array(FormFieldsModel).optional(),
+    steps: zod.array(FormStepsModel).optional(),
+    settings: FormSettingsModel.optional(),
+    triggers: zod.object({}).passthrough().optional().nullable()
+});
+
+export const FormSubmissionCreateDataModel = zod.object({
+    data: zod.object({}).passthrough().optional().default({}),
+    meta: zod
+        .object({
+            ip: zod.string().optional().default(""),
+            submittedOn: zod.string().optional().default(new Date().toISOString()),
+            url: zod
+                .object({
+                    location: zod.string().optional(),
+                    query: zod.object({}).passthrough().optional()
+                })
+                .optional()
+                .default({})
+        })
+        .optional()
+        .default({}),
+    form: zod.object({
+        id: zod.string(),
+        parent: zod.string(),
+        name: zod.string(),
+        version: zod.number(),
+        steps: zod.array(FormStepsModel).optional().default([]),
+        fields: zod.array(FormFieldsModel).optional().default([])
     })
-})();
+});
 
-export const FormCreateDataModel = withFields({
-    name: string({ validation: validation.create("required,maxLength:100") })
-})();
-
-export const FormUpdateDataModel = withFields({
-    name: string({ validation: validation.create("maxLength:100") }),
-    fields: fields({
-        list: true,
-        value: [],
-        instanceOf: FormFieldsModel
-    }),
-    layout: object({ value: [] }),
-    settings: fields({ instanceOf: FormSettingsModel, value: {} }),
-    triggers: object()
-})();
-
-export const FormSubmissionCreateDataModel = withFields({
-    data: object({ validation: validation.create("required") }),
-    meta: fields({
-        value: {},
-        instanceOf: withFields({
-            ip: string({ validation: validation.create("required,maxLength:100") }),
-            submittedOn: string({
-                value: new Date().toISOString(),
-                validation: validation.create("maxLength:100")
+export const FormSubmissionUpdateDataModel = zod.object({
+    id: zod.string(),
+    logs: zod
+        .array(
+            zod.object({
+                type: zod.enum(["error", "warning", "info", "success"]),
+                message: zod.string(),
+                data: zod.object({}).optional().default({}),
+                createdOn: zod.string().optional().default(new Date().toISOString())
             })
-        })()
-    }),
-    form: fields({
-        instanceOf: withFields({
-            id: string({ validation: validation.create("required") }),
-            parent: string({ validation: validation.create("required") }),
-            name: string({ validation: validation.create("required") }),
-            version: number({ validation: validation.create("required") }),
-            layout: object({ value: [] }),
-            fields: fields({
-                list: true,
-                value: [],
-                instanceOf: FormFieldsModel
-            })
-        })()
-    })
-})();
-
-export const FormSubmissionUpdateDataModel = withFields({
-    id: string({ validation: validation.create("required,maxLength:100") }),
-    logs: fields({
-        list: true,
-        value: [],
-        instanceOf: withFields({
-            type: string({
-                validation: validation.create("required,in:error:warning:info:success")
-            }),
-            message: string(),
-            data: object(),
-            createdOn: string({ value: new Date().toISOString() })
-        })()
-    })
-})();
+        )
+        .optional()
+        .default([])
+});

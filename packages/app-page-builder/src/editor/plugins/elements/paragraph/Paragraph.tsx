@@ -1,33 +1,30 @@
 import React from "react";
-import Text from "~/editor/components/Text";
-import { CoreOptions } from "medium-editor";
-import { PbEditorTextElementProps } from "~/types";
-import { getMediumEditorOptions } from "../utils/textUtils";
+import { CompositionScope } from "@webiny/app-admin";
+import { ParagraphRenderer } from "@webiny/app-page-builder-elements/renderers/paragraph";
+import type { Element } from "@webiny/app-page-builder-elements/types";
+import { MediumEditorOptions, PbEditorElement } from "~/types";
+import { useActiveElementId } from "~/editor";
+import { ActiveParagraphRenderer } from "./ActiveParagraphRenderer";
 
 export const textClassName = "webiny-pb-base-page-element-style webiny-pb-page-element-text";
 
-const DEFAULT_EDITOR_OPTIONS: CoreOptions = {
-    toolbar: {
-        buttons: ["bold", "italic", "underline", "anchor"]
-    },
-    anchor: {
-        targetCheckbox: true,
-        targetCheckboxText: "Open in a new tab"
-    }
-};
+interface ParagraphProps {
+    element: PbEditorElement;
+    mediumEditorOptions?: MediumEditorOptions;
+}
 
-const Paragraph: React.FunctionComponent<PbEditorTextElementProps> = ({
-    elementId,
-    mediumEditorOptions
-}) => {
-    return (
-        <Text
-            elementId={elementId}
-            mediumEditorOptions={getMediumEditorOptions(
-                DEFAULT_EDITOR_OPTIONS,
-                mediumEditorOptions
-            )}
-        />
-    );
+export const Paragraph = (props: ParagraphProps) => {
+    const { element, ...rest } = props;
+    const [activeElementId] = useActiveElementId();
+    const isActive = activeElementId === element.id;
+
+    if (isActive) {
+        return (
+            <CompositionScope name={"pb.paragraph"}>
+                <ActiveParagraphRenderer element={element as Element} {...rest} />
+            </CompositionScope>
+        );
+    }
+
+    return <ParagraphRenderer element={element as Element} {...rest} />;
 };
-export default React.memo(Paragraph);

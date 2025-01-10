@@ -1,4 +1,4 @@
-import { get } from "lodash";
+import get from "lodash/get";
 import kebabCase from "lodash/kebabCase";
 import camelCase from "lodash/camelCase";
 import { PbRenderElementStylePlugin } from "../../../../types";
@@ -7,7 +7,7 @@ import { applyPerDeviceStyleWithFallback } from "../../../utils";
 const borderRadiusSides = ["top-left", "top-right", "bottom-left", "bottom-right"];
 const boxSides = ["top", "right", "bottom", "left"];
 
-const removeUnitFromEnd = (value: string, unit = "px") => {
+const removeUnitFromEnd = (value: string, unit = "px"): string => {
     if (value) {
         return value.replace(unit, "");
     }

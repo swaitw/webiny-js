@@ -7,7 +7,7 @@ import { Slider } from "@webiny/ui/Slider";
 import { useRecoilValue } from "recoil";
 import InputField from "./InputField";
 
-type SliderWithInputPropsType = {
+interface SliderWithInputPropsType {
     icon: React.ReactElement;
     valueKey: string;
     placeholder?: string;
@@ -18,8 +18,8 @@ type SliderWithInputPropsType = {
     label?: string;
     step?: number;
     max?: number;
-};
-const SliderWithInput: React.FunctionComponent<SliderWithInputPropsType> = ({
+}
+const SliderWithInput = ({
     icon,
     placeholder,
     updateValue,
@@ -28,7 +28,7 @@ const SliderWithInput: React.FunctionComponent<SliderWithInputPropsType> = ({
     valueKey,
     max = 100,
     step = 1
-}) => {
+}: SliderWithInputPropsType) => {
     const activeElementId = useRecoilValue(activeElementAtom);
     const element = useRecoilValue(elementWithChildrenByIdSelector(activeElementId));
     const value = lodashGet(element, valueKey, 0);
@@ -49,7 +49,7 @@ const SliderWithInput: React.FunctionComponent<SliderWithInputPropsType> = ({
             </Cell>
             <Cell align={"middle"} span={4}>
                 <InputField
-                    placeholder={placeholder || "px"}
+                    placeholder={placeholder || "ms"}
                     value={value}
                     onChange={updateValue}
                 />

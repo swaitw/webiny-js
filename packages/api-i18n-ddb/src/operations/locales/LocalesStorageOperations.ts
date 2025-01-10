@@ -1,23 +1,22 @@
-import {
+import type {
     I18NContext,
-    I18NLocale,
+    I18NLocaleData,
     I18NLocalesStorageOperations,
     I18NLocalesStorageOperationsCreateParams,
     I18NLocalesStorageOperationsDeleteParams,
+    I18NLocalesStorageOperationsGetDefaultParams,
+    I18NLocalesStorageOperationsGetParams,
     I18NLocalesStorageOperationsListParams,
     I18NLocalesStorageOperationsListResponse,
     I18NLocalesStorageOperationsUpdateDefaultParams,
     I18NLocalesStorageOperationsUpdateParams
 } from "@webiny/api-i18n/types";
-import { Entity, Table } from "dynamodb-toolbox";
+import type { Table } from "@webiny/db-dynamodb/toolbox";
 import WebinyError from "@webiny/error";
 import defineTable from "~/definitions/table";
 import defineLocaleEntity from "~/definitions/localeEntity";
-import { queryAll, QueryAllParams } from "@webiny/db-dynamodb/utils/query";
-import { filterItems } from "@webiny/db-dynamodb/utils/filter";
-import { sortItems } from "@webiny/db-dynamodb/utils/sort";
-import { createListResponse } from "@webiny/db-dynamodb/utils/listResponse";
-import { cleanupItem, cleanupItems } from "@webiny/db-dynamodb/utils/cleanup";
+import type { IEntity, IEntityQueryAllParams } from "@webiny/db-dynamodb";
+import { createListResponse, filterItems, sortItems } from "@webiny/db-dynamodb";
 import { LocaleDynamoDbFieldPlugin } from "~/plugins/LocaleDynamoDbFieldPlugin";
 
 interface ConstructorParams {
@@ -28,8 +27,8 @@ const DEFAULT_SORT_KEY = "default";
 
 export class LocalesStorageOperations implements I18NLocalesStorageOperations {
     private readonly context: I18NContext;
-    private readonly table: Table;
-    private readonly entity: Entity<any>;
+    private readonly table: Table<string, string, string>;
+    private readonly entity: IEntity;
 
     public constructor({ context }: ConstructorParams) {
         this.context = context;
@@ -43,16 +42,12 @@ export class LocalesStorageOperations implements I18NLocalesStorageOperations {
         });
     }
 
-    public async getDefault(): Promise<I18NLocale> {
+    public async getDefault(params: I18NLocalesStorageOperationsGetDefaultParams) {
         try {
-            const locale = await this.entity.get({
-                PK: this.createDefaultPartitionKey(),
+            return this.entity.getClean<I18NLocaleData>({
+                PK: this.createDefaultPartitionKey(params),
                 SK: DEFAULT_SORT_KEY
             });
-            if (!locale || !locale.Item) {
-                return null;
-            }
-            return cleanupItem(this.entity, locale.Item);
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not fetch the I18N locale.",
@@ -61,16 +56,12 @@ export class LocalesStorageOperations implements I18NLocalesStorageOperations {
         }
     }
 
-    public async get(code: string): Promise<I18NLocale> {
+    public async get(params: I18NLocalesStorageOperationsGetParams) {
         try {
-            const locale = await this.entity.get({
-                PK: this.createPartitionKey(),
-                SK: code
+            return this.entity.getClean<I18NLocaleData>({
+                PK: this.createPartitionKey(params),
+                SK: params.code
             });
-            if (!locale || !locale.Item) {
-                return null;
-            }
-            return cleanupItem(this.entity, locale.Item);
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not fetch the I18N locale.",
@@ -79,9 +70,11 @@ export class LocalesStorageOperations implements I18NLocalesStorageOperations {
         }
     }
 
-    public async create({ locale }: I18NLocalesStorageOperationsCreateParams): Promise<I18NLocale> {
+    public async create({
+        locale
+    }: I18NLocalesStorageOperationsCreateParams): Promise<I18NLocaleData> {
         const keys = {
-            PK: this.createPartitionKey(),
+            PK: this.createPartitionKey(locale),
             SK: this.getSortKey(locale)
         };
 
@@ -103,9 +96,11 @@ export class LocalesStorageOperations implements I18NLocalesStorageOperations {
         }
     }
 
-    public async update({ locale }: I18NLocalesStorageOperationsUpdateParams): Promise<I18NLocale> {
+    public async update({
+        locale
+    }: I18NLocalesStorageOperationsUpdateParams): Promise<I18NLocaleData> {
         const keys = {
-            PK: this.createPartitionKey(),
+            PK: this.createPartitionKey(locale),
             SK: this.getSortKey(locale)
         };
         try {
@@ -129,36 +124,39 @@ export class LocalesStorageOperations implements I18NLocalesStorageOperations {
     public async updateDefault({
         previous,
         locale
-    }: I18NLocalesStorageOperationsUpdateDefaultParams): Promise<I18NLocale> {
+    }: I18NLocalesStorageOperationsUpdateDefaultParams): Promise<I18NLocaleData> {
         /**
          * Set the locale as the default one.
          */
-        const batch = [
-            {
-                ...locale,
-                PK: this.createPartitionKey(),
-                SK: this.getSortKey(locale)
-            },
-            {
-                ...locale,
-                PK: this.createDefaultPartitionKey(),
-                SK: DEFAULT_SORT_KEY
-            }
-        ];
+        const entityBatch = this.entity.createEntityWriter();
+
+        entityBatch.put({
+            ...locale,
+            PK: this.createPartitionKey(locale),
+            SK: this.getSortKey(locale)
+        });
+        entityBatch.put({
+            ...locale,
+            PK: this.createDefaultPartitionKey(locale),
+            SK: DEFAULT_SORT_KEY
+        });
+
         /**
          * Set the previous locale not to be default in its data.
          */
         if (previous) {
-            batch.push({
+            entityBatch.put({
                 ...previous,
                 default: false,
-                PK: this.createPartitionKey(),
+                PK: this.createPartitionKey(locale),
                 SK: this.getSortKey(previous)
             });
         }
 
+        const batch = entityBatch.items;
+
         try {
-            await this.table.batchWrite(batch.map(item => this.entity.putBatch(item)));
+            await entityBatch.execute();
             return locale;
         } catch (ex) {
             throw new WebinyError(
@@ -175,7 +173,7 @@ export class LocalesStorageOperations implements I18NLocalesStorageOperations {
 
     public async delete({ locale }: I18NLocalesStorageOperationsDeleteParams): Promise<void> {
         const keys = {
-            PK: this.createPartitionKey(),
+            PK: this.createPartitionKey(locale),
             SK: this.getSortKey(locale)
         };
         try {
@@ -204,9 +202,9 @@ export class LocalesStorageOperations implements I18NLocalesStorageOperations {
             where
         });
 
-        let results: I18NLocale[] = [];
+        let results: I18NLocaleData[] = [];
         try {
-            results = await queryAll<I18NLocale>(queryAllParams);
+            results = await this.entity.queryAll<I18NLocaleData>(queryAllParams);
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Cannot list I18N locales.",
@@ -241,27 +239,23 @@ export class LocalesStorageOperations implements I18NLocalesStorageOperations {
         /**
          * Use the common db-dynamodb method to create the required response.
          */
-        return createListResponse<I18NLocale>({
-            items: cleanupItems(this.entity, sortedFiles),
+        return createListResponse<I18NLocaleData>({
+            items: sortedFiles,
             after,
             totalCount,
             limit
         });
     }
 
-    public createPartitionKey(): string {
-        const tenant = this.context.tenancy.getCurrentTenant();
-        if (!tenant) {
-            throw new WebinyError("Tenant missing.", "TENANT_NOT_FOUND");
-        }
-        return `T#${tenant.id}#I18N#L`;
+    public createPartitionKey(params: Pick<I18NLocaleData, "tenant">): string {
+        return `T#${params.tenant}#I18N#L`;
     }
 
-    public createDefaultPartitionKey(): string {
-        return `${this.createPartitionKey()}#D`;
+    public createDefaultPartitionKey(params: Pick<I18NLocaleData, "tenant">): string {
+        return `${this.createPartitionKey(params)}#D`;
     }
 
-    public getSortKey(locale: I18NLocale): string {
+    public getSortKey(locale: I18NLocaleData): string {
         if (!locale.code) {
             throw new WebinyError("Missing locale code.", "CODE_ERROR", {
                 locale
@@ -272,15 +266,19 @@ export class LocalesStorageOperations implements I18NLocalesStorageOperations {
 
     private createQueryAllParamsOptions(
         params: I18NLocalesStorageOperationsListParams
-    ): QueryAllParams {
+    ): IEntityQueryAllParams {
         const { where } = params;
-        let partitionKey = this.createPartitionKey();
-        if (where.default === true) {
-            partitionKey = this.createDefaultPartitionKey();
+
+        const tenant = where.tenant;
+        // @ts-expect-error
+        delete where.tenant;
+
+        let partitionKey = this.createPartitionKey({ tenant });
+        if (where && where.default === true) {
+            partitionKey = this.createDefaultPartitionKey({ tenant });
             delete where.default;
         }
         return {
-            entity: this.entity,
             partitionKey,
             options: {}
         };

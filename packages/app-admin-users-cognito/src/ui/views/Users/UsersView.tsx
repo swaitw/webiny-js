@@ -1,33 +1,27 @@
 import React from "react";
-import { UIView } from "@webiny/app-admin/ui/UIView";
-import { AdminView } from "@webiny/app-admin/ui/views/AdminView";
-import { SplitView } from "@webiny/app-admin/ui/views/SplitView";
-import { ViewElement } from "@webiny/app-admin/ui/elements/ViewElement";
-import { GenericElement } from "@webiny/app-admin/ui/elements/GenericElement";
+import { SplitView, LeftPanel, RightPanel } from "@webiny/app-admin/components/SplitView";
 import { UsersFormView } from "~/ui/views/Users/UsersFormView";
 import UsersDataList from "~/ui/views/Users/UsersDataList";
+import { UIViewComponent } from "@webiny/app-admin/ui/UIView";
+import { useWcp } from "@webiny/app-admin";
 
-export class UsersView extends UIView {
-    constructor() {
-        super("UsersView");
-        this.addElements();
+export const UsersView = () => {
+    const { getProject } = useWcp();
+
+    const project = getProject();
+    let teams = false;
+    if (project) {
+        teams = project.package.features.advancedAccessControlLayer.options.teams;
     }
 
-    setTitle(title: string) {
-        this.getElement<AdminView>("AdminView").setTitle(title);
-    }
-
-    private addElements() {
-        const adminView = this.addElement<AdminView>(new AdminView());
-        adminView.setTitle("Security - Users");
-
-        const splitView = new SplitView("adminUsers", {
-            leftPanel: new GenericElement("adminUsersLis", () => <UsersDataList />),
-            rightPanel: new ViewElement("adminUsersForm", {
-                view: new UsersFormView()
-            })
-        });
-
-        adminView.setContentElement(new ViewElement("adminUsersSplitView", { view: splitView }));
-    }
-}
+    return (
+        <SplitView>
+            <LeftPanel>
+                <UsersDataList />
+            </LeftPanel>
+            <RightPanel>
+                <UIViewComponent view={new UsersFormView({ teams })} />
+            </RightPanel>
+        </SplitView>
+    );
+};

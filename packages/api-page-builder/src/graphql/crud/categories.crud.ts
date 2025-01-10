@@ -1,95 +1,104 @@
-import { withFields, string } from "@commodo/fields";
-import { validation } from "@webiny/validation";
 import {
+    CategoriesCrud,
     Category,
-    CategoryStorageOperations,
     CategoryStorageOperationsGetParams,
     CategoryStorageOperationsListParams,
+    OnCategoryAfterCreateTopicParams,
+    OnCategoryAfterDeleteTopicParams,
+    OnCategoryAfterUpdateTopicParams,
+    OnCategoryBeforeCreateTopicParams,
+    OnCategoryBeforeDeleteTopicParams,
+    OnCategoryBeforeUpdateTopicParams,
+    PageBuilderContextObject,
+    PageBuilderStorageOperations,
     PbContext
 } from "~/types";
-import { ContextPlugin } from "@webiny/handler/plugins/ContextPlugin";
-import { NotAuthorizedError } from "@webiny/api-security";
-import hasRwd from "./utils/hasRwd";
 import { NotFoundError } from "@webiny/handler-graphql";
-import checkBasePermissions from "./utils/checkBasePermissions";
-import checkOwnPermissions from "./utils/checkOwnPermissions";
 import WebinyError from "@webiny/error";
-import { CategoryStorageOperationsProviderPlugin } from "~/plugins/CategoryStorageOperationsProviderPlugin";
-import { createStorageOperations } from "./storageOperations";
+import { createTopic } from "@webiny/pubsub";
+import {
+    createCategoryCreateValidation,
+    createCategoryUpdateValidation
+} from "~/graphql/crud/categories/validation";
+import { createZodError, removeUndefinedValues } from "@webiny/utils";
+import { CategoriesPermissions } from "~/graphql/crud/permissions/CategoriesPermissions";
+import { PagesPermissions } from "~/graphql/crud/permissions/PagesPermissions";
 
-const CreateDataModel = withFields({
-    slug: string({ validation: validation.create("required,minLength:1,maxLength:100") }),
-    name: string({ validation: validation.create("required,minLength:1,maxLength:100") }),
-    url: string({ validation: validation.create("required,minLength:1,maxLength:100") }),
-    layout: string({ validation: validation.create("required,minLength:1,maxLength:100") })
-})();
+export interface CreateCategoriesCrudParams {
+    context: PbContext;
+    storageOperations: PageBuilderStorageOperations;
+    categoriesPermissions: CategoriesPermissions;
+    pagesPermissions: PagesPermissions;
+    getTenantId: () => string;
+    getLocaleCode: () => string;
+}
 
-const UpdateDataModel = withFields({
-    name: string({ validation: validation.create("minLength:1,maxLength:100") }),
-    url: string({ validation: validation.create("minLength:1,maxLength:100") }),
-    layout: string({ validation: validation.create("minLength:1,maxLength:100") })
-})();
-
-const PERMISSION_NAME = "pb.category";
-
-export default new ContextPlugin<PbContext>(async context => {
-    /**
-     * If pageBuilder is not defined on the context, do not continue, but log it.
-     */
-    if (!context.pageBuilder) {
-        console.log("Missing pageBuilder on context. Skipping Categories crud.");
-        return;
-    }
-
-    const storageOperations = await createStorageOperations<CategoryStorageOperations>(
+export const createCategoriesCrud = (params: CreateCategoriesCrudParams): CategoriesCrud => {
+    const {
         context,
-        CategoryStorageOperationsProviderPlugin.type
+        storageOperations,
+        categoriesPermissions,
+        pagesPermissions,
+        getLocaleCode,
+        getTenantId
+    } = params;
+
+    const onCategoryBeforeCreate = createTopic<OnCategoryBeforeCreateTopicParams>(
+        "pageBuilder.onCategoryBeforeCreate"
+    );
+    const onCategoryAfterCreate = createTopic<OnCategoryAfterCreateTopicParams>(
+        "pageBuilder.onCategoryAfterCreate"
+    );
+    const onCategoryBeforeUpdate = createTopic<OnCategoryBeforeUpdateTopicParams>(
+        "pageBuilder.onCategoryBeforeUpdate"
+    );
+    const onCategoryAfterUpdate = createTopic<OnCategoryAfterUpdateTopicParams>(
+        "pageBuilder.onCategoryAfterUpdate"
+    );
+    const onCategoryBeforeDelete = createTopic<OnCategoryBeforeDeleteTopicParams>(
+        "pageBuilder.onCategoryBeforeDelete"
+    );
+    const onCategoryAfterDelete = createTopic<OnCategoryAfterDeleteTopicParams>(
+        "pageBuilder.onCategoryAfterDelete"
     );
 
-    const getPermission = name => context.security.getPermission(name);
-
-    context.pageBuilder.categories = {
-        storageOperations,
-        async get(slug, options = { auth: true }) {
+    return {
+        onCategoryBeforeCreate,
+        onCategoryAfterCreate,
+        onCategoryBeforeUpdate,
+        onCategoryAfterUpdate,
+        onCategoryBeforeDelete,
+        onCategoryAfterDelete,
+        /**
+         * This method should return category or null. No error throwing on not found.
+         */
+        async getCategory(slug, options = { auth: true }) {
             const { auth } = options;
 
-            const tenant = context.tenancy.getCurrentTenant();
-            const locale = context.i18nContent.getLocale();
             const params: CategoryStorageOperationsGetParams = {
                 where: {
                     slug,
-                    tenant: tenant.id,
-                    locale: locale.code
+                    tenant: getTenantId(),
+                    locale: getLocaleCode()
                 }
             };
 
             if (auth === false) {
-                return await storageOperations.get(params);
+                return await storageOperations.categories.get(params);
             }
 
-            await context.i18nContent.checkI18NContentPermission();
-
-            let permission;
-            const categoryPermission = await getPermission("pb.category");
-            if (categoryPermission && hasRwd(categoryPermission, "r")) {
-                permission = categoryPermission;
-            } else {
+            try {
+                await categoriesPermissions.ensure({ rwd: "r" });
+            } catch {
                 // If we don't have the necessary `categoryPermission` permission, let's still check if the
                 // user has the permission to write pages. If so, we still want to allow listing categories,
                 // because this is needed in order to create a page.
-                const pagePermission = await getPermission("pb.page");
-                if (pagePermission && hasRwd(pagePermission, "w")) {
-                    permission = pagePermission;
-                }
+                await pagesPermissions.ensure({ rwd: "w" });
             }
 
-            if (!permission) {
-                throw new NotAuthorizedError();
-            }
-
-            let category: Category;
+            let category: Category | null = null;
             try {
-                category = await storageOperations.get(params);
+                category = await storageOperations.categories.get(params);
             } catch (ex) {
                 throw new WebinyError(
                     ex.message || "Could not load category by slug.",
@@ -100,53 +109,41 @@ export default new ContextPlugin<PbContext>(async context => {
                     }
                 );
             }
+            if (!category) {
+                return null;
+            }
 
-            const identity = context.security.getIdentity();
-            checkOwnPermissions(identity, permission, category);
+            await categoriesPermissions.ensure({ owns: category.createdBy });
 
             return category;
         },
 
-        async list() {
-            await context.i18nContent.checkI18NContentPermission();
-
-            let permission;
-            const categoryPermission = await getPermission("pb.category");
-            if (categoryPermission && hasRwd(categoryPermission, "r")) {
-                permission = categoryPermission;
-            } else {
+        async listCategories() {
+            try {
+                await categoriesPermissions.ensure({ rwd: "r" });
+            } catch {
                 // If we don't have the necessary `categoryPermission` permission, let's still check if the
                 // user has the permission to write pages. If so, we still want to allow listing categories,
                 // because this is needed in order to create a page.
-                const pagePermission = await getPermission("pb.page");
-                if (pagePermission && hasRwd(pagePermission, "w")) {
-                    permission = pagePermission;
-                }
+                await pagesPermissions.ensure({ rwd: "w" });
             }
-
-            if (!permission) {
-                throw new NotAuthorizedError();
-            }
-
-            const tenant = context.tenancy.getCurrentTenant();
-            const locale = context.i18nContent.getLocale();
 
             const params: CategoryStorageOperationsListParams = {
                 where: {
-                    tenant: tenant.id,
-                    locale: locale.code
+                    tenant: getTenantId(),
+                    locale: getLocaleCode()
                 },
                 sort: ["createdOn_ASC"]
             };
             // If user can only manage own records, add the createdBy to where values.
-            if (permission.own) {
+            if (await categoriesPermissions.canAccessOnlyOwnRecords()) {
                 const identity = context.security.getIdentity();
 
                 params.where.createdBy = identity.id;
             }
 
             try {
-                const [items] = await storageOperations.list(params);
+                const [items] = await storageOperations.categories.list(params);
                 return items;
             } catch (ex) {
                 throw new WebinyError(
@@ -159,25 +156,24 @@ export default new ContextPlugin<PbContext>(async context => {
                 );
             }
         },
-        async create(input) {
-            await checkBasePermissions(context, PERMISSION_NAME, { rwd: "w" });
+        async createCategory(this: PageBuilderContextObject, input) {
+            await categoriesPermissions.ensure({ rwd: "w" });
 
-            const existingCategory = await context.pageBuilder.categories.get(input.slug, {
+            const validationResult = await createCategoryCreateValidation().safeParseAsync(input);
+            if (!validationResult.success) {
+                throw createZodError(validationResult.error);
+            }
+
+            const existingCategory = await this.getCategory(input.slug, {
                 auth: false
             });
             if (existingCategory) {
                 throw new NotFoundError(`Category with slug "${input.slug}" already exists.`);
             }
 
-            const createDataModel = new CreateDataModel().populate(input);
-            await createDataModel.validate();
-
             const identity = context.security.getIdentity();
 
-            const data: Category = await createDataModel.toJSON();
-
-            const tenant = context.tenancy.getCurrentTenant();
-            const locale = context.i18nContent.getLocale();
+            const data = validationResult.data;
 
             const category: Category = {
                 ...data,
@@ -187,15 +183,22 @@ export default new ContextPlugin<PbContext>(async context => {
                     type: identity.type,
                     displayName: identity.displayName
                 },
-                tenant: tenant.id,
-                locale: locale.code
+                tenant: getTenantId(),
+                locale: getLocaleCode()
             };
 
             try {
-                return await storageOperations.create({
+                await onCategoryBeforeCreate.publish({
+                    category
+                });
+                const result = await storageOperations.categories.create({
                     input: data,
                     category
                 });
+                await onCategoryAfterCreate.publish({
+                    category: result
+                });
+                return result;
             } catch (ex) {
                 throw new WebinyError(
                     ex.message || "Could not create category.",
@@ -207,34 +210,42 @@ export default new ContextPlugin<PbContext>(async context => {
                 );
             }
         },
-        async update(slug, input) {
-            const permission = await checkBasePermissions(context, PERMISSION_NAME, {
-                rwd: "w"
-            });
+        async updateCategory(this: PageBuilderContextObject, slug, input) {
+            await categoriesPermissions.ensure({ rwd: "w" });
 
-            const original = await context.pageBuilder.categories.get(slug);
+            const original = await this.getCategory(slug);
             if (!original) {
                 throw new NotFoundError(`Category "${slug}" not found.`);
             }
 
-            const identity = context.security.getIdentity();
-            checkOwnPermissions(identity, permission, original);
+            await categoriesPermissions.ensure({ owns: original.createdBy });
 
-            const updateDataModel = new UpdateDataModel().populate(input);
-            await updateDataModel.validate();
+            const validationResult = await createCategoryUpdateValidation().safeParseAsync(input);
+            if (!validationResult.success) {
+                throw createZodError(validationResult.error);
+            }
 
-            const data = await updateDataModel.toJSON({ onlyDirty: true });
+            const data = removeUndefinedValues(validationResult.data);
 
             const category: Category = {
                 ...original,
                 ...data
             };
             try {
-                return await storageOperations.update({
+                await onCategoryBeforeUpdate.publish({
+                    original,
+                    category
+                });
+                const result = await storageOperations.categories.update({
                     input: data,
                     original,
                     category
                 });
+                await onCategoryAfterUpdate.publish({
+                    original,
+                    category
+                });
+                return result;
             } catch (ex) {
                 throw new WebinyError(
                     ex.message || "Could not update category.",
@@ -247,22 +258,19 @@ export default new ContextPlugin<PbContext>(async context => {
                 );
             }
         },
-        async delete(slug) {
-            const permission = await checkBasePermissions(context, PERMISSION_NAME, {
-                rwd: "d"
-            });
+        async deleteCategory(this: PageBuilderContextObject, slug) {
+            await categoriesPermissions.ensure({ rwd: "d" });
 
-            const category = await context.pageBuilder.categories.get(slug);
+            const category = await this.getCategory(slug);
             if (!category) {
                 throw new NotFoundError(`Category "${slug}" not found.`);
             }
 
-            const identity = context.security.getIdentity();
-            checkOwnPermissions(identity, permission, category);
+            await categoriesPermissions.ensure({ owns: category.createdBy });
 
             // Before deleting, let's check if there is a page that's in this category.
             // If so, let's prevent this.
-            const [pages] = await context.pageBuilder.pages.listLatest(
+            const [pages] = await this.listLatestPages(
                 {
                     where: {
                         category: category.slug
@@ -281,9 +289,16 @@ export default new ContextPlugin<PbContext>(async context => {
             }
 
             try {
-                return await storageOperations.delete({
+                await onCategoryBeforeDelete.publish({
                     category
                 });
+                const result = await storageOperations.categories.delete({
+                    category
+                });
+                await onCategoryAfterDelete.publish({
+                    category: result
+                });
+                return result;
             } catch (ex) {
                 throw new WebinyError(
                     ex.message || "Could not delete category.",
@@ -296,4 +311,4 @@ export default new ContextPlugin<PbContext>(async context => {
             }
         }
     };
-});
+};

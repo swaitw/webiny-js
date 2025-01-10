@@ -1,53 +1,74 @@
-import { useApolloClient, useMutation } from "@apollo/react-hooks";
-import { useCallback, useEffect, useReducer } from "react";
+import { useMutation, useQuery } from "@apollo/react-hooks";
+import { useCallback, useReducer } from "react";
+import debounce from "lodash/debounce";
+import get from "lodash/get";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
-import * as GQL from "../../../../graphql";
-import { FetchPolicy } from "apollo-client";
+import { FbFormModel } from "~/types";
+import {
+    ExportFormSubmissionsMutationResponse,
+    ExportFormSubmissionsMutationVariables,
+    EXPORT_FORM_SUBMISSIONS,
+    LIST_FORM_SUBMISSIONS
+} from "~/admin/graphql";
 
-export default form => {
-    const [state, setState] = useReducer((prev, next) => ({ ...prev, ...next }), {
+interface State {
+    loading: boolean;
+    exportInProgress: boolean;
+    sort: string[];
+}
+interface Reducer {
+    (prev: State, next: Partial<State>): State;
+}
+
+export const useSubmissions = (form: Pick<FbFormModel, "id">) => {
+    const [state, setState] = useReducer<Reducer>((prev, next) => ({ ...prev, ...next }), {
         loading: false,
-        page: 0,
-        cursors: {
-            0: null
-        },
         exportInProgress: false,
-        submissions: [],
         sort: ["createdOn_DESC"]
     });
 
-    const client = useApolloClient();
-
     const { showSnackbar } = useSnackbar();
 
-    const loadSubmissions = async (fetchPolicy: FetchPolicy = "cache-first") => {
-        setState({ loading: true });
+    const listQuery = useQuery(LIST_FORM_SUBMISSIONS, {
+        variables: { form: form.id, sort: state.sort, limit: 20 }
+    });
 
-        const { data: res } = await client.query({
-            query: GQL.LIST_FORM_SUBMISSIONS,
-            variables: { form: form.id, sort: state.sort, after: state.cursors[state.page] },
-            fetchPolicy
-        });
+    const loadMoreOnScroll = useCallback(
+        debounce(scrollFrame => {
+            if (!state.loading && scrollFrame.top > 0.9) {
+                const meta = get(listQuery, "data.formBuilder.listFormSubmissions.meta", {});
+                if (meta.cursor) {
+                    setState({ loading: true });
+                    listQuery.fetchMore({
+                        variables: { after: meta.cursor, limit: 10 },
+                        updateQuery: (prev: any, { fetchMoreResult }: any) => {
+                            if (!fetchMoreResult) {
+                                return prev;
+                            }
 
-        const { data, meta } = res.formBuilder.listFormSubmissions;
+                            const next = { ...fetchMoreResult };
 
-        setState({
-            loading: false,
-            submissions: data,
-            cursors: {
-                ...state.cursors,
-                // Store cursor to load next page
-                [state.page + 1]: meta.hasMoreItems ? meta.cursor : undefined
+                            next.formBuilder.listFormSubmissions.data = [
+                                ...prev.formBuilder.listFormSubmissions.data,
+                                ...fetchMoreResult.formBuilder.listFormSubmissions.data
+                            ];
+                            setState({
+                                loading: false
+                            });
+                            return next;
+                        }
+                    });
+                }
             }
-        });
-    };
+        }, 500),
+        [listQuery]
+    );
 
-    useEffect(() => {
-        loadSubmissions();
-    }, [form.id, state.page, state.sort]);
-
-    const [exportFormSubmission] = useMutation(GQL.EXPORT_FORM_SUBMISSIONS);
-    const exportSubmissions = useCallback(async () => {
+    const [exportFormSubmission] = useMutation<
+        ExportFormSubmissionsMutationResponse,
+        ExportFormSubmissionsMutationVariables
+    >(EXPORT_FORM_SUBMISSIONS);
+    const exportSubmissions = useCallback(async (): Promise<void> => {
         setState({ exportInProgress: true });
         const { data } = await exportFormSubmission({
             variables: {
@@ -55,6 +76,11 @@ export default form => {
             }
         });
         setState({ exportInProgress: false });
+
+        if (!data) {
+            showSnackbar("Missing response data on Export Form Submissions.");
+            return;
+        }
 
         const { data: csvFile, error } = data.formBuilder.exportFormSubmissions;
         if (error) {
@@ -65,29 +91,19 @@ export default form => {
         window.open(csvFile.src, "_blank");
     }, [form]);
 
-    const hasPreviousPage = state.page > 0;
-    const hasNextPage = typeof state.cursors[state.page + 1] === "string";
-
     return {
-        loading: state.loading,
-        refresh: () => loadSubmissions("network-only"),
-        submissions: state.submissions,
-        setSorter: (sort: any) => {
+        loading: [listQuery].some(item => item.loading),
+        fetchMoreLoading: state.loading,
+        refresh: () => {
+            if (!listQuery.refetch) {
+                return;
+            }
+            listQuery.refetch();
+        },
+        loadMoreOnScroll,
+        submissions: get(listQuery, "data.formBuilder.listFormSubmissions.data", []),
+        setSorter: (sort: string[]) => {
             setState({ sort });
-        },
-        hasPreviousPage,
-        hasNextPage,
-        nextPage: () => {
-            if (!hasNextPage) {
-                return;
-            }
-            setState({ page: state.page + 1 });
-        },
-        previousPage: () => {
-            if (!hasPreviousPage) {
-                return;
-            }
-            setState({ page: state.page - 1 });
         },
         exportSubmissions,
         exportInProgress: state.exportInProgress

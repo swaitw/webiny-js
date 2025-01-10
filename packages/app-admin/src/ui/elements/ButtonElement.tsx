@@ -1,6 +1,7 @@
 import React from "react";
 import { ButtonDefault, ButtonPrimary, ButtonSecondary } from "@webiny/ui/Button";
-import { UIElement, UIElementConfig } from "../UIElement";
+import { UIElement, UIElementConfig, UiElementRenderProps } from "../UIElement";
+import kebabCase from "lodash/kebabCase";
 
 export type ButtonElementType = "default" | "primary" | "secondary";
 
@@ -24,45 +25,59 @@ const BUTTONS = {
     secondary: ButtonSecondary
 };
 
-export class ButtonElement<TRenderProps = any> extends UIElement<
-    ButtonElementConfig<TRenderProps>
-> {
-    setLabel<TProps extends TRenderProps = TRenderProps>(
+export class ButtonElement<
+    TRenderProps extends UiElementRenderProps = UiElementRenderProps
+> extends UIElement<ButtonElementConfig<TRenderProps>> {
+    public setLabel<TProps extends TRenderProps = TRenderProps>(
         label: string | GetterWithProps<TProps, string>
-    ) {
+    ): void {
+        /**
+         * TODO @ts-refactor
+         * 'TProps' could be instantiated with an arbitrary type which could be unrelated to 'TRenderProps'
+         */
+        // @ts-expect-error
         this.config.label = label;
     }
 
-    getLabel(props?: any) {
+    public getLabel(props?: TRenderProps): string {
         if (typeof this.config.label === "function") {
-            return this.config.label(props);
+            // TODO @ts-refactor find out correct types to pass
+            return this.config.label(props as TRenderProps);
         }
         return this.config.label;
     }
 
-    setType(type: ButtonElementType) {
+    public setType(type: ButtonElementType): void {
         this.config.type = type;
     }
 
-    getType(props?: any) {
+    public getType(props?: TRenderProps): ButtonElementType {
         if (typeof this.config.type === "function") {
-            return this.config.type(props);
+            // TODO @ts-refactor find out correct types to pass
+            return this.config.type(props as TRenderProps);
         }
         return this.config.type;
     }
 
-    setOnClick(onClick: ButtonOnClick<TRenderProps>) {
+    public setOnClick(onClick: ButtonOnClick<TRenderProps>): void {
         this.config.onClick = onClick;
     }
 
-    getOnClick() {
+    public getOnClick() {
         return this.config.onClick;
     }
 
-    render(props): React.ReactElement {
+    public override render(props: TRenderProps): React.ReactElement {
         const Component = BUTTONS[this.getType(props)];
         const onClick = this.getOnClick();
 
-        return <Component onClick={() => onClick(props)}>{this.getLabel(props)}</Component>;
+        return (
+            <Component
+                onClick={() => onClick(props)}
+                data-testid={`button-element-${kebabCase(this.getLabel(props))}`}
+            >
+                {this.getLabel(props)}
+            </Component>
+        );
     }
 }

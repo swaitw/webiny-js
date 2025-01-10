@@ -4,9 +4,10 @@ import { ButtonDefault } from "@webiny/ui/Button";
 import { Icon } from "@webiny/ui/Icon";
 import { ReactComponent as DownButton } from "../../../../icons/round-arrow_drop_down-24px.svg";
 
-import { MenuItem } from "@rmwc/menu";
+import { MenuItem } from "@webiny/ui/Menu";
 import { Typography } from "@webiny/ui/Typography";
 import { Menu } from "@webiny/ui/Menu";
+import { FbRevisionModel } from "~/types";
 
 const buttonStyle = css({
     "&.mdc-button": {
@@ -15,7 +16,7 @@ const buttonStyle = css({
 });
 
 const menuList = css({
-    ".mdc-list-item": {
+    ".mdc-deprecated-list-item": {
         flexDirection: "column",
         justifyContent: "center",
         alignItems: "baseline",
@@ -23,7 +24,12 @@ const menuList = css({
     }
 });
 
-const RevisionSelector = ({ revisions, revision, selectRevision }) => {
+interface RevisionSelectorProps {
+    revisions: FbRevisionModel[];
+    revision: FbRevisionModel;
+    selectRevision: (form: FbRevisionModel) => void;
+}
+const RevisionSelector = ({ revisions, revision, selectRevision }: RevisionSelectorProps) => {
     return (
         <Menu
             data-testid={"fb.form-preview.header.revision-selector"}

@@ -1,12 +1,12 @@
-import * as React from "react";
+import React from "react";
 import { Switch as RmwcSwitch, SwitchProps } from "@rmwc/switch";
-import { FormComponentProps } from "./../types";
+import { FormComponentProps } from "~/types";
 import pick from "lodash/pick";
-import { FormElementMessage } from "../FormElementMessage";
-import { getClasses } from "../Helpers";
+import { FormElementMessage } from "~/FormElementMessage";
+import { getClasses } from "~/Helpers";
 
-type Props = FormComponentProps &
-    SwitchProps & {
+type Props = Omit<SwitchProps, "value"> &
+    FormComponentProps<boolean> & {
         // Description beneath the switch.
         description?: string;
 
@@ -18,32 +18,26 @@ type Props = FormComponentProps &
  * Switch component can be used to store simple boolean values.
  */
 class Switch extends React.Component<Props> {
-    static defaultProps = {
-        validation: { isValid: null }
-    };
-
     static rmwcProps = ["id", "disabled", "checked", "label", "rootProps", "className"];
 
-    onChange = (e: React.SyntheticEvent<HTMLElement>) => {
-        this.props.onChange && this.props.onChange((e.target as any).checked);
-    };
-
-    render() {
+    public override render() {
         const { value, description, validation } = this.props;
+
+        const { isValid: validationIsValid, message: validationMessage } = validation || {};
 
         return (
             <React.Fragment>
                 <RmwcSwitch
                     {...getClasses({ ...pick(this.props, Switch.rmwcProps) }, "webiny-ui-switch")}
                     checked={Boolean(value)}
-                    onChange={this.onChange}
+                    onClick={() => this.props.onChange && this.props.onChange(!value)}
                 />
 
-                {validation.isValid === false && (
-                    <FormElementMessage error>{validation.message}</FormElementMessage>
+                {validationIsValid === false && (
+                    <FormElementMessage error>{validationMessage}</FormElementMessage>
                 )}
 
-                {validation.isValid !== false && description && (
+                {validationIsValid !== false && description && (
                     <FormElementMessage>{description}</FormElementMessage>
                 )}
             </React.Fragment>

@@ -12,9 +12,9 @@ const layerStyles: React.CSSProperties = {
 };
 
 let subscribedToOffsetChange = false;
-let dragPreviewRef = null;
+let dragPreviewRef: HTMLDivElement | null = null;
 
-const onOffsetChange = monitor => () => {
+const onOffsetChange = (monitor: DragLayerMonitor) => () => {
     if (!dragPreviewRef) {
         return;
     }
@@ -26,6 +26,10 @@ const onOffsetChange = monitor => () => {
 
     const transform = `translate(${offset.x - 15}px, ${offset.y - 15}px)`;
     dragPreviewRef.style["transform"] = transform;
+    /**
+     * TS is complaining about -webkit.
+     */
+    // @ts-expect-error
     dragPreviewRef.style["-webkit-transform"] = transform;
 };
 
@@ -34,7 +38,7 @@ const DragPreview = () => {
 
     const { isDragging, item } = useDragLayer((monitor: DragLayerMonitor) => {
         if (!subscribedToOffsetChange) {
-            // @ts-ignore
+            // @ts-expect-error
             monitor.subscribeToOffsetChange(onOffsetChange(monitor));
             subscribedToOffsetChange = true;
         }
@@ -55,14 +59,15 @@ const DragPreview = () => {
     // We track the value of "isDragging" and apply opacity=1 (after 100ms), when it switches to true.
     // Without this, the drag cursor would be shown in the top-left corner for a short amount of time, and then it
     // would be repositioned correctly. Definitely looks like a glitch. This also adds a nice little fade-in effect.
-    useEffect(() => {
+    useEffect((): void => {
         if (isDragging) {
             setTimeout(() => {
                 setDragHelperOpacity(isDragging ? 1 : 0);
             }, 100);
-        } else {
-            setDragHelperOpacity(0);
+            return;
         }
+
+        setDragHelperOpacity(0);
     }, [isDragging]);
 
     if (!isDragging) {

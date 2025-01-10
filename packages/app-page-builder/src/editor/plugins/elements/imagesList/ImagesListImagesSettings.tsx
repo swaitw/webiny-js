@@ -1,5 +1,9 @@
 import * as React from "react";
 import { css } from "emotion";
+/**
+ * Package react-sortable does not have types.
+ */
+// @ts-expect-error
 import { sortable } from "react-sortable";
 import { FileManager } from "@webiny/app-admin/components";
 import { Grid, Cell } from "@webiny/ui/Grid";
@@ -10,6 +14,8 @@ import {
     SimpleButton,
     ButtonContainer
 } from "../../elementSettings/components/StyledComponents";
+import { BindComponent } from "@webiny/form";
+import { FileManagerFileItem } from "@webiny/app-admin";
 
 const style = {
     addImagesButton: css({ clear: "both", padding: "20px 10px", textAlign: "center" }),
@@ -18,8 +24,12 @@ const style = {
     }
 };
 
-class Item extends React.Component {
-    render() {
+interface ItemProps {
+    children?: React.ReactNode;
+}
+
+class Item extends React.Component<ItemProps> {
+    public override render() {
         return (
             <li style={style.liItem} {...this.props}>
                 {this.props.children}
@@ -30,16 +40,25 @@ class Item extends React.Component {
 
 const SortableItem = sortable(Item);
 
-const ImagesListImagesSettings = props => {
+interface ImagesListImagesSettingsProps {
+    Bind: BindComponent;
+    submit: () => void;
+}
+
+const getName = (file: FileManagerFileItem): string | undefined => {
+    return file.meta?.find(meta => meta.key === "name")?.value;
+};
+
+const ImagesListImagesSettings = (props: ImagesListImagesSettingsProps) => {
     const { Bind, submit } = props;
     return (
         <Accordion title={"Images"} defaultValue={true}>
             <Grid className={classes.simpleGrid}>
                 <Cell span={12}>
-                    <Bind name={"images"} afterChange={submit}>
+                    <Bind name={"images"} afterChange={() => submit()}>
                         {({ onChange, value: images }) => {
                             /**
-                             * We're creating a fresh copy of value here because all of sudden
+                             * We're creating a fresh copy of value here because all of a sudden
                              * dragging a "SortableItem" started throwing TypeError: "Cannot assign to read only property"
                              * which means the state is being mutated by "Sortable" somehow.
                              */
@@ -49,12 +68,17 @@ const ImagesListImagesSettings = props => {
                                     images
                                     multiple
                                     onChange={files => {
+                                        const filesWithName = files.map(file => ({
+                                            id: file.id,
+                                            src: file.src,
+                                            name: getName(file)
+                                        }));
+
                                         Array.isArray(value)
-                                            ? onChange([...value, ...files])
-                                            : onChange([...files]);
+                                            ? onChange([...value, ...filesWithName])
+                                            : onChange([...filesWithName]);
                                     }}
-                                >
-                                    {({ showFileManager }) => (
+                                    render={({ showFileManager }) => (
                                         <>
                                             <ul className="sortable-list">
                                                 {Array.isArray(value) &&
@@ -80,13 +104,13 @@ const ImagesListImagesSettings = props => {
                                                     ))}
                                             </ul>
                                             <ButtonContainer>
-                                                <SimpleButton onClick={showFileManager}>
+                                                <SimpleButton onClick={() => showFileManager()}>
                                                     Add images...
                                                 </SimpleButton>
                                             </ButtonContainer>
                                         </>
                                     )}
-                                </FileManager>
+                                />
                             );
                         }}
                     </Bind>

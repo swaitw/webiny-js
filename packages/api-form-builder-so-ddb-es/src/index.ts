@@ -1,5 +1,8 @@
-import { FormBuilderStorageOperationsFactory, ENTITIES } from "~/types";
+import dynamoDbValueFilters from "@webiny/db-dynamodb/plugins/filters";
+import formElasticsearchFields from "./operations/form/elasticsearchFields";
+import submissionElasticsearchFields from "./operations/submission/elasticsearchFields";
 import WebinyError from "@webiny/error";
+import { ENTITIES, FormBuilderStorageOperationsFactory } from "~/types";
 import { createTable } from "~/definitions/table";
 import { createFormEntity } from "~/definitions/form";
 import { createSubmissionEntity } from "~/definitions/submission";
@@ -9,16 +12,29 @@ import { createSystemStorageOperations } from "~/operations/system";
 import { createSubmissionStorageOperations } from "~/operations/submission";
 import { createSettingsStorageOperations } from "~/operations/settings";
 import { createFormStorageOperations } from "~/operations/form";
-import { createElasticsearchIndex } from "~/operations/system/createElasticsearchIndex";
 import { createElasticsearchTable } from "~/definitions/tableElasticsearch";
 import { PluginsContainer } from "@webiny/plugins";
 import { createElasticsearchEntity } from "~/definitions/elasticsearch";
-import submissionElasticsearchFields from "./operations/submission/elasticsearchFields";
-import formElasticsearchFields from "./operations/form/elasticsearchFields";
-import dynamoDbValueFilters from "@webiny/db-dynamodb/plugins/filters";
-import { getElasticsearchOperators } from "@webiny/api-elasticsearch/operators";
-
-import upgrade5160 from "./upgrades/5.16.0";
+import {
+    CompressionPlugin,
+    ElasticsearchQueryBuilderOperatorPlugin
+} from "@webiny/api-elasticsearch";
+import { elasticsearchIndexPlugins } from "~/elasticsearch/indices";
+import { createElasticsearchIndex } from "~/elasticsearch/createElasticsearchIndex";
+import { FormBuilderContext } from "@webiny/api-form-builder/types";
+import {
+    FormDynamoDbFieldPlugin,
+    FormElasticsearchBodyModifierPlugin,
+    FormElasticsearchFieldPlugin,
+    FormElasticsearchIndexPlugin,
+    FormElasticsearchQueryModifierPlugin,
+    FormElasticsearchSortModifierPlugin,
+    SubmissionElasticsearchBodyModifierPlugin,
+    SubmissionElasticsearchFieldPlugin,
+    SubmissionElasticsearchQueryModifierPlugin,
+    SubmissionElasticsearchSortModifierPlugin
+} from "~/plugins";
+import { createIndexTaskPlugin } from "~/tasks/createIndexTaskPlugin";
 
 const reservedFields = ["PK", "SK", "index", "data", "TYPE", "__type", "GSI1_PK", "GSI1_SK"];
 
@@ -31,14 +47,16 @@ const isReserved = (name: string): void => {
     });
 };
 
+export * from "./plugins";
+
 export const createFormBuilderStorageOperations: FormBuilderStorageOperationsFactory = params => {
     const {
-        attributes = {},
+        attributes,
         table: tableName,
         esTable: esTableName,
         documentClient,
         elasticsearch,
-        plugins: pluginsInput
+        plugins: userPlugins
     } = params;
 
     if (attributes) {
@@ -51,7 +69,7 @@ export const createFormBuilderStorageOperations: FormBuilderStorageOperationsFac
         /**
          * User defined plugins.
          */
-        pluginsInput || [],
+        userPlugins || [],
         /**
          * Elasticsearch field definitions for the submission record.
          */
@@ -65,9 +83,9 @@ export const createFormBuilderStorageOperations: FormBuilderStorageOperationsFac
          */
         dynamoDbValueFilters(),
         /**
-         * Elasticsearch operators.
+         * Built-in Elasticsearch index plugins
          */
-        getElasticsearchOperators()
+        elasticsearchIndexPlugins()
     ]);
 
     const table = createTable({
@@ -87,22 +105,22 @@ export const createFormBuilderStorageOperations: FormBuilderStorageOperationsFac
         form: createFormEntity({
             entityName: ENTITIES.FORM,
             table,
-            attributes: attributes[ENTITIES.FORM]
+            attributes: attributes ? attributes[ENTITIES.FORM] : {}
         }),
         submission: createSubmissionEntity({
             entityName: ENTITIES.SUBMISSION,
             table,
-            attributes: attributes[ENTITIES.SUBMISSION]
+            attributes: attributes ? attributes[ENTITIES.SUBMISSION] : {}
         }),
         system: createSystemEntity({
             entityName: ENTITIES.SYSTEM,
             table,
-            attributes: attributes[ENTITIES.SYSTEM]
+            attributes: attributes ? attributes[ENTITIES.SYSTEM] : {}
         }),
         settings: createSettingsEntity({
             entityName: ENTITIES.SETTINGS,
             table,
-            attributes: attributes[ENTITIES.SETTINGS]
+            attributes: attributes ? attributes[ENTITIES.SETTINGS] : {}
         }),
         /**
          * Elasticsearch entities.
@@ -110,25 +128,69 @@ export const createFormBuilderStorageOperations: FormBuilderStorageOperationsFac
         esForm: createElasticsearchEntity({
             entityName: ENTITIES.ES_FORM,
             table: esTable,
-            attributes: attributes[ENTITIES.ES_FORM]
+            attributes: attributes ? attributes[ENTITIES.ES_FORM] : {}
         }),
         esSubmission: createElasticsearchEntity({
             entityName: ENTITIES.ES_SUBMISSION,
             table: esTable,
-            attributes: attributes[ENTITIES.ES_SUBMISSION]
+            attributes: attributes ? attributes[ENTITIES.ES_SUBMISSION] : {}
         })
     };
 
     return {
-        init: async formBuilder => {
-            formBuilder.onAfterInstall.subscribe(async ({ tenant }) => {
+        beforeInit: async (context: FormBuilderContext) => {
+            context.db.registry.register({
+                item: entities.form,
+                app: "fb",
+                tags: ["regular", "form", entities.form.name]
+            });
+            context.db.registry.register({
+                item: entities.esForm,
+                app: "fb",
+                tags: ["es", "form", entities.esForm.name]
+            });
+            context.db.registry.register({
+                item: entities.submission,
+                app: "fb",
+                tags: ["regular", "form-submission", entities.submission.name]
+            });
+            context.db.registry.register({
+                item: entities.esSubmission,
+                app: "fb",
+                tags: ["es", "form-submission", entities.esSubmission.name]
+            });
+
+            const types: string[] = [
+                // Elasticsearch
+                CompressionPlugin.type,
+                ElasticsearchQueryBuilderOperatorPlugin.type,
+                // Form Builder
+                FormDynamoDbFieldPlugin.type,
+                FormElasticsearchBodyModifierPlugin.type,
+                FormElasticsearchFieldPlugin.type,
+                FormElasticsearchIndexPlugin.type,
+                FormElasticsearchQueryModifierPlugin.type,
+                FormElasticsearchSortModifierPlugin.type,
+                SubmissionElasticsearchBodyModifierPlugin.type,
+                SubmissionElasticsearchFieldPlugin.type,
+                SubmissionElasticsearchQueryModifierPlugin.type,
+                SubmissionElasticsearchSortModifierPlugin.type
+            ];
+            for (const type of types) {
+                plugins.mergeByType(context.plugins, type);
+            }
+            context.plugins.register([createIndexTaskPlugin(), elasticsearchIndexPlugins()]);
+        },
+        init: async (context: FormBuilderContext) => {
+            context.i18n.locales.onLocaleBeforeCreate.subscribe(async ({ locale, tenant }) => {
                 await createElasticsearchIndex({
                     elasticsearch,
-                    tenant
+                    plugins,
+                    tenant,
+                    locale: locale.code
                 });
             });
         },
-        upgrade: upgrade5160(),
         getTable: () => table,
         getEsTable: () => esTable,
         getEntities: () => entities,

@@ -3,19 +3,25 @@ import raw from "raw.macro";
 const manageQuery = raw("./placeholder.manage.graphql");
 const readQuery = raw("./placeholder.read.graphql");
 const previewQuery = raw("./placeholder.preview.graphql");
+import { config as appConfig } from "@webiny/app/config";
 
 const plugins: GraphQLPlaygroundTabPlugin[] = [
     {
         type: "graphql-playground-tab",
         name: "graphql-playground-tab-manage",
         tab({ locale, identity }) {
-            if (!identity.getPermission("cms.endpoint.manage")) {
+            const apiUrl = appConfig.getKey("API_URL", process.env.REACT_APP_API_URL);
+            if (
+                !identity ||
+                !identity.getPermission ||
+                !identity.getPermission("cms.endpoint.manage")
+            ) {
                 return null;
             }
 
             return {
                 name: "Headless CMS - Manage API",
-                endpoint: process.env.REACT_APP_API_URL + "/cms/manage/" + locale,
+                endpoint: apiUrl + "/cms/manage/" + locale,
                 headers: {},
                 query: manageQuery
             };
@@ -25,13 +31,18 @@ const plugins: GraphQLPlaygroundTabPlugin[] = [
         type: "graphql-playground-tab",
         name: "graphql-playground-tab-read",
         tab({ locale, identity }) {
-            if (!identity.getPermission("cms.endpoint.read")) {
+            const apiUrl = appConfig.getKey("API_URL", process.env.REACT_APP_API_URL);
+            if (
+                !identity ||
+                !identity.getPermission ||
+                !identity.getPermission("cms.endpoint.read")
+            ) {
                 return null;
             }
 
             return {
                 name: "Headless CMS - Read API",
-                endpoint: process.env.REACT_APP_API_URL + "/cms/read/" + locale,
+                endpoint: apiUrl + "/cms/read/" + locale,
                 headers: {},
                 query: readQuery
             };
@@ -41,13 +52,18 @@ const plugins: GraphQLPlaygroundTabPlugin[] = [
         type: "graphql-playground-tab",
         name: "graphql-playground-tab-preview",
         tab({ locale, identity }) {
-            if (!identity.getPermission("cms.endpoint.preview")) {
+            const apiUrl = appConfig.getKey("API_URL", process.env.REACT_APP_API_URL);
+            if (
+                !identity ||
+                !identity.getPermission ||
+                !identity.getPermission("cms.endpoint.preview")
+            ) {
                 return null;
             }
 
             return {
                 name: "Headless CMS - Preview API",
-                endpoint: process.env.REACT_APP_API_URL + "/cms/preview/" + locale,
+                endpoint: apiUrl + "/cms/preview/" + locale,
                 headers: {},
                 query: previewQuery
             };

@@ -6,12 +6,24 @@ import { Select } from "@webiny/ui/Select";
 import { i18n } from "@webiny/app/i18n";
 import { Elevation } from "@webiny/ui/Elevation";
 import { PermissionSelector, PermissionSelectorWrapper } from "./PermissionSelector";
-import { useCmsData } from "./useCmsData";
+import { useCmsData, CmsDataCmsModel } from "./useCmsData";
 import { Note } from "./StyledComponents";
 import ContentModelList from "./ContentModelList";
+import { BindComponent } from "@webiny/form/types";
+import { CmsSecurityPermission } from "~/types";
 
 const t = i18n.ns("app-headless-cms/admin/plugins/permissionRenderer");
 
+interface ContentModelPermissionProps {
+    Bind: BindComponent;
+    data: CmsSecurityPermission;
+    setValue: (name: string, value: string) => void;
+    entity: string;
+    title: string;
+    locales: string[];
+    selectedContentModelGroups?: Record<string, string[]>;
+    disabled?: boolean;
+}
 export const ContentModelPermission = ({
     Bind,
     data,
@@ -19,8 +31,9 @@ export const ContentModelPermission = ({
     entity,
     title,
     locales,
-    selectedContentModelGroups
-}) => {
+    selectedContentModelGroups = {},
+    disabled
+}: ContentModelPermissionProps) => {
     const modelsGroups = useCmsData(locales);
     // Set "cms.contentModel" access scope to "own" if "cms.contentModelGroup" === "own".
     useEffect(() => {
@@ -33,10 +46,10 @@ export const ContentModelPermission = ({
     }, [data]);
 
     const getItems = useCallback(
-        (code: string) => {
-            let list = get(modelsGroups, `${code}.models`, []);
+        (code: string): CmsDataCmsModel[] => {
+            let list = get(modelsGroups, `${code}.models`, []) as CmsDataCmsModel[];
 
-            const groups = (selectedContentModelGroups && selectedContentModelGroups[code]) || [];
+            const groups: string[] = selectedContentModelGroups[code] || [];
             if (groups.length) {
                 // Filter by groups
                 list = list.filter(item => groups.includes(item.group.id));
@@ -47,9 +60,11 @@ export const ContentModelPermission = ({
         [modelsGroups]
     );
 
+    const endpoints = data.endpoints || [];
+
     const disabledPrimaryActions =
         [undefined, "own", "no"].includes(data[`${entity}AccessScope`]) ||
-        !data.endpoints.includes("manage");
+        !endpoints.includes("manage");
 
     return (
         <Elevation z={1} style={{ marginTop: 10 }}>
@@ -63,16 +78,18 @@ export const ContentModelPermission = ({
                             <Bind name={`${entity}AccessScope`} defaultValue={"full"}>
                                 <Select
                                     label={t`Access Scope`}
-                                    disabled={data[`contentModelGroupAccessScope`] === "own"}
+                                    disabled={
+                                        disabled || data[`contentModelGroupAccessScope`] === "own"
+                                    }
                                     description={t`The list of available models is defined by the options set in the content model groups section above.`}
                                 >
                                     <option value={"full"}>{t`All models`}</option>
                                     <option value={"models"}>{t`Only specific models`}</option>
-                                    {data.endpoints.includes("manage") && (
+                                    {(endpoints.includes("manage") && (
                                         <option
                                             value={"own"}
                                         >{t`Only models created by the user`}</option>
-                                    )}
+                                    )) || <></>}
                                 </Select>
                             </Bind>
                             {data[`contentModelGroupAccessScope`] === "own" && (
@@ -88,6 +105,7 @@ export const ContentModelPermission = ({
                         {data[`${entity}AccessScope`] === "models" && (
                             <PermissionSelectorWrapper>
                                 <PermissionSelector
+                                    disabled={disabled}
                                     locales={locales}
                                     Bind={Bind}
                                     entity={entity}
@@ -102,15 +120,19 @@ export const ContentModelPermission = ({
                             <Bind name={`${entity}RWD`}>
                                 <Select
                                     label={t`Primary Actions`}
-                                    disabled={disabledPrimaryActions}
+                                    disabled={disabled || disabledPrimaryActions}
                                 >
                                     <option value={"r"}>{t`Read`}</option>
-                                    {data.endpoints.includes("manage") ? (
+                                    {endpoints.includes("manage") ? (
                                         <option value={"rw"}>{t`Read, write`}</option>
-                                    ) : null}
-                                    {data.endpoints.includes("manage") ? (
+                                    ) : (
+                                        <></>
+                                    )}
+                                    {endpoints.includes("manage") ? (
                                         <option value={"rwd"}>{t`Read, write, delete`}</option>
-                                    ) : null}
+                                    ) : (
+                                        <></>
+                                    )}
                                 </Select>
                             </Bind>
                         </Cell>

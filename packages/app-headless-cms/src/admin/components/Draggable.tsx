@@ -3,32 +3,35 @@ import { useDrag, DragPreviewImage, ConnectDragSource } from "react-dnd";
 
 const emptyImage = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
 
-export type DraggableChildrenFunction = (params: {
+interface DraggableChildrenFunctionParams {
     isDragging: boolean;
     drag: ConnectDragSource;
-}) => ReactElement;
+}
+export interface DraggableChildrenFunction {
+    (params: DraggableChildrenFunctionParams): ReactElement;
+}
 
-export type DraggableProps = {
+export interface DraggableProps {
     children: DraggableChildrenFunction;
     beginDrag?: any;
     endDrag?: any;
     target?: string[];
-};
+}
 
-const Draggable = React.memo((props: DraggableProps) => {
-    const { children, beginDrag, endDrag, target } = props;
+const Draggable = (props: DraggableProps) => {
+    const { children, beginDrag, endDrag } = props;
 
     const [{ isDragging }, drag, preview] = useDrag({
-        item: { type: "element", target },
-        collect: monitor => ({
-            isDragging: monitor.isDragging()
-        }),
-        begin(monitor) {
+        type: "element",
+        item(monitor) {
             if (typeof beginDrag === "function") {
                 return beginDrag(props, monitor);
             }
             return beginDrag;
         },
+        collect: monitor => ({
+            isDragging: monitor.isDragging()
+        }),
         end(item, monitor) {
             if (typeof endDrag === "function") {
                 return endDrag(item, monitor);
@@ -43,6 +46,7 @@ const Draggable = React.memo((props: DraggableProps) => {
             {children({ isDragging, drag })}
         </>
     );
-});
+};
 
-export default Draggable;
+const MemoizedDraggable: React.ComponentType<DraggableProps> = React.memo(Draggable);
+export default MemoizedDraggable;

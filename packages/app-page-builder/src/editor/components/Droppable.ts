@@ -1,13 +1,15 @@
 import React from "react";
 import { uiAtom } from "../recoil/modules";
-import { ConnectDropTarget, DragObjectWithType, useDrop } from "react-dnd";
+import { ConnectDropTarget, useDrop } from "react-dnd";
 import { useRecoilValue } from "recoil";
+import { DragObjectWithType } from "~/types";
 
-type DefaultVisibilityPropType = {
+interface DefaultVisibilityPropType {
     type: string;
     isDragging: boolean;
+    // TODO @ts-refactor
     item: any;
-};
+}
 const defaultVisibility = ({ type, isDragging, item }: DefaultVisibilityPropType): boolean => {
     const target = (item && item.target) || [];
 
@@ -31,19 +33,19 @@ export type DroppableIsVisiblePropType = (params: {
     item: any;
     isDragging: boolean;
 }) => boolean;
-export type DragObjectWithTypeWithTarget = DragObjectWithType & {
+export interface DragObjectWithTypeWithTarget extends DragObjectWithType {
     id?: string;
     type: string;
-    target: string[];
-};
+    target: string[] | null | undefined;
+}
 export type DroppableOnDropPropType = (item: DragObjectWithTypeWithTarget) => void;
-export type DroppableProps = {
+export interface DroppableProps {
     type: string;
     children: DroppableChildrenFunction;
     isDroppable?: DroppableIsDroppablePropType;
-    isVisible: DroppableIsVisiblePropType;
+    isVisible?: DroppableIsVisiblePropType;
     onDrop: DroppableOnDropPropType;
-};
+}
 
 const Droppable = (props: DroppableProps) => {
     const { type, children, isDroppable = () => true, onDrop } = props;
@@ -53,14 +55,17 @@ const Droppable = (props: DroppableProps) => {
 
     const [{ item, isOver }, drop] = useDrop({
         accept: "element",
-        collect: monitor => ({
-            isOver: monitor.isOver() && monitor.isOver({ shallow: true }),
-            item: monitor.getItem()
-        }),
+        collect: monitor => {
+            return {
+                isOver: monitor.isOver() && monitor.isOver({ shallow: true }),
+                item: monitor.getItem()
+            };
+        },
         drop(_, monitor) {
-            if (typeof onDrop === "function") {
-                onDrop(monitor.getItem());
+            if (typeof onDrop !== "function") {
+                return;
             }
+            onDrop(monitor.getItem());
         }
     });
 
