@@ -158,6 +158,10 @@ export interface ElasticsearchIndexRequestBodyMappingsDynamicTemplate {
     };
 }
 
+export interface ElasticsearchIndexRequestBodySettingsTotalFields {
+    limit?: number;
+}
+
 interface ElasticsearchIndexRequestBodySettings {
     analysis?: {
         [key: string]: any;
@@ -215,6 +219,7 @@ interface ElasticsearchIndexRequestBodySettings {
     default_pipeline?: string;
     final_pipeline?: string;
     hidden?: boolean;
+    total_fields?: ElasticsearchIndexRequestBodySettingsTotalFields;
     [key: string]: any;
 }
 

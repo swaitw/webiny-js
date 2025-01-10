@@ -75,7 +75,7 @@
     "react-helmet": "^6.1.0",
     "react-hotkeyz": "^1.0.4",
     "react-virtualized": "^9.22.5",
-    "use-deep-compare-effect": "^1.6.1"
+    "use-deep-compare-effect": "^1.8.1"
   },
   "devDependencies": {
     "@emotion/babel-plugin": "^11.11.0",
