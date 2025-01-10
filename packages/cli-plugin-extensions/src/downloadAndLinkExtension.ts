@@ -177,11 +177,13 @@ export const downloadAndLinkExtension = async ({
             }
         }
 
-        console.log();
-        console.log(chalk.bold("Next Steps"));
-        nextStepsToDisplay.forEach(({ text, variables = [] }) => {
-            console.log(`‣ ${text}`, ...variables.map(v => context.success.hl(v)));
-        });
+        if (nextStepsToDisplay.length) {
+            console.log();
+            console.log(chalk.bold("Next Steps"));
+            nextStepsToDisplay.forEach(({ text, variables = [] }) => {
+                console.log(`‣ ${text}`, ...variables.map(v => context.success.hl(v)));
+            });
+        }
 
         // Additional Notes section.
         const additionalNotesToDisplay: ExtensionMessage[] = [
@@ -203,11 +205,13 @@ export const downloadAndLinkExtension = async ({
             }
         }
 
-        console.log();
-        console.log(chalk.bold("Additional Notes"));
-        additionalNotesToDisplay.forEach(({ text, variables = [] }) => {
-            console.log(`‣ ${text}`, ...variables.map(v => context.success.hl(v)));
-        });
+        if (additionalNotesToDisplay.length) {
+            console.log();
+            console.log(chalk.bold("Additional Notes"));
+            additionalNotesToDisplay.forEach(({ text, variables = [] }) => {
+                console.log(`‣ ${text}`, ...variables.map(v => context.success.hl(v)));
+            });
+        }
     } catch (e) {
         switch (e.code) {
             case "NO_OBJECTS_FOUND":
