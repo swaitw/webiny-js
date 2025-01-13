@@ -27,11 +27,7 @@ export const Compose = (props: ComposeProps) => {
         }
 
         const decorators = Array.isArray(props.with) ? props.with : [props.with];
-        return composeComponent(
-            targetFn.original,
-            decorators as Enumerable<ComposeWith>,
-            scope[scope.length - 1]
-        );
+        return composeComponent(targetFn.original, decorators as Enumerable<ComposeWith>, scope);
     }, [props.with]);
 
     return null;
