@@ -333,35 +333,21 @@ const ContentModelsDataList = ({
 
                                                 {canDelete(contentModel, "cms.contentModel") && (
                                                     <>
-                                                        {contentModel.plugin ? (
-                                                            <Tooltip
-                                                                content={t`Content model is registered via a plugin.`}
-                                                                placement={"top"}
-                                                            >
-                                                                <DeleteIcon
-                                                                    disabled
-                                                                    data-testid={
-                                                                        "cms-delete-content-model-button"
-                                                                    }
-                                                                />
-                                                            </Tooltip>
-                                                        ) : (
-                                                            <Tooltip
-                                                                content={t`Delete content model`}
-                                                                placement={"top"}
-                                                            >
-                                                                <DeleteIcon
-                                                                    onClick={() => {
-                                                                        setModelToBeDeleted(
-                                                                            contentModel
-                                                                        );
-                                                                    }}
-                                                                    data-testid={
-                                                                        "cms-delete-content-model-button"
-                                                                    }
-                                                                />
-                                                            </Tooltip>
-                                                        )}
+                                                        <Tooltip
+                                                            content={t`Delete content model`}
+                                                            placement={"top"}
+                                                        >
+                                                            <DeleteIcon
+                                                                onClick={() => {
+                                                                    setModelToBeDeleted(
+                                                                        contentModel
+                                                                    );
+                                                                }}
+                                                                data-testid={
+                                                                    "cms-delete-content-model-button"
+                                                                }
+                                                            />
+                                                        </Tooltip>
                                                     </>
                                                 )}
                                             </UIL.ListActions>
