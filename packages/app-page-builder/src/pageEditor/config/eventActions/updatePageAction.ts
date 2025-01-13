@@ -6,7 +6,6 @@ import { PageEventActionCallable } from "~/pageEditor/types";
 export const updatePageAction: PageEventActionCallable<
     UpdateDocumentActionArgsType<PageAtomType>
 > = (state, _, args) => {
-    console.log("updatePageAction", state);
     return {
         state: {
             page: {

@@ -77,7 +77,6 @@ export const saveRevisionAction: PageEventActionCallable<SaveRevisionActionArgsT
     meta,
     args = {}
 ) => {
-    console.log("saveRevisionAction", state);
     if (state.page.locked) {
         return {
             actions: []
