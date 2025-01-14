@@ -1,42 +1,44 @@
 import React from "react";
 import { Link } from "@webiny/react-router";
-import { PublishedMenuData } from "@webiny/app-website";
+import { PublishedMenuData, PublishedMenuItemData } from "@webiny/app-website";
 import styled from "@emotion/styled";
 
 export const Navigation: React.ComponentType<{ data?: PublishedMenuData }> = ({ data }) => {
     if (!data) {
         return null;
     }
-    const { items } = data;
 
     return (
         <NavigationUl>
-            {items?.map((item, index) => {
-                if (Array.isArray(item.children)) {
-                    return (
-                        <li key={item.id + index}>
-                            {item.title}
-                            <ul>
-                                {item.children.map((item, index) => (
-                                    <li key={item.id + index}>
-                                        <Link to={item.path || item.url}>{item.title}</Link>
-                                    </li>
-                                ))}
-                            </ul>
-                        </li>
-                    );
-                }
-
-                // We only use the Link component if the item has a `path` or `url` value.
-                const link = item.path || item.url;
-                return (
-                    <li key={item.id + index}>
-                        {link ? <Link to={link}>{item.title}</Link> : item.title}
-                    </li>
-                );
-            })}
+            {data.items?.map((item, index) => (
+                <NavigationLi key={item.id + index} item={item} />
+            ))}
         </NavigationUl>
     );
+};
+
+const NavigationLi = ({ item }: { item: PublishedMenuItemData }) => {
+    if (Array.isArray(item.children) && item.children.length > 0) {
+        return (
+            <li>
+                {item.title}
+                <ul>
+                    {item.children.map((item, index) => (
+                        <NavigationLi key={item.id + index} item={item} />
+                    ))}
+                </ul>
+            </li>
+        );
+    }
+
+    let title = <>{item.title}</>;
+
+    // We only use the Link component if the item has a `path` or `url` value.
+    if (item.path || item.url) {
+        title = <Link to={item.path || item.url}>{title}</Link>;
+    }
+
+    return <li>{title}</li>;
 };
 
 const NavigationUl = styled.ul`
@@ -74,12 +76,11 @@ const NavigationUl = styled.ul`
 
                 li {
                     margin: 0;
-                    padding: 0;
+                    padding: 10px;
                 }
 
                 a {
                     display: inline-block;
-                    padding: 10px;
                     width: 100%;
                     box-sizing: border-box;
                 }

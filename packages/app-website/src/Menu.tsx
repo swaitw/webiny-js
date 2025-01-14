@@ -2,21 +2,18 @@ import * as React from "react";
 import gql from "graphql-tag";
 import { useQuery } from "@apollo/react-hooks";
 
+export interface PublishedMenuItemData {
+    id: string;
+    title: string;
+    path: string;
+    url: string;
+    children: PublishedMenuItemData;
+}
+
 export interface PublishedMenuData {
     title: string;
     slug: string;
-    items: Array<{
-        id: string;
-        title: string;
-        path: string;
-        url: string;
-        children: Array<{
-            id: string;
-            title: string;
-            path: string;
-            url: string;
-        }>;
-    }>;
+    items: PublishedMenuItemData[];
 }
 
 export interface PublishedMenuError {
