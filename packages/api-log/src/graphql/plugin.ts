@@ -3,6 +3,8 @@ import { Context, LogType } from "~/types";
 import zod from "zod";
 import { createZodError } from "@webiny/utils";
 
+export const emptyResolver = () => ({});
+
 const getLogArgsSchema = zod.object({
     where: zod.object({
         id: zod.string()
@@ -10,13 +12,15 @@ const getLogArgsSchema = zod.object({
 });
 
 const listLogsArgsSchema = zod.object({
-    where: zod.object({
-        tenant: zod.string().optional(),
-        source: zod.string().optional(),
-        type: zod
-            .enum([LogType.DEBUG, LogType.NOTICE, LogType.INFO, LogType.WARN, LogType.ERROR])
-            .optional()
-    }),
+    where: zod
+        .object({
+            tenant: zod.string().optional(),
+            source: zod.string().optional(),
+            type: zod
+                .enum([LogType.DEBUG, LogType.NOTICE, LogType.INFO, LogType.WARN, LogType.ERROR])
+                .optional()
+        })
+        .optional(),
     sort: zod.array(zod.enum(["ASC", "DESC"])).optional(),
     limit: zod.number().optional(),
     after: zod.string().optional()
@@ -39,14 +43,22 @@ const deleteLogsArgsSchema = zod.object({
 export const createGraphQlPlugin = () => {
     return new GraphQLSchemaPlugin<Context>({
         typeDefs: /* GraphQL */ `
+            type LogsQuery {
+                _empty: String
+            }
+            
+            type LogsMutation {
+                _empty: String
+            }
+
             extend type Query {
-                log: LogQuery
+                logs: LogsQuery
             }
 
             extend type Mutation {
-                log: LogMutation
+                logs: LogsMutation
             }
-
+            
             enum LogType {
                 ${LogType.DEBUG}
                 ${LogType.NOTICE}
@@ -92,14 +104,18 @@ export const createGraphQlPlugin = () => {
                 source: String
                 type: LogType
             }
+            
+            input GetLogWhereInput {
+                id: ID!
+            }
 
             enum ListLogsSortEnum {
                 ASC
                 DESC
             }
 
-            type LogQuery {
-                getLog(id: ID!): LogQueryGetResponse!
+            extend type LogsQuery {
+                getLog(where: GetLogWhereInput!): LogQueryGetResponse!
                 listLogs(
                     where: ListLogsWhereInput
                     sort: ListLogsSortEnum
@@ -118,6 +134,19 @@ export const createGraphQlPlugin = () => {
                 error: LogQueryResponseError
             }
 
+            type LogMutationPruneLogsResponseDataTask {
+                id: ID!
+            }
+            
+            type LogMutationPruneLogsResponseData {
+                task: LogMutationPruneLogsResponseDataTask!
+            }
+
+            type LogMutationPruneLogsResponse {
+                data: LogMutationPruneLogsResponseData
+                error: LogQueryResponseError
+            }
+
             input DeleteLogWhereInput {
                 id: ID!
             }
@@ -126,13 +155,20 @@ export const createGraphQlPlugin = () => {
                 items: [ID!]!
             }
 
-            type LogMutation {
+            extend type LogsMutation {
+                pruneLogs: LogMutationPruneLogsResponse!
                 deleteLog(where: DeleteLogWhereInput!): LogMutationDeleteLogResponse!
                 deleteLogs(where: DeleteLogsWhereInput!): LogMutationDeleteLogsResponse!
             }
         `,
         resolvers: {
-            LogQuery: {
+            Query: {
+                logs: emptyResolver
+            },
+            Mutation: {
+                logs: emptyResolver
+            },
+            LogsQuery: {
                 getLog: async (_: unknown, args: unknown, context) => {
                     return resolve(async () => {
                         const result = getLogArgsSchema.safeParse(args);
@@ -152,7 +188,7 @@ export const createGraphQlPlugin = () => {
                     });
                 }
             },
-            LogMutation: {
+            LogsMutation: {
                 deleteLog: async (_, args, context) => {
                     return resolve(async () => {
                         const result = deleteLogArgsSchema.safeParse(args);
@@ -169,6 +205,11 @@ export const createGraphQlPlugin = () => {
                             throw createZodError(result.error);
                         }
                         return await context.logger.deleteLogs(result.data);
+                    });
+                },
+                pruneLogs: async (_: unknown, __: unknown, context) => {
+                    return resolve(async () => {
+                        return await context.logger.pruneLogs();
                     });
                 }
             }

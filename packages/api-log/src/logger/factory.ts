@@ -22,9 +22,15 @@ export const loggerFactory = ({ getTenant, getLocale, documentClient }: ILoggerF
     return {
         logger: createDynamoDbLogger({
             onFlush: async items => {
-                return await storageOperations.insert({
-                    items
-                });
+                try {
+                    return await storageOperations.insert({
+                        items
+                    });
+                } catch (ex) {
+                    console.error("Error flushing logs.");
+                    console.log(ex);
+                }
+                return [];
             },
             getLocale,
             getTenant

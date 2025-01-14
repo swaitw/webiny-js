@@ -138,7 +138,9 @@ function createExportLambdaPolicy(app: PulumiApp) {
                         ],
                         Resource: [
                             pulumi.interpolate`${core.primaryDynamodbTableArn}`,
-                            pulumi.interpolate`${core.primaryDynamodbTableArn}/*`
+                            pulumi.interpolate`${core.primaryDynamodbTableArn}/*`,
+                            pulumi.interpolate`${core.logDynamodbTableArn}`,
+                            pulumi.interpolate`${core.logDynamodbTableArn}/*`
                         ]
                     },
                     {

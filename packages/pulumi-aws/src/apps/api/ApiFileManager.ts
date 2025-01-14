@@ -153,6 +153,20 @@ function createFileManagerLambdaPolicy(app: PulumiApp) {
                             pulumi.interpolate`${core.primaryDynamodbTableArn}`,
                             pulumi.interpolate`${core.primaryDynamodbTableArn}/*`
                         ]
+                    },
+                    {
+                        Sid: "PermissionForDynamoDBLog",
+                        Effect: "Allow",
+                        Action: [
+                            "dynamodb:GetItem",
+                            "dynamodb:Query",
+                            "dynamodb:PutItem",
+                            "dynamodb:BatchWriteItem"
+                        ],
+                        Resource: [
+                            pulumi.interpolate`${core.logDynamodbTableArn}`,
+                            pulumi.interpolate`${core.logDynamodbTableArn}/*`
+                        ]
                     }
                 ]
             }

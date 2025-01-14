@@ -1,10 +1,17 @@
 import { ITaskResponse, ITaskResponseResult } from "@webiny/tasks";
 import { IPruneLogsInput, IPruneLogsOutput } from "~/tasks/pruneLogs/types";
 import { create } from "~/db";
-import { ILoggerCrudListLogsCallable, ILoggerCrudListLogsResponse, ILoggerLog } from "~/types";
+import {
+    ILoggerCrudListLogsCallable,
+    ILoggerCrudListLogsResponse,
+    ILoggerLog,
+    IPruneLogsStoredValue
+} from "~/types";
 import { batchWriteAll } from "@webiny/db-dynamodb";
 import { DynamoDbLoggerKeys } from "~/logger";
 import { DynamoDBDocument } from "@webiny/aws-sdk/client-dynamodb";
+import { IStore } from "@webiny/db";
+import { createStoreKey } from "~/utils/storeKey";
 
 const getDate = (input: string | undefined, reduceSeconds = 60): Date => {
     if (input) {
@@ -24,6 +31,7 @@ export interface IPruneLogsExecuteParams<
     I extends IPruneLogsInput = IPruneLogsInput,
     O extends IPruneLogsOutput = IPruneLogsOutput
 > {
+    store: Pick<IStore, "getValue" | "removeValue">;
     list: ILoggerCrudListLogsCallable;
     input: I;
     response: ITaskResponse<I, O>;
@@ -44,7 +52,7 @@ export class PruneLogs<
     }
 
     public async execute(params: IPruneLogsExecuteParams<I, O>): Promise<ITaskResponseResult> {
-        const { list, response, input, isAborted, isCloseToTimeout } = params;
+        const { list, response, input, isAborted, isCloseToTimeout, store } = params;
 
         const { entity, table } = create({
             documentClient: this.documentClient
@@ -113,9 +121,26 @@ export class PruneLogs<
                 startKey = result.meta.cursor || undefined;
             }
         } while (startKey);
+
         const output: IPruneLogsOutput = {
             items: totalItems
         };
+
+        const key = createStoreKey();
+        const stored = await store.getValue<IPruneLogsStoredValue>(key);
+        if (!stored.data?.taskId) {
+            return response.done(output as O);
+        }
+        try {
+            await store.removeValue(key);
+        } catch {
+            return response.done({
+                ...output,
+                message: "Failed to remove the stored value. Please remove it manually.",
+                key
+            } as O);
+        }
+
         return response.done(output as O);
     }
 }

@@ -12,6 +12,8 @@ import {
 import { Entity } from "@webiny/db-dynamodb/toolbox";
 import { create } from "~/db";
 import { createMockLogger } from "~tests/mocks/logger";
+import { GetValueResult, IStore, RemoveValueResult, StorageKey } from "@webiny/db";
+import { getIdentity } from "~tests/mocks/getIdentity";
 
 describe("PruneLogs", () => {
     let prune: PruneLogs;
@@ -22,6 +24,27 @@ describe("PruneLogs", () => {
     let storageOperations: ILoggerStorageOperations;
 
     let logger: ILogger;
+
+    const store: Pick<IStore, "getValue" | "removeValue"> = {
+        async getValue(key: StorageKey): Promise<GetValueResult<any>> {
+            return {
+                key,
+                data: {
+                    identity: getIdentity(),
+                    taskId: "1234"
+                }
+            };
+        },
+        async removeValue(key: StorageKey): Promise<RemoveValueResult<any>> {
+            return {
+                key,
+                data: {
+                    identity: getIdentity(),
+                    taskId: "1234"
+                }
+            };
+        }
+    };
 
     beforeEach(async () => {
         prune = new PruneLogs({
@@ -64,6 +87,7 @@ describe("PruneLogs", () => {
             };
         };
         const result = await prune.execute({
+            store,
             list,
             response,
             input: {},
@@ -186,6 +210,7 @@ describe("PruneLogs", () => {
          * Should not prune anything because the default date is too far into the past.
          */
         const pruneNothingResult = await prune.execute({
+            store,
             list,
             response,
             input: {},
@@ -209,6 +234,7 @@ describe("PruneLogs", () => {
          * Only prune from anotherTenant.
          */
         const pruneResult = await prune.execute({
+            store,
             list,
             response,
             input: {
@@ -256,6 +282,7 @@ describe("PruneLogs", () => {
          * And then prune everything.
          */
         const pruneAllResult = await prune.execute({
+            store,
             list,
             response,
             input: {

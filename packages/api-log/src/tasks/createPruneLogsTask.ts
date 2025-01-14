@@ -2,8 +2,7 @@ import { createTaskDefinition } from "@webiny/tasks";
 import { Context, IPruneLogsInput, IPruneLogsOutput } from "~/tasks/pruneLogs/types";
 import { LogType } from "~/types";
 import { NonEmptyArray } from "@webiny/api/types";
-
-export const PRUNE_LOGS_TASK = "pruneLogs";
+import { PRUNE_LOGS_TASK } from "./constants";
 
 export const createPruneLogsTask = () => {
     return createTaskDefinition<Context, IPruneLogsInput, IPruneLogsOutput>({
@@ -29,6 +28,7 @@ export const createPruneLogsTask = () => {
                     keys: new DynamoDbLoggerKeys()
                 });
                 return await prune.execute({
+                    store: params.context.db.store,
                     input: params.input,
                     list: params.context.logger.listLogs,
                     response: params.response,
@@ -48,7 +48,7 @@ export const createPruneLogsTask = () => {
             return {
                 tenant: validator.string().optional(),
                 source: validator.string().optional(),
-                keys: validator.object({}).passthrough(),
+                keys: validator.object({}).passthrough().optional(),
                 type: validator.enum(Object.keys(LogType) as NonEmptyArray<LogType>).optional(),
                 createdAfter: validator
                     .string()

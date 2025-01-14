@@ -327,7 +327,9 @@ function createLambdaPolicy(
                             // Add permissions to DynamoDB table
                             const resources = [
                                 `${s.primaryDynamodbTableArn}`,
-                                `${s.primaryDynamodbTableArn}/*`
+                                `${s.primaryDynamodbTableArn}/*`,
+                                `${s.logDynamodbTableArn}`,
+                                `${s.logDynamodbTableArn}/*`
                             ];
 
                             // Attach permissions for elastic search dynamo as well (if ES is enabled).

@@ -9,18 +9,24 @@ import {
     ILoggerCrudListLogsParams,
     ILoggerCrudListLogsResponse,
     ILoggerLog,
+    ILoggerPruneLogsResponse,
     ILoggerStorageOperations,
-    ILoggerWithSource
+    ILoggerWithSource,
+    IPruneLogsStoredValue
 } from "~/types";
 import { NotFoundError } from "@webiny/handler-graphql";
+import { WebinyError } from "@webiny/error";
+import { PRUNE_LOGS_TASK } from "~/tasks/constants";
+import { createStoreKey } from "~/utils/storeKey";
 
 export interface ICreateCrudParams {
+    getContext: () => Pick<Context, "tasks" | "db" | "security">;
     storageOperations: ILoggerStorageOperations;
     checkPermission(): Promise<void>;
 }
 
 export const createCrud = (params: ICreateCrudParams): ILoggerCrud => {
-    const { storageOperations, checkPermission } = params;
+    const { storageOperations, checkPermission, getContext } = params;
 
     return {
         async getLog(params: ILoggerCrudGetLogsParams): Promise<ILoggerCrudGetLogResponse> {
@@ -77,6 +83,46 @@ export const createCrud = (params: ICreateCrudParams): ILoggerCrud => {
                 flush: () => {
                     return this.log.flush();
                 }
+            };
+        },
+        async pruneLogs(): Promise<ILoggerPruneLogsResponse> {
+            await checkPermission();
+
+            const context = getContext();
+
+            const key = createStoreKey();
+
+            const alreadyPruning = await context.db.store.getValue<IPruneLogsStoredValue>(key);
+
+            if (alreadyPruning?.data?.taskId) {
+                throw new WebinyError({
+                    message: "Already pruning logs.",
+                    code: "ALREADY_PRUNING_LOGS",
+                    data: {
+                        identity: alreadyPruning.data.identity,
+                        taskId: alreadyPruning.data.taskId
+                    }
+                });
+            }
+
+            const task = await context.tasks.trigger({
+                definition: PRUNE_LOGS_TASK,
+                name: "Prune all Webiny logs"
+            });
+
+            const identity = context.security.getIdentity();
+
+            await context.db.store.storeValue<IPruneLogsStoredValue>(key, {
+                identity: {
+                    id: identity.id,
+                    displayName: identity.displayName,
+                    type: identity.type
+                },
+                taskId: task.id
+            });
+
+            return {
+                task
             };
         }
     };

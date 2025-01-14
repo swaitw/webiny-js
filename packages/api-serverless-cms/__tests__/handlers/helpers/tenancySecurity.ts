@@ -97,6 +97,9 @@ export const createTenancyAndSecurity = ({ permissions, tenant }: IConfig) => {
             login.setIdentity(
                 identity === null ? null : identity || getDefaultIdentity(permissions)
             );
+        },
+        logout: () => {
+            login.setIdentity(null);
         }
     };
 };

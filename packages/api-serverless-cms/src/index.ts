@@ -10,13 +10,14 @@ import { FormBuilderContext } from "@webiny/api-form-builder/types";
 import { CmsContext } from "@webiny/api-headless-cms/types";
 import { AcoContext } from "@webiny/api-aco/types";
 import { PbAcoContext } from "@webiny/api-page-builder-aco/types";
-import { createContextPlugin as baseCreateContextPlugin, ContextPluginCallable } from "@webiny/api";
+import { ContextPluginCallable, createContextPlugin as baseCreateContextPlugin } from "@webiny/api";
 import {
     createGraphQLSchemaPlugin as baseCreateGraphQLSchemaPlugin,
     GraphQLSchemaPluginConfig
 } from "@webiny/handler-graphql";
 import { createSecurityRolePlugin, createSecurityTeamPlugin } from "@webiny/api-security";
 import { MailerContext } from "@webiny/api-mailer/types";
+import { Context as LoggerContext } from "@webiny/api-log/types";
 
 export interface Context
     extends ClientContext,
@@ -31,6 +32,7 @@ export interface Context
         FormBuilderContext,
         AcoContext,
         PbAcoContext,
+        LoggerContext,
         CmsContext {}
 
 export const createContextPlugin = <T extends Context = Context>(

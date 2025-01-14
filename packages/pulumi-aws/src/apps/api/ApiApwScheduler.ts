@@ -155,6 +155,20 @@ function createExecuteActionLambdaPolicy(app: PulumiApp) {
                             pulumi.interpolate`${core.primaryDynamodbTableArn}`,
                             pulumi.interpolate`${core.primaryDynamodbTableArn}/*`
                         ]
+                    },
+                    {
+                        Sid: "PermissionDynamoDBLog",
+                        Effect: "Allow",
+                        Action: [
+                            "dynamodb:Query",
+                            "dynamodb:GetItem",
+                            "dynamodb:DeleteItem",
+                            "dynamodb:PutItem"
+                        ],
+                        Resource: [
+                            pulumi.interpolate`${core.logDynamodbTableArn}`,
+                            pulumi.interpolate`${core.logDynamodbTableArn}/*`
+                        ]
                     }
                 ]
             }

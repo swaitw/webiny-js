@@ -55,6 +55,7 @@ export const useGraphQlHandler = (params: IGraphQlHandlerParams) => {
         securityStorage: core.securityStorage,
         tenancyStorage: core.tenancyStorage,
         login: core.login,
+        logout: core.logout,
         ...createGraphQl({
             createQuery,
             createMutation

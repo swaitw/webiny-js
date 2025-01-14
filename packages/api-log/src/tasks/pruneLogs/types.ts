@@ -12,6 +12,8 @@ export interface IPruneLogsInput {
 
 export interface IPruneLogsOutput extends ITaskResponseDoneResultOutput {
     items: number;
+    message?: string;
+    key?: string;
 }
 
 export interface Context extends LoggerContext, TaskContext {}

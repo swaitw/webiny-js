@@ -1,6 +1,8 @@
 import { TenancyContext } from "@webiny/api-tenancy/types";
 import { I18NContext } from "@webiny/api-i18n/types";
 import { Context as HandlerContext } from "@webiny/handler/types";
+import { Context as TasksContext, ITask } from "@webiny/tasks/types";
+import { SecurityIdentity } from "@webiny/api-security/types";
 
 export interface ILoggerLogCallableOptions {
     tenant?: string;
@@ -104,12 +106,17 @@ export interface ILoggerCrudListLogsCallable {
     (params: ILoggerCrudListLogsParams): Promise<ILoggerCrudListLogsResponse>;
 }
 
+export interface ILoggerPruneLogsResponse {
+    task: ITask;
+}
+
 export interface ILoggerCrud {
     withSource(source: string): ILoggerWithSource;
     listLogs: ILoggerCrudListLogsCallable;
     getLog(params: ILoggerCrudGetLogsParams): Promise<ILoggerCrudGetLogResponse>;
     deleteLog(params: ILoggerCrudDeleteLogParams): Promise<ILoggerCrudDeleteLogResponse>;
     deleteLogs(params: ILoggerCrudDeleteLogsParams): Promise<ILoggerLog[]>;
+    pruneLogs(): Promise<ILoggerPruneLogsResponse>;
 }
 
 export interface ILoggerStorageOperationsInsertParams {
@@ -138,10 +145,16 @@ export interface ILogger {
 }
 
 export interface Context
-    extends Pick<TenancyContext, "tenancy">,
+    extends Pick<TenancyContext, "tenancy" | "db">,
         Pick<I18NContext, "i18n" | "security">,
+        Pick<TasksContext, "tasks">,
         HandlerContext {
     logger: ILoggerCrud & {
         log: ILogger;
     };
+}
+
+export interface IPruneLogsStoredValue {
+    identity: Pick<SecurityIdentity, "id" | "displayName" | "type">;
+    taskId: string;
 }

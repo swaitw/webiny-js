@@ -223,6 +223,8 @@ function createGraphqlLambdaPolicy(app: PulumiApp) {
                             Resource: [
                                 `${core.primaryDynamodbTableArn}`,
                                 `${core.primaryDynamodbTableArn}/*`,
+                                `${core.logDynamodbTableArn}`,
+                                `${core.logDynamodbTableArn}/*`,
                                 // Attach permissions for elastic search dynamo as well (if ES is enabled).
                                 ...(core.elasticsearchDynamodbTableArn
                                     ? [
