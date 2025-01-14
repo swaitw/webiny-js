@@ -27,9 +27,11 @@ export const Navigation: React.ComponentType<{ data?: PublishedMenuData }> = ({ 
                     );
                 }
 
+                // We only use the Link component if the item has a `path` or `url` value.
+                const link = item.path || item.url;
                 return (
                     <li key={item.id + index}>
-                        <Link to={item.path || item.url}>{item.title}</Link>
+                        {link ? <Link to={link}>{item.title}</Link> : item.title}
                     </li>
                 );
             })}
