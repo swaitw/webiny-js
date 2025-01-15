@@ -16,7 +16,7 @@ export const FullScreenContentEntryContainer = styled.div`
         margin: 0;
     }
 
-    #cms-content-details-tabs .webiny-ui-tabs__tab-bar {
+    #cms-content-details-tabs > .webiny-ui-tabs__tab-bar {
         display: none;
     }
 `;
