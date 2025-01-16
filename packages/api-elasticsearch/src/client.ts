@@ -57,7 +57,6 @@ export const createElasticsearchClient = (options: ElasticsearchClientOptions): 
                 ...clientOptions,
                 ...createAwsElasticsearchConnector({
                     region,
-                    // @ts-expect-error
                     credentials
                 })
             };

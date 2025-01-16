@@ -58,14 +58,14 @@
   },
   "exclude": [
     "node_modules",
-    "dist",
-    "./scripts/**",
+    "packages/*/dist",
+    "scripts/**",
     "**jest**",
-    "./packages/cli-plugin-deploy-pulumi",
-    "./packages/cli",
-    "./packages/create-webiny-project",
-    "./packages/cwp-template-aws/**",
-    "./packages/project-utils",
-    "./packages/tracking"
+    "packages/cli-plugin-deploy-pulumi",
+    "packages/cli",
+    "packages/create-webiny-project",
+    "packages/cwp-template-aws/**",
+    "packages/project-utils",
+    "packages/tracking"
   ]
 }

@@ -9,6 +9,7 @@ export interface IUserInputResponse {
     shouldUpdate: () => Promise<boolean>;
     skipResolutions: boolean;
     matching: RegExp;
+    useCaret: boolean;
 }
 
 export const getUserInput = async ({
@@ -49,6 +50,7 @@ export const getUserInput = async ({
         }
         return {
             ...matching,
+            useCaret: matching.caret || true,
             shouldUpdate
         };
     }
@@ -81,7 +83,19 @@ export const getUserInput = async ({
         ]
     });
 
+    const { useCaret } = await prompt({
+        name: "useCaret",
+        type: "list",
+        default: null,
+        message: "Use caret (^) to match any package in the major version?",
+        choices: [
+            { name: "No", value: false },
+            { name: "Yes", value: true }
+        ]
+    });
+
     return {
+        useCaret,
         matching,
         shouldUpdate,
         skipResolutions

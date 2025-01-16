@@ -53,13 +53,15 @@ describe("route plugins", () => {
             HEAD: ["/webiny-get", "/webiny-head", "/webiny-all"],
             UNLOCK: ["/webiny-all"],
             TRACE: ["/webiny-all"],
+            REPORT: ["/webiny-all"],
             SEARCH: ["/webiny-all"],
             LOCK: ["/webiny-all"],
             MOVE: ["/webiny-all"],
             PROPPATCH: ["/webiny-all"],
             COPY: ["/webiny-all"],
             PROPFIND: ["/webiny-all"],
-            MKCOL: ["/webiny-all"]
+            MKCOL: ["/webiny-all"],
+            MKCALENDAR: ["/webiny-all"]
         };
 
         expect(app.webiny.routes.defined).toEqual(expected);

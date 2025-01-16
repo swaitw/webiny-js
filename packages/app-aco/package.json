@@ -14,7 +14,7 @@
     "@apollo/react-hooks": "^3.1.5",
     "@emotion/react": "11.10.8",
     "@emotion/styled": "11.10.6",
-    "@material-design-icons/svg": "^0.14.3",
+    "@material-design-icons/svg": "^0.14.13",
     "@material-symbols/svg-400": "^0.4.1",
     "@minoru/react-dnd-treeview": "3.2.1",
     "@webiny/app": "0.0.0",
@@ -50,8 +50,7 @@
     "apollo-client": "^2.6.10",
     "apollo-link": "^1.2.14",
     "rimraf": "^6.0.1",
-    "ttypescript": "^1.5.15",
-    "typescript": "4.9.5"
+    "typescript": "5.3.3"
   },
   "publishConfig": {
     "access": "public",

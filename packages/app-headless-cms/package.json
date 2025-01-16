@@ -24,7 +24,7 @@
     "@fortawesome/free-solid-svg-icons": "^6.0.0",
     "@fortawesome/react-fontawesome": "^0.1.17",
     "@lexical/utils": "^0.16.1",
-    "@material-design-icons/svg": "^0.14.3",
+    "@material-design-icons/svg": "^0.14.13",
     "@svgr/webpack": "^6.1.1",
     "@types/react": "18.2.79",
     "@webiny/app": "0.0.0",
@@ -83,8 +83,7 @@
     "@webiny/project-utils": "0.0.0",
     "babel-plugin-module-resolver": "^5.0.2",
     "rimraf": "^6.0.1",
-    "ttypescript": "^1.5.15",
-    "typescript": "4.9.5"
+    "typescript": "5.3.3"
   },
   "publishConfig": {
     "access": "public",

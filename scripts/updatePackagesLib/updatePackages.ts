@@ -62,7 +62,10 @@ export const updatePackages = async (params: IUpdatePackagesParams) => {
     await resolutions.addToPackageJson();
 
     const updatePackages = await UpPackages.create({
-        packages: updatable
+        packages: updatable,
+        options: {
+            useCaret: false
+        }
     });
 
     await updatePackages.process();

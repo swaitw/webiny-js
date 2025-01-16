@@ -32,9 +32,8 @@
     "@webiny/project-utils": "0.0.0",
     "graphql": "^15.9.0",
     "rimraf": "^6.0.1",
-    "ttypescript": "^1.5.15",
-    "type-fest": "^3.13.1",
-    "typescript": "4.9.5"
+    "type-fest": "4.14.0",
+    "typescript": "5.3.3"
   },
   "publishConfig": {
     "access": "public",

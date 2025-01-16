@@ -46,7 +46,7 @@ export class MultipartUploadHandler implements IMultipartUploadHandler {
     private readonly client: S3Client;
     private readonly bucket: string;
     private readonly filename: string;
-    private readonly minBufferSize: IMultipartUploadHandlerParamsMinBufferSize;
+    private readonly minBufferSize: number;
     private readonly parts: IPart[];
 
     private buffer: Buffer[] = [];

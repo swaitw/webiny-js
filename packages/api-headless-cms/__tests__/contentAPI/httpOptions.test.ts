@@ -34,7 +34,6 @@ describe("HTTP Options request", () => {
                 body: "",
                 headers: {
                     ...versionHeaders,
-                    "content-type": "application/json; charset=utf-8",
                     "access-control-allow-headers": "*",
                     "access-control-allow-methods": ["OPTIONS", "POST"].sort().join(","),
                     "access-control-allow-origin": "*",

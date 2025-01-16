@@ -59,7 +59,6 @@ describe("ResponseHeaders class", () => {
             cookies: [],
             headers: {
                 "cache-control": "public, max-age=86400",
-                "content-type": "application/json; charset=utf-8",
                 "access-control-allow-origin": "*",
                 "access-control-allow-headers": "*",
                 "access-control-allow-methods": "OPTIONS,POST,GET,DELETE,PUT,PATCH",

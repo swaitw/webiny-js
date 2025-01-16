@@ -2,7 +2,7 @@ const fs = require("fs");
 const rimraf = require("rimraf");
 const { join, dirname, extname, relative, parse } = require("path");
 const babel = require("@babel/core");
-const ts = require("ttypescript");
+const ts = require("ts-patch/compiler");
 const glob = require("glob");
 const merge = require("lodash/merge");
 
@@ -142,7 +142,6 @@ const tsCompile = ({ cwd, overrides, debug }) => {
                 console.log(readTsConfig);
             }
         }
-
         const parsedJsonConfigFile = ts.parseJsonConfigFileContent(readTsConfig, ts.sys, cwd);
 
         const { projectReferences, options, fileNames, errors } = parsedJsonConfigFile;

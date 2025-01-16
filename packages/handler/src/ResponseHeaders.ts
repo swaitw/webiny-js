@@ -7,7 +7,7 @@ type ExtraHeaders = {
 
 type AllHeaders = http.OutgoingHttpHeaders & ExtraHeaders;
 
-export type StandardHeaderValue = http.OutgoingHttpHeader | boolean | undefined;
+export type StandardHeaderValue = http.OutgoingHttpHeader | undefined;
 
 // Extract known standard headers, and remove all non-string keys.
 export type StandardHeaders = {

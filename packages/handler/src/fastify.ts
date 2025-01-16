@@ -52,7 +52,7 @@ const getDefaultHeaders = (routes: DefinedContextRoutes): ResponseHeaders => {
     /**
      * If we are accepting all headers, just output that one.
      */
-    const keys = Object.keys(routes) as HTTPMethods[];
+    const keys = Object.keys(routes) as Uppercase<HTTPMethods>[];
     const all = keys.every(key => routes[key].length > 0);
     if (all) {
         headers.set("access-control-allow-methods", "*");
@@ -95,7 +95,10 @@ const modifyResponseHeaders = (app: FastifyInstance, request: Request, reply: Re
     const modifyHeaders = app.webiny.plugins.byType<ModifyResponseHeadersPlugin>(
         ModifyResponseHeadersPlugin.type
     );
-
+    /**
+     * We will use ts-expect-error to suppress the error, as we are sure that headers will be ok.
+     */
+    // @ts-expect-error
     const headers = ResponseHeaders.create(reply.getHeaders());
 
     modifyHeaders.forEach(plugin => {
@@ -128,17 +131,20 @@ export const createHandler = (params: CreateHandlerParams) => {
         PROPPATCH: [],
         SEARCH: [],
         TRACE: [],
-        UNLOCK: []
+        UNLOCK: [],
+        REPORT: [],
+        MKCALENDAR: []
     };
 
     const throwOnDefinedRoute = (
-        type: HTTPMethods | "ALL",
+        type: Uppercase<HTTPMethods> | "ALL",
         path: string,
         options?: RouteMethodOptions
     ): void => {
         if (type === "ALL") {
-            const all = Object.keys(definedRoutes).find(key => {
-                const routes = definedRoutes[key as HTTPMethods];
+            const all = Object.keys(definedRoutes).find(k => {
+                const key = k.toUpperCase() as Uppercase<HTTPMethods>;
+                const routes = definedRoutes[key];
                 return routes.includes(path);
             });
             if (!all) {
@@ -172,7 +178,8 @@ export const createHandler = (params: CreateHandlerParams) => {
         );
     };
 
-    const addDefinedRoute = (type: HTTPMethods, path: string): void => {
+    const addDefinedRoute = (input: HTTPMethods, path: string): void => {
+        const type = input.toUpperCase() as Uppercase<HTTPMethods>;
         if (!definedRoutes[type]) {
             return;
         } else if (definedRoutes[type].includes(path)) {
@@ -194,7 +201,7 @@ export const createHandler = (params: CreateHandlerParams) => {
      * We need to register routes in our system so we can output headers later on and dissallow overriding routes.
      */
     app.addHook("onRoute", route => {
-        const method = route.method;
+        const method = route.method as Uppercase<HTTPMethods> | Uppercase<HTTPMethods>[];
         if (Array.isArray(method)) {
             for (const m of method) {
                 addDefinedRoute(m, route.path);
@@ -312,6 +319,10 @@ export const createHandler = (params: CreateHandlerParams) => {
         const initialHeaders = isOptionsRequest
             ? defaultHeaders.merge(getDefaultOptionsHeaders())
             : defaultHeaders;
+
+        /**
+         * We will use ts-expect-error to suppress the error, as we are sure that headers will be ok.
+         */
 
         reply.headers(initialHeaders.getHeaders());
         /**

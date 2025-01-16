@@ -1,6 +1,7 @@
 import { Table } from "@webiny/db-dynamodb/toolbox";
 import { makeInjectable, inject, Constructor } from "@webiny/ioc";
-import { DataMigration, DataMigrationContext, PrimaryDynamoTableSymbol } from "~/index";
+import { DataMigration, DataMigrationContext } from "~/index";
+import { PrimaryDynamoTableSymbol } from "~/symbols";
 
 export const createDdbMigration = (
     id: string,

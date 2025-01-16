@@ -7,7 +7,7 @@ export class NotAuthorizedAssetReply extends AssetReply {
             code: 403,
             headers: ResponseHeaders.create({
                 "cache-control": "no-store",
-                "content-type": "application/json"
+                "content-type": "application/json; charset=utf-8"
             }),
             body: () => ({ error: "Not authorized!", code: "NOT_AUTHORIZED" })
         });

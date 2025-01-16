@@ -47,7 +47,7 @@ export const setupAssetDelivery = (params: AssetDeliveryParams) => {
         const headers = assetReply.getHeaders();
 
         // Set default headers.
-        headers.set("x-webiny-base64-encoded", true);
+        headers.set("x-webiny-base64-encoded", "true");
 
         reply.code(assetReply.getCode());
         reply.headers(headers.getHeaders());

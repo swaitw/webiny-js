@@ -4,9 +4,14 @@ import { createHandlerOnRequest } from "~/plugins/HandlerOnRequestPlugin";
 
 jest.setTimeout(5000);
 
-const createOptionsRoute = () => {
-    return createRoute(({ onOptions }) => {
-        onOptions("/webiny-test", async (request, reply) => {
+const createRoutes = () => {
+    return createRoute(({ onPost, onOptions }) => {
+        onPost("/webiny-test", async (_, reply) => {
+            return reply.send({
+                weGotToPostReply: true
+            });
+        });
+        onOptions("/webiny-test", async (_, reply) => {
             return reply.send({
                 weGotToOptionsReply: true
             });
@@ -17,37 +22,66 @@ const createOptionsRoute = () => {
 describe("fastify onRequest event", () => {
     it("should return our built-in headers when sending options request", async () => {
         const app = createHandler({
-            plugins: [createOptionsRoute()]
+            plugins: [createRoutes()]
         });
 
-        const result = await app.inject({
+        const optionsResult = await app.inject({
             path: "/webiny-test",
             method: "OPTIONS",
             query: {},
-            payload: JSON.stringify({})
+            payload: JSON.stringify({}),
+            headers: {
+                "content-type": "application/json"
+            }
         });
 
-        expect(result).toMatchObject({
+        expect(optionsResult).toMatchObject({
             statusCode: 204,
             cookies: [],
             headers: {
                 "cache-control": "public, max-age=86400",
-                "content-type": "application/json; charset=utf-8",
                 "access-control-allow-origin": "*",
                 "access-control-allow-headers": "*",
-                "access-control-allow-methods": "OPTIONS",
+                "access-control-allow-methods": "OPTIONS,POST",
                 "access-control-max-age": "86400",
-                connection: "keep-alive"
+                connection: "keep-alive",
+                date: expect.toBeDateString()
             },
             body: "",
             payload: ""
+        });
+
+        const postResult = await app.inject({
+            path: "/webiny-test",
+            method: "POST",
+            query: {},
+            payload: JSON.stringify({}),
+            headers: {
+                "content-type": "application/json"
+            }
+        });
+
+        expect(postResult).toMatchObject({
+            statusCode: 200,
+            cookies: [],
+            headers: {
+                "cache-control": "no-store",
+                "content-type": "application/json; charset=utf-8",
+                "access-control-allow-origin": "*",
+                "access-control-allow-headers": "*",
+                "access-control-allow-methods": "OPTIONS,POST",
+                connection: "keep-alive",
+                date: expect.toBeDateString()
+            },
+            body: JSON.stringify({ weGotToPostReply: true }),
+            payload: JSON.stringify({ weGotToPostReply: true })
         });
     });
 
     it("should return users headers set via the plugin", async () => {
         const app = createHandler({
             plugins: [
-                createOptionsRoute(),
+                createRoutes(),
                 createHandlerOnRequest(async (request, reply) => {
                     const raw = reply.code(205).hijack().raw;
 
@@ -82,7 +116,7 @@ describe("fastify onRequest event", () => {
     it("should throw a log if user did not end onRequest plugin correctly", async () => {
         const app = createHandler({
             plugins: [
-                createOptionsRoute(),
+                createRoutes(),
                 createHandlerOnRequest(async (request, reply) => {
                     const raw = reply.code(205).hijack().raw;
 

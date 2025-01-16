@@ -15,7 +15,7 @@ export interface RouteMethod {
 export type Request = FastifyRequest;
 export type Reply = FastifyReply;
 
-export type DefinedContextRoutes = Record<HTTPMethods, string[]>;
+export type DefinedContextRoutes = Record<Uppercase<HTTPMethods>, string[]>;
 export interface ContextRoutes {
     defined: DefinedContextRoutes;
     onGet: RouteMethod;
