@@ -311,6 +311,7 @@ export const createApiPulumiApp = (projectAppParams: CreateApiPulumiAppParams = 
                 fileManager,
                 graphql,
                 apiGateway,
+                websocket,
                 cloudfront,
                 apwScheduler,
                 migration,
