@@ -25,7 +25,15 @@ export const ApiGateway = createAppModule({
             name: "default",
             config: {
                 apiId: api.output.id,
-                autoDeploy: true
+                autoDeploy: true,
+                defaultRouteSettings: {
+                    // Only enable when debugging. Note that by default, API Gateway does not
+                    // have the required permissions to write logs to CloudWatch logs. More:
+                    // https://coady.tech/aws-cloudwatch-logs-arn/
+                    // loggingLevel: "INFO",
+                    throttlingBurstLimit: 5000,
+                    throttlingRateLimit: 10000
+                }
             }
         });
 
