@@ -8325,8 +8325,8 @@ __metadata:
   linkType: hard
 
 "@pm2/agent@npm:~2.0.0":
-  version: 2.0.3
-  resolution: "@pm2/agent@npm:2.0.3"
+  version: 2.0.4
+  resolution: "@pm2/agent@npm:2.0.4"
   dependencies:
     async: "npm:~3.2.0"
     chalk: "npm:~3.0.0"
@@ -8340,8 +8340,8 @@ __metadata:
     pm2-axon-rpc: "npm:~0.7.0"
     proxy-agent: "npm:~6.3.0"
     semver: "npm:~7.5.0"
-    ws: "npm:~7.4.0"
-  checksum: 10/0642f56dc7f36d17b3c45a71ac39681e1e10d99254d0f64798555cfe8aa6837106bc1d9595777c47b01ef85006359477880bada02a196db964c78dce25cbaf07
+    ws: "npm:~7.5.10"
+  checksum: 10/e7d5a48637ce78850bdb4c60dc0e2c763c0ce0eace716f16c6f50a7431b616acea5ae0901d4cf31f281a5bac4d59de92729ea52eee4a6b23178155294ae40532
   languageName: node
   linkType: hard
 
@@ -40169,7 +40169,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ws@npm:^7.0.0":
+"ws@npm:^7.0.0, ws@npm:~7.5.10":
   version: 7.5.10
   resolution: "ws@npm:7.5.10"
   peerDependencies:
@@ -40196,21 +40196,6 @@ __metadata:
     utf-8-validate:
       optional: true
   checksum: 10/70dfe53f23ff4368d46e4c0b1d4ca734db2c4149c6f68bc62cb16fc21f753c47b35fcc6e582f3bdfba0eaeb1c488cddab3c2255755a5c3eecb251431e42b3ff6
-  languageName: node
-  linkType: hard
-
-"ws@npm:~7.4.0":
-  version: 7.4.6
-  resolution: "ws@npm:7.4.6"
-  peerDependencies:
-    bufferutil: ^4.0.1
-    utf-8-validate: ^5.0.2
-  peerDependenciesMeta:
-    bufferutil:
-      optional: true
-    utf-8-validate:
-      optional: true
-  checksum: 10/150e3f917b7cde568d833a5ea6ccc4132e59c38d04218afcf2b6c7b845752bd011a9e0dc1303c8694d3c402a0bdec5893661a390b71ff88f0fc81a4e4e66b09c
   languageName: node
   linkType: hard
 
