@@ -154,8 +154,8 @@ export const generateExtension = async ({ input, ora, context }: GenerateExtensi
         if (nextSteps.length > 0) {
             console.log();
             console.log(chalk.bold("Next Steps"));
-            nextSteps.forEach(message => {
-                console.log(`‣ ${message}`);
+            nextSteps.forEach(({ text, variables = [] }) => {
+                console.log(`‣ ${text}`, ...variables.map(v => context.success.hl(v)));
             });
         }
 
