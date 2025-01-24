@@ -142,7 +142,7 @@ export class FontColorNode extends TextNode {
         return element;
     }
 
-    override updateDOM(prevNode: FontColorNode, dom: HTMLElement, config: EditorConfig): boolean {
+    override updateDOM(prevNode: this, dom: HTMLElement, config: EditorConfig): boolean {
         const isUpdated = super.updateDOM(prevNode, dom, config);
         this.__color.updateFromTheme(config.theme as EditorTheme);
 

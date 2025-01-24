@@ -1,4 +1,4 @@
-import path from "path";
+import * as path from "path";
 import { allWorkspaces } from "../../packages/project-utils/workspaces";
 import { BasicPackages } from "./BasicPackages";
 import { LatestVersionPackages } from "./LatestVersionPackages";
