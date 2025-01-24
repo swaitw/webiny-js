@@ -15128,54 +15128,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@webiny/cli-plugin-scaffold-full-stack-app@workspace:packages/cli-plugin-scaffold-full-stack-app":
-  version: 0.0.0-use.local
-  resolution: "@webiny/cli-plugin-scaffold-full-stack-app@workspace:packages/cli-plugin-scaffold-full-stack-app"
-  dependencies:
-    "@types/inquirer": "npm:8.2.10"
-    "@types/ncp": "npm:^2.0.4"
-    "@types/pluralize": "npm:^0.0.29"
-    "@webiny/cli": "npm:0.0.0"
-    "@webiny/cli-plugin-scaffold": "npm:0.0.0"
-    "@webiny/cli-plugin-scaffold-graphql-api": "npm:0.0.0"
-    "@webiny/plugins": "npm:0.0.0"
-    "@webiny/project-utils": "npm:0.0.0"
-    case: "npm:^1.6.3"
-    chalk: "npm:^4.1.2"
-    ncp: "npm:^2.0.0"
-    replace-in-path: "npm:^1.1.0"
-    rimraf: "npm:^6.0.1"
-    terminal-link: "npm:^2.1.1"
-    typescript: "npm:5.3.3"
-  languageName: unknown
-  linkType: soft
-
-"@webiny/cli-plugin-scaffold-graphql-api@npm:0.0.0, @webiny/cli-plugin-scaffold-graphql-api@workspace:packages/cli-plugin-scaffold-graphql-api":
-  version: 0.0.0-use.local
-  resolution: "@webiny/cli-plugin-scaffold-graphql-api@workspace:packages/cli-plugin-scaffold-graphql-api"
-  dependencies:
-    "@types/inquirer": "npm:8.2.10"
-    "@types/ncp": "npm:^2.0.4"
-    "@types/pluralize": "npm:^0.0.29"
-    "@webiny/cli": "npm:0.0.0"
-    "@webiny/cli-plugin-deploy-pulumi": "npm:0.0.0"
-    "@webiny/cli-plugin-scaffold": "npm:0.0.0"
-    "@webiny/error": "npm:0.0.0"
-    "@webiny/plugins": "npm:0.0.0"
-    "@webiny/project-utils": "npm:0.0.0"
-    case: "npm:^1.6.3"
-    chalk: "npm:^4.1.2"
-    execa: "npm:^5.1.1"
-    load-json-file: "npm:^6.2.0"
-    ncp: "npm:^2.0.0"
-    replace-in-path: "npm:^1.1.0"
-    rimraf: "npm:^6.0.1"
-    terminal-link: "npm:^2.1.1"
-    typescript: "npm:5.3.3"
-    write-json-file: "npm:^4.3.0"
-  languageName: unknown
-  linkType: soft
-
 "@webiny/cli-plugin-scaffold-graphql-service@workspace:packages/cli-plugin-scaffold-graphql-service":
   version: 0.0.0-use.local
   resolution: "@webiny/cli-plugin-scaffold-graphql-service@workspace:packages/cli-plugin-scaffold-graphql-service"
@@ -15198,31 +15150,6 @@ __metadata:
     rimraf: "npm:^6.0.1"
     terminal-link: "npm:^2.1.1"
     ts-morph: "npm:^11.0.0"
-    typescript: "npm:5.3.3"
-    write-json-file: "npm:^4.3.0"
-  languageName: unknown
-  linkType: soft
-
-"@webiny/cli-plugin-scaffold-react-app@workspace:packages/cli-plugin-scaffold-react-app":
-  version: 0.0.0-use.local
-  resolution: "@webiny/cli-plugin-scaffold-react-app@workspace:packages/cli-plugin-scaffold-react-app"
-  dependencies:
-    "@types/inquirer": "npm:8.2.10"
-    "@types/ncp": "npm:^2.0.4"
-    "@types/pluralize": "npm:^0.0.29"
-    "@webiny/cli": "npm:0.0.0"
-    "@webiny/cli-plugin-scaffold": "npm:0.0.0"
-    "@webiny/error": "npm:0.0.0"
-    "@webiny/plugins": "npm:0.0.0"
-    "@webiny/project-utils": "npm:0.0.0"
-    case: "npm:^1.6.3"
-    chalk: "npm:^4.1.2"
-    execa: "npm:^5.1.1"
-    load-json-file: "npm:^6.2.0"
-    ncp: "npm:^2.0.0"
-    replace-in-path: "npm:^1.1.0"
-    rimraf: "npm:^6.0.1"
-    terminal-link: "npm:^2.1.1"
     typescript: "npm:5.3.3"
     write-json-file: "npm:^4.3.0"
   languageName: unknown
