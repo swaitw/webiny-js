@@ -9,6 +9,8 @@ export function getStackOutput<TStackOutput = Record<string, unknown>>(
 export function getStackOutput<TStackOutput = Record<string, any>>(options: {
     folder: string;
     env: string;
+    // TODO put to optional
+    variant: string;
     map?: Record<string, string>;
     cwd?: string;
 }): TStackOutput;

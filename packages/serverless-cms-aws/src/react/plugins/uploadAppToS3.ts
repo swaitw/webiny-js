@@ -45,7 +45,8 @@ export const uploadAppToS3 = ({ folder, ...config }: UploadAppToS3Config) => ({
         const start = new Date().getTime();
         const appOutput = getStackOutput({
             folder,
-            env: params.env
+            env: params.env,
+            variant: params.variant
         });
 
         await uploadFolderToS3({

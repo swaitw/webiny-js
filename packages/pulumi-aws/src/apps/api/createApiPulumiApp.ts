@@ -304,7 +304,8 @@ export const createApiPulumiApp = (projectAppParams: CreateApiPulumiAppParams = 
 
             tagResources({
                 WbyProjectName: String(process.env["WEBINY_PROJECT_NAME"]),
-                WbyEnvironment: String(process.env["WEBINY_ENV"])
+                WbyEnvironment: String(process.env["WEBINY_ENV"]),
+                WbyEnvironmentVariant: String(process.env["WEBINY_ENV_VARIANT"])
             });
 
             return {

@@ -13,7 +13,8 @@ const getIotEndpoint = (params = {}) => {
         .then(({ endpointAddress }) => {
             const coreStackOutput = getStackOutput({
                 folder: "core",
-                env: params.env
+                env: params.env,
+                variant: params.variant
             });
 
             const watchCommandTopic = `webiny-watch-${coreStackOutput.deploymentId}`;

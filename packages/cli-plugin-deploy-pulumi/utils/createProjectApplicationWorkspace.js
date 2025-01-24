@@ -14,9 +14,12 @@ module.exports = async ({ projectApplication, inputs }) => {
     // Wait a bit and make sure the files are ready to have its content replaced.
     await new Promise(resolve => setTimeout(resolve, 10));
 
+    const variant = !inputs.variant || inputs.variant === "undefined" ? "" : inputs.variant;
+
     replaceInPath(path.join(projectApplication.paths.workspace, "/**/*.{ts,js,yaml}"), [
         { find: "{PROJECT_ID}", replaceWith: projectApplication.id },
         { find: "{PROJECT_DESCRIPTION}", replaceWith: projectApplication.description },
-        { find: "{DEPLOY_ENV}", replaceWith: inputs.env }
+        { find: "{DEPLOY_ENV}", replaceWith: inputs.env },
+        { find: "{DEPLOY_VARIANT}", replaceWith: variant }
     ]);
 };

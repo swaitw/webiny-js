@@ -13,9 +13,9 @@ module.exports = (params, context) => {
         telemetry: true,
         command: async commandParams => {
             const { inputs, context, projectApplication, pulumi, getDuration } = commandParams;
-            const { env, folder, build, deploy } = inputs;
+            const { env, variant, folder, build, deploy } = inputs;
 
-            const hookArgs = { context, env, inputs, projectApplication };
+            const hookArgs = { context, env, variant, inputs, projectApplication };
 
             context.info("Webiny version: %s", context.version);
             console.log();

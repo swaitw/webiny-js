@@ -21,6 +21,7 @@ const {
     loadEnvVariables,
     runHook
 } = require("../utils");
+const { getStackName } = require("../utils/getStackName");
 
 // Do not allow watching "prod" and "production" environments. On the Pulumi CLI side, the command
 // is still in preview mode, so it's definitely not wise to use it on production environments.
@@ -101,7 +102,13 @@ module.exports = async (inputs, context) => {
         }
     }
 
-    const hookArgs = { context, env: inputs.env, inputs, projectApplication };
+    const hookArgs = {
+        context,
+        env: inputs.env,
+        variant: inputs.variant,
+        inputs,
+        projectApplication
+    };
 
     await runHook({
         hook: "hook-before-watch",
@@ -125,16 +132,21 @@ module.exports = async (inputs, context) => {
     let PULUMI_CONFIG_PASSPHRASE = process.env.PULUMI_CONFIG_PASSPHRASE;
 
     if (inputs.deploy && projectApplication) {
-        const { env } = inputs;
+        const { env, variant } = inputs;
 
         await login(projectApplication);
 
         const pulumi = await getPulumi({ projectApplication });
 
+        const stackName = getStackName({
+            env,
+            variant
+        });
+
         let stackExists = true;
         try {
             await pulumi.run({
-                command: ["stack", "select", env],
+                command: ["stack", "select", stackName],
                 args: {
                     secretsProvider: PULUMI_SECRETS_PROVIDER
                 },
@@ -324,6 +336,7 @@ module.exports = async (inputs, context) => {
                 execa: {
                     env: {
                         WEBINY_ENV: inputs.env,
+                        WEBINY_ENV_VARIANT: inputs.variant || "",
                         WEBINY_PROJECT_NAME: context.project.name,
                         WEBINY_LOGS_FORWARD_URL: logging.url
                     }

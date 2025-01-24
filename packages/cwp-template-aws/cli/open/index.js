@@ -14,6 +14,11 @@ module.exports = {
                     type: "string",
                     required: true
                 });
+                yargs.option("variant", {
+                    describe: `Variant`,
+                    type: "string",
+                    required: false
+                });
             },
             async args => {
                 const appName = args.app === "website" ? "public website" : "Admin app";
@@ -23,10 +28,15 @@ module.exports = {
                 if (args.app === "website") {
                     appOutput = getStackOutput({
                         folder: "website",
-                        env: args.env
+                        env: args.env,
+                        variant: args.variant
                     });
                 } else {
-                    appOutput = getStackOutput({ folder: "admin", env: args.env });
+                    appOutput = getStackOutput({
+                        folder: "admin",
+                        env: args.env,
+                        variant: args.variant
+                    });
                 }
 
                 if (!appOutput) {

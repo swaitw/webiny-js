@@ -7,6 +7,7 @@ import { LAMBDA_RUNTIME } from "~/constants";
 interface Config {
     apiFolder?: string;
     apiEnv?: string;
+    apiVariant: string;
 }
 
 interface Params {
@@ -29,13 +30,14 @@ function createFunctionArchive({ dynamoDbTable, region }: Params) {
 export class WebsiteTenantRouter extends pulumi.ComponentResource {
     public readonly originRequest: aws.lambda.Function;
 
-    constructor(name: string, config: Config = {}, opts = {}) {
+    constructor(name: string, config?: Config, opts = {}) {
         super("webiny:aws:WebsiteTenantRouter", name, {}, opts);
 
         const { region, dynamoDbTable } = getStackOutput<{ region: string; dynamoDbTable: string }>(
             {
-                folder: config.apiFolder || "api",
-                env: config.apiEnv || String(process.env.WEBINY_ENV)
+                folder: config?.apiFolder || "api",
+                env: config?.apiEnv || process.env.WEBINY_ENV || "",
+                variant: config?.apiVariant || process.env.WEBINY_ENV_VARIANT || ""
             }
         );
 

@@ -37,7 +37,7 @@ module.exports = async (inputs, context) => {
     await sendEvent("cli-project-deploy-start");
 
     try {
-        const { env = "dev" } = inputs;
+        const { env = "dev", variant = "" } = inputs;
 
         // 1. Check if Pulumi is installed. By calling the `install` method
         // manually, we get to know if the installation was initiated or not.
@@ -48,7 +48,13 @@ module.exports = async (inputs, context) => {
         installed && console.log();
 
         // 2. Check if first deployment.
-        const isFirstDeployment = !isCI && !getStackOutput({ folder: "apps/core", env });
+        const isFirstDeployment =
+            !isCI &&
+            !getStackOutput({
+                folder: "apps/core",
+                env,
+                variant
+            });
         if (isFirstDeployment) {
             context.info(`Looks like this is your first time deploying the project.`);
             context.info(
@@ -84,12 +90,19 @@ module.exports = async (inputs, context) => {
             context.success(`Project deployed.`);
         }
 
-        const projectDetails = await getInfo(env);
+        const projectDetails = await getInfo({
+            env,
+            variant
+        });
         console.log();
         console.log(bold("Project Details"));
         console.log(projectDetails);
 
-        const adminAppOutput = getStackOutput({ folder: "apps/admin", env });
+        const adminAppOutput = getStackOutput({
+            folder: "apps/admin",
+            env,
+            variant
+        });
 
         if (isFirstDeployment) {
             console.log();

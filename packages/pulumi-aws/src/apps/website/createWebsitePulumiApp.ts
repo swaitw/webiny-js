@@ -1,11 +1,11 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import fs from "fs";
-import { createPulumiApp, PulumiAppParamCallback, PulumiAppParam } from "@webiny/pulumi";
+import { createPulumiApp, PulumiAppParam, PulumiAppParamCallback } from "@webiny/pulumi";
 import { createPrivateAppBucket } from "../createAppBucket";
 import { applyCustomDomain, CustomDomainParams } from "../customDomain";
 import { createPrerenderingService } from "./WebsitePrerendering";
-import { CoreOutput, ApiOutput, VpcConfig } from "~/apps";
+import { ApiOutput, CoreOutput, VpcConfig } from "~/apps";
 import { addDomainsUrlsOutputs, tagResources, withCommonLambdaEnvVariables } from "~/utils";
 import { applyTenantRouter } from "~/apps/tenantRouter";
 import { withServiceManifest } from "~/utils/withServiceManifest";
@@ -317,7 +317,8 @@ export const createWebsitePulumiApp = (projectAppParams: CreateWebsitePulumiAppP
 
             tagResources({
                 WbyProjectName: String(process.env["WEBINY_PROJECT_NAME"]),
-                WbyEnvironment: String(process.env["WEBINY_ENV"])
+                WbyEnvironment: String(process.env["WEBINY_ENV"]),
+                WbyEnvironmentVariant: String(process.env["WEBINY_ENV_VARIANT"])
             });
 
             return {

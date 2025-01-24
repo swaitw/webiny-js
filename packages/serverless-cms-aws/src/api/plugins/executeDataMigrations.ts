@@ -2,22 +2,42 @@ import { LambdaClient } from "@webiny/aws-sdk/client-lambda";
 import { CliContext } from "@webiny/cli/types";
 import { getStackOutput } from "@webiny/cli-plugin-deploy-pulumi/utils";
 import {
-    LogReporter,
-    InteractiveCliStatusReporter,
-    NonInteractiveCliStatusReporter,
-    MigrationRunner,
     CliMigrationRunReporter,
+    InteractiveCliStatusReporter,
+    LogReporter,
+    MigrationRunner,
     MigrationStatusReporter,
+    NonInteractiveCliStatusReporter,
     VoidStatusReporter
 } from "@webiny/data-migration/cli";
 
+export interface IExecuteDataMigrationsParamsInputs {
+    build?: boolean;
+    preview?: boolean;
+    dataMigrationLogStreaming?: boolean;
+    variant?: string;
+}
+
+export interface IExecuteDataMigrationsParamsProjectApplication {
+    id: string;
+}
+
+export interface IExecuteDataMigrationsParams {
+    env: string;
+    variant: string;
+    inputs: IExecuteDataMigrationsParamsInputs;
+    projectApplication: IExecuteDataMigrationsParamsProjectApplication;
+}
 /**
  * On every deployment of the API project application, this plugin invokes the data migrations Lambda.
  */
 export const executeDataMigrations = {
     type: "hook-after-deploy",
     name: "hook-after-deploy-api-execute-data-migrations",
-    async hook({ inputs, env, projectApplication }: Record<string, any>, context: CliContext) {
+    async hook(
+        { inputs, env, projectApplication }: IExecuteDataMigrationsParams,
+        context: CliContext
+    ) {
         // Only run migrations for `api` app
         if (projectApplication.id !== "api") {
             return;
@@ -33,7 +53,11 @@ export const executeDataMigrations = {
             return;
         }
 
-        const apiOutput = getStackOutput({ folder: "apps/api", env });
+        const apiOutput = getStackOutput({
+            folder: "apps/api",
+            env,
+            variant: inputs.variant || ""
+        });
 
         context.info("Executing data migrations AWS Lambda function...");
 

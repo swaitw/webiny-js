@@ -9,6 +9,11 @@ import { getStackOutput } from "@webiny/cli-plugin-deploy-pulumi/utils";
 
 let websiteRouterOriginRequestFunction = "";
 
+export interface LambdaEdgeWarningParams {
+    env: string;
+    variant: string;
+}
+
 export const lambdaEdgeWarning = [
     // The reason we're retrieving `websiteRouterOriginRequestFunction` before destroy is because
     // when trying to do it afterwards, the stack is already deleted, and we can't retrieve the
@@ -16,8 +21,12 @@ export const lambdaEdgeWarning = [
     {
         type: "hook-before-destroy",
         name: "hook-before-destroy-lambda-edge-warning",
-        hook(params: Record<string, any>) {
-            const websiteOutput = getStackOutput({ folder: "apps/website", env: params.env });
+        hook(params: LambdaEdgeWarningParams) {
+            const websiteOutput = getStackOutput({
+                folder: "apps/website",
+                env: params.env,
+                variant: params.variant
+            });
 
             if (websiteOutput && websiteOutput.websiteRouterOriginRequestFunction) {
                 websiteRouterOriginRequestFunction =

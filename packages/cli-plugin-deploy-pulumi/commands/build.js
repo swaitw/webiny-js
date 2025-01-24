@@ -6,9 +6,9 @@ module.exports = (params, context) => {
         name: "build",
         createProjectApplicationWorkspace: true,
         command: async ({ inputs, context, projectApplication }) => {
-            const { env } = inputs;
+            const { env, variant } = inputs;
 
-            const hookArgs = { context, env, inputs, projectApplication };
+            const hookArgs = { context, env, variant, inputs, projectApplication };
 
             await runHook({
                 hook: "hook-before-build",

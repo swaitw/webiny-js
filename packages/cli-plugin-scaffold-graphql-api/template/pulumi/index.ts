@@ -12,7 +12,8 @@ export = async () => {
     // https://www.webiny.com/docs/how-to-guides/environment-variables#webiny-environment-variables
     tagResources({
         WbyProjectName: String(process.env.WEBINY_PROJECT_NAME),
-        WbyEnvironment: String(process.env.WEBINY_ENV)
+        WbyEnvironment: String(process.env.WEBINY_ENV),
+        WbyEnvironmentVariant: String(process.env.WEBINY_ENV_VARIANT)
     });
 
     const environment = String(process.env.WEBINY_ENV);

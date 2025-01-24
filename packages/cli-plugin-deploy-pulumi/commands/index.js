@@ -23,10 +23,11 @@ module.exports = [
                         describe: `Environment`,
                         type: "string"
                     });
-                    // yargs.option("variant", {
-                    //     describe: `Variant (only for staged rollouts)`,
-                    //     type: "string"
-                    // });
+                    yargs.option("variant", {
+                        describe: `Variant`,
+                        type: "string",
+                        required: false
+                    });
                     yargs.option("build", {
                         default: true,
                         describe: `Build packages before deploying`,
@@ -118,10 +119,11 @@ module.exports = [
                         describe: `Environment`,
                         type: "string"
                     });
-                    // yargs.option("variant", {
-                    //     describe: `Variant (only for staged rollouts)`,
-                    //     type: "string"
-                    // });
+                    yargs.option("variant", {
+                        describe: `Variant`,
+                        type: "string",
+                        required: false
+                    });
                     yargs.option("debug", {
                         default: false,
                         describe: `Turn on debug logs`,
@@ -164,6 +166,11 @@ module.exports = [
                         yargs.option("env", {
                             describe: `Environment`,
                             type: "string"
+                        });
+                        yargs.option("variant", {
+                            describe: `Variant`,
+                            type: "string",
+                            required: false
                         });
                         yargs.option("package", {
                             alias: "p",
@@ -227,6 +234,11 @@ module.exports = [
                         yargs.option("env", {
                             describe: `Environment`,
                             type: "string"
+                        });
+                        yargs.option("variant", {
+                            describe: `Variant`,
+                            type: "string",
+                            required: false
                         });
                         yargs.option("build", {
                             describe: `While making code changes, re-build all relevant packages`,
@@ -297,7 +309,11 @@ module.exports = [
                         describe: `Environment`,
                         type: "string"
                     });
-
+                    yargs.option("variant", {
+                        describe: `Variant`,
+                        type: "string",
+                        required: false
+                    });
                     yargs
                         .option("confirm-destroy-env", {
                             describe: `Confirm environment name to destroy. Must be passed when destroying the whole project.`,
@@ -355,10 +371,11 @@ module.exports = [
                         describe: `Environment`,
                         type: "string"
                     });
-                    // yargs.option("variant", {
-                    //     describe: `Variant (staged rollouts only)`,
-                    //     type: "string"
-                    // });
+                    yargs.option("variant", {
+                        describe: `Variant`,
+                        type: "string",
+                        required: false
+                    });
                     yargs.option("json", {
                         describe: `Emit output as JSON`,
                         type: "boolean"
@@ -389,10 +406,11 @@ module.exports = [
                         describe: `Environment`,
                         type: "string"
                     });
-                    // yargs.option("variant", {
-                    //     describe: `Variant (only for staged rollouts)`,
-                    //     type: "string"
-                    // });
+                    yargs.option("variant", {
+                        describe: `Variant`,
+                        type: "string",
+                        required: false
+                    });
                     yargs.option("debug", {
                         default: false,
                         describe: `Turn on debug logs`,
@@ -422,7 +440,11 @@ module.exports = [
                         type: "string",
                         required: true
                     });
-
+                    yargs.option("variant", {
+                        describe: `Variant`,
+                        type: "string",
+                        required: false
+                    });
                     yargs.option("force", {
                         describe: `!!USE WITH CAUTION!! Force execution of the migrations.`,
                         type: "boolean",

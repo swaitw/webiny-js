@@ -2,6 +2,16 @@ import { EventBridgeClient, PutEventsCommand } from "@webiny/aws-sdk/client-even
 import { CliContext } from "@webiny/cli/types";
 import { getStackOutput } from "@webiny/cli-plugin-deploy-pulumi/utils";
 
+export interface IRenderWebsiteParamsInputs {
+    preview?: boolean;
+    build?: boolean;
+}
+
+export interface IRenderWebsiteParams {
+    env: string;
+    variant: string;
+    inputs: IRenderWebsiteParamsInputs;
+}
 /**
  * On every deployment of the Website project application, this plugin ensures all pages created
  * with the Webiny Page Builder application are re-rendered.
@@ -9,7 +19,7 @@ import { getStackOutput } from "@webiny/cli-plugin-deploy-pulumi/utils";
 export const renderWebsite = {
     type: "hook-after-deploy",
     name: "hook-after-deploy-website-render",
-    async hook(params: Record<string, any>, context: CliContext) {
+    async hook(params: IRenderWebsiteParams, context: CliContext) {
         if (params.inputs.build === false) {
             context.info(`"--no-build" argument detected - skipping Website re-rendering.`);
             return;
@@ -20,7 +30,11 @@ export const renderWebsite = {
             return;
         }
 
-        const coreOutput = getStackOutput({ folder: "apps/core", env: params.env });
+        const coreOutput = getStackOutput({
+            folder: "apps/core",
+            env: params.env,
+            variant: params.variant
+        });
 
         context.info("Issuing a complete website render job...");
 

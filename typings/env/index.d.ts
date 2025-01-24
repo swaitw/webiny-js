@@ -28,6 +28,7 @@ declare namespace NodeJS {
         MOCK_DYNAMODB_ENDPOINT?: string;
         ELASTICSEARCH_PORT?: string;
         WEBINY_ENV?: string;
+        WEBINY_ENV_VARIANT?: string;
         WEBINY_ADMIN_ENV?: string;
         WEBINY_WEBSITE_ENV?: string;
         REACT_APP_DEBUG?: "true" | "false" | string;
@@ -51,7 +52,6 @@ declare namespace NodeJS {
         WEBINY_HEADLESS_CMS_GRAPHQL_INPUT_REQUIRE_ARRAY_ITEM?: "false" | string;
         WEBINY_ELASTICSEARCH_INDEX_LOCALE?: "true" | string;
         APW_SCHEDULER_SCHEDULE_ACTION_HANDLER?: string;
-        STAGED_ROLLOUTS_VARIANT?: string;
         ELASTIC_SEARCH_ENDPOINT?: string;
         EVENT_BUS?: string;
         WEBINY_FUNCTION_TYPE?: string;

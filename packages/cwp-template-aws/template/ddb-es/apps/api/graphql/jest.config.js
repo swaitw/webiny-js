@@ -11,10 +11,15 @@ const { getStackOutput } = require("@webiny/cli-plugin-deploy-pulumi/utils");
 
 const TEST_TYPE = process.env.TEST_TYPE;
 const DEPLOY_ENVIRONMENT = "dev";
+const DEPLOY_VARIANT = "";
 
 if (TEST_TYPE !== "unit") {
     log.info(`${log.info.hl("apps/api/graphql")}: Assigning environment variables...`);
-    const stackOutput = getStackOutput({ folder: "apps/api", env: DEPLOY_ENVIRONMENT });
+    const stackOutput = getStackOutput({
+        folder: "apps/api",
+        env: DEPLOY_ENVIRONMENT,
+        variant: DEPLOY_VARIANT
+    });
 
     if (stackOutput) {
         // Assign received values as environment variables.

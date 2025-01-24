@@ -11,7 +11,7 @@ const magicPrefixes = ["WEBINY_", "WEBINY_API_", "WCP_", "OKTA_", "AUTH0_"];
 
 const variablesPromise = new Promise<EnvVariables>(resolve => {
     sealEnvVariables = () => {
-        // Apart from a couple of basic environment variables like STAGED_ROLLOUTS_VARIANT and DEBUG,
+        // Apart from a couple of basic environment variables like DEBUG,
         // we also take into consideration variables that have `WEBINY_` and `WCP_` prefix in their names.
         const baseVariables = Object.keys(process.env).reduce<EnvVariables>(
             (current, environmentVariableName) => {
@@ -25,7 +25,6 @@ const variablesPromise = new Promise<EnvVariables>(resolve => {
                 return current;
             },
             {
-                // STAGED_ROLLOUTS_VARIANT: app.ctx.variant || "",
                 // Among other things, this determines the amount of information we reveal on runtime errors.
                 // https://www.webiny.com/docs/how-to-guides/environment-variables/#debug-environment-variable
                 DEBUG: String(process.env.DEBUG),

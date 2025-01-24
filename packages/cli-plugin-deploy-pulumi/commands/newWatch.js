@@ -153,9 +153,15 @@ module.exports = async (inputs, context) => {
         );
     });
 
-    const deploymentId = getDeploymentId({ env: inputs.env });
+    const deploymentId = getDeploymentId({
+        env: inputs.env,
+        variant: inputs.variant
+    });
     const iotEndpointTopic = `webiny-watch-${deploymentId}`;
-    const iotEndpoint = await getIotEndpoint({ env: inputs.env });
+    const iotEndpoint = await getIotEndpoint({
+        env: inputs.env,
+        variant: inputs.variant
+    });
     const sessionId = new Date().getTime();
     const increaseTimeout = inputs.increaseTimeout;
 

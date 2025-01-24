@@ -3,14 +3,14 @@ import path from "path";
 import * as pulumi from "@pulumi/pulumi";
 import { PulumiAppModuleDefinition } from "./PulumiAppModule";
 import {
-    PulumiAppResourceArgs,
-    PulumiAppResourceConstructor,
-    PulumiAppResourceType,
-    PulumiAppResource,
     CreatePulumiAppResourceParams,
-    PulumiAppResourceConfigSetter,
+    PulumiAppResource,
+    PulumiAppResourceArgs,
     PulumiAppResourceConfigModifier,
-    PulumiAppResourceConfigProxy
+    PulumiAppResourceConfigProxy,
+    PulumiAppResourceConfigSetter,
+    PulumiAppResourceConstructor,
+    PulumiAppResourceType
 } from "./PulumiAppResource";
 import {
     CreatePulumiAppParams,
@@ -63,7 +63,10 @@ export function createPulumiApp<TResources extends Record<string, unknown>>(
         program: params.program,
         params: {
             create: params.config || {},
-            run: {}
+            run: {
+                env: "",
+                variant: ""
+            }
         },
         env: {
             name: "",
@@ -99,7 +102,10 @@ export function createPulumiApp<TResources extends Record<string, unknown>>(
                 await handler();
             }
 
-            app.params.run = {};
+            app.params.run = {
+                env: "",
+                variant: ""
+            };
 
             return app.outputs;
         },

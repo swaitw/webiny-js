@@ -5,8 +5,10 @@ const getOutputJson = ({ folder, env, cwd, variant }) => {
     const project = getProject();
     const execa = require("execa");
 
-    if (cache[folder + env]) {
-        return cache[folder + env];
+    const cacheKey = [folder, env, variant].filter(Boolean).join("_");
+
+    if (cache[cacheKey]) {
+        return cache[cacheKey];
     }
 
     try {
@@ -21,7 +23,7 @@ const getOutputJson = ({ folder, env, cwd, variant }) => {
 
         // Let's get the output after the first line break. Everything before is just yarn stuff.
         const extractedJSON = stdout.substring(stdout.indexOf("{"));
-        return (cache[folder + env] = JSON.parse(extractedJSON));
+        return (cache[cacheKey] = JSON.parse(extractedJSON));
     } catch (e) {
         return null;
     }

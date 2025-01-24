@@ -1,18 +1,41 @@
 const getStackOutput = require("@webiny/cli-plugin-deploy-pulumi/utils/getStackOutput");
 const path = require("path");
 const { blue } = require("chalk");
+const { splitStackName } = require("@webiny/cli-plugin-deploy-pulumi/utils/getStackName");
 
-const getInfo = async env => {
+const getInfo = async params => {
+    if (typeof params !== "object" || !params.env) {
+        throw new Error("Please provide an object with `env` and `variant` properties.");
+    }
+    const { env, variant } = params;
     const apiOutputPromise = new Promise(resolve => {
-        resolve(getStackOutput({ folder: "apps/api", env }));
+        resolve(
+            getStackOutput({
+                folder: "apps/api",
+                env,
+                variant
+            })
+        );
     });
 
     const adminOutputPromise = new Promise(resolve => {
-        resolve(getStackOutput({ folder: "apps/admin", env }));
+        resolve(
+            getStackOutput({
+                folder: "apps/admin",
+                env,
+                variant
+            })
+        );
     });
 
     const websiteOutputPromise = new Promise(resolve => {
-        resolve(getStackOutput({ folder: "apps/website", env }));
+        resolve(
+            getStackOutput({
+                folder: "apps/website",
+                env,
+                variant
+            })
+        );
     });
 
     const outputs = await Promise.all([apiOutputPromise, adminOutputPromise, websiteOutputPromise]);
@@ -20,9 +43,10 @@ const getInfo = async env => {
     const stacksDeployedCount = outputs.filter(Boolean).length;
 
     if (stacksDeployedCount === 0) {
+        const variantMessage = variant ? ` and variant ${variant}` : "";
         return [
             "It seems none of the stacks were deployed, so no info could be provided.",
-            `Please check if the provided environment ${env} is correct.`
+            `Please check if the provided environment ${env}${variantMessage} is correct.`
         ].join(" ");
     }
 
@@ -34,6 +58,7 @@ const getInfo = async env => {
     if (api) {
         output.push(
             `‣ Environment name: ${blue(env)}`,
+            `‣ Environment variant name: ${variant ? blue(variant) : "-"}`,
             `‣ AWS region: ${api?.region}`,
             `‣ Main GraphQL API: ${api.apiUrl + "/graphql"}`,
             `‣ Headless CMS GraphQL API:`,
@@ -44,6 +69,7 @@ const getInfo = async env => {
     } else {
         output.push(
             `‣ Environment name: -`,
+            `‣ Environment variant name: -`,
             `‣ AWS region: -`,
             `‣ Main GraphQL API: -`,
             `‣ Headless CMS GraphQL API:`,
@@ -93,8 +119,7 @@ module.exports = {
                 });
             },
             async args => {
-                const { env } = args;
-                if (!env) {
+                if (!args.env) {
                     // Get all existing environments
                     const glob = require("fast-glob");
 
@@ -109,9 +134,9 @@ module.exports = {
                         }
                     );
 
-                    const existingEnvs = pulumiAdminStackFilesPaths.map(current =>
-                        path.basename(current, ".json")
-                    );
+                    const existingEnvs = pulumiAdminStackFilesPaths.map(current => {
+                        return splitStackName(path.basename(current, ".json"));
+                    });
 
                     if (existingEnvs.length === 0) {
                         context.info(
@@ -132,12 +157,17 @@ module.exports = {
                         console.log();
                     }
 
-                    for (const env of existingEnvs) {
-                        console.log(await getInfo(env, context));
+                    for (const { env, variant } of existingEnvs) {
+                        console.log(await getInfo({ env, variant }));
                         console.log();
                     }
                 } else {
-                    console.log(await getInfo(env, context));
+                    console.log(
+                        await getInfo({
+                            env: args.env,
+                            variant: args.variant || ""
+                        })
+                    );
                     console.log();
                 }
 

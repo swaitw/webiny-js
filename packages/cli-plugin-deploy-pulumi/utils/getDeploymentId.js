@@ -7,7 +7,8 @@ const getDeploymentId = params => {
 
     const coreStackOutput = getStackOutput({
         folder: "core",
-        env: params.env
+        env: params.env,
+        variant: params.variant
     });
 
     return coreStackOutput.deploymentId;

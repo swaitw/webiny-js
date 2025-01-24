@@ -11,6 +11,7 @@ const { getStackOutput } = require("@webiny/cli-plugin-deploy-pulumi/utils");
 
 const TEST_TYPE = process.env.TEST_TYPE;
 const DEPLOY_ENVIRONMENT = "dev";
+const DEPLOY_VARIANT = "";
 
 if (TEST_TYPE !== "unit") {
     log.info(
@@ -20,7 +21,8 @@ if (TEST_TYPE !== "unit") {
     );
     const stackOutput = getStackOutput({
         folder: "project/application/path",
-        env: DEPLOY_ENVIRONMENT
+        env: DEPLOY_ENVIRONMENT,
+        variant: DEPLOY_VARIANT
     });
 
     if (stackOutput) {

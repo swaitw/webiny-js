@@ -2,15 +2,20 @@ const execa = require("execa");
 const { getProject } = require("@webiny/cli/utils");
 
 const cache = {};
-const getOutputJson = ({ folder, env, cwd }) => {
+const getOutputJson = ({ folder, env, variant, cwd }) => {
     const project = getProject();
 
-    if (cache[folder + env]) {
-        return cache[folder + env];
+    const cacheKey = [folder, env, variant].filter(Boolean).join("_");
+
+    if (cache[cacheKey]) {
+        return cache[cacheKey];
     }
 
     try {
         const command = ["webiny", "pulumi", folder, "--env", env, "--", "stack", "export"];
+        if (variant) {
+            command.push("--variant", variant);
+        }
 
         const { stdout } = execa.sync("yarn", command.filter(Boolean), {
             cwd: cwd || project.root

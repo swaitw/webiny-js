@@ -30,6 +30,7 @@ export default {
                 getStackOutput({
                     folder: "project-applications-path/api",
                     env: options.env,
+                    variant: options.variant,
                     map: API_MAP
                 })
             );
@@ -49,6 +50,7 @@ export default {
                 getStackOutput({
                     folder: "project-applications-path/api",
                     env: options.env,
+                    variant: options.variant,
                     map: API_MAP
                 })
             );

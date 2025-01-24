@@ -358,7 +358,8 @@ export default (): CliCommandScaffoldTemplate<Input> => ({
             } else {
                 const stackOutput = getStackOutput({
                     folder: input.path,
-                    env: "dev"
+                    env: "dev",
+                    variant: ""
                 });
 
                 console.log(chalk.bold("Next Steps"));

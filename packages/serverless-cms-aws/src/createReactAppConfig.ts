@@ -11,6 +11,7 @@ export interface RunCommandOptions {
     cwd: string;
     command: string;
     env: string;
+    variant: string;
     [key: string]: any;
 }
 
@@ -113,6 +114,7 @@ function createEnvModifierFromMap(
         const output = getStackOutput({
             folder: app,
             env: options.env,
+            variant: options.variant,
             map
         }) as ReactAppEnv;
 
@@ -135,7 +137,14 @@ function createEmptyReactConfig(options: RunCommandOptions): ReactAppConfig {
 
         let envVars = pulumiOutputToEnvModifiers.reduce<ReactAppEnv>((env, [app, modifier]) => {
             if (!outputCache.has(app)) {
-                outputCache.set(app, getStackOutput({ folder: app, env: options.env }));
+                outputCache.set(
+                    app,
+                    getStackOutput({
+                        folder: app,
+                        env: options.env,
+                        variant: options.variant
+                    })
+                );
             }
 
             return modifier({ output: outputCache.get(app)!, env });

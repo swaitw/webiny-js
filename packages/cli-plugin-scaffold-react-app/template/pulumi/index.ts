@@ -7,7 +7,6 @@ import { tagResources } from "@webiny/pulumi-aws";
  *
  * If needed, feel free to add new resources or modify the existing ones.
  */
-
 import App from "./app";
 import Cloudfront from "./cloudfront";
 
@@ -15,7 +14,8 @@ export = async () => {
     // Add tags to all resources that support tagging.
     tagResources({
         WbyProjectName: String(process.env.WEBINY_PROJECT_NAME),
-        WbyEnvironment: String(process.env.WEBINY_ENV)
+        WbyEnvironment: String(process.env.WEBINY_ENV),
+        WbyEnvironmentVariant: String(process.env.WEBINY_ENV_VARIANT)
     });
 
     const app = new App();

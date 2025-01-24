@@ -12,6 +12,7 @@ module.exports = async ({ inputs, context, pulumi }) => {
         execa: {
             env: {
                 WEBINY_ENV: inputs.env,
+                WEBINY_ENV_VARIANT: inputs.variant || "",
                 WEBINY_PROJECT_NAME: context.project.name,
                 PULUMI_CONFIG_PASSPHRASE
             }

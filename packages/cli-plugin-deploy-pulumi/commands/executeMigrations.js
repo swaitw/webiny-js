@@ -9,7 +9,11 @@ const {
 } = require("@webiny/data-migration/cli");
 
 module.exports = async (params, context) => {
-    const apiOutput = getStackOutput({ folder: "apps/api", env: params.env });
+    const apiOutput = getStackOutput({
+        folder: "apps/api",
+        env: params.env,
+        variant: params.variant
+    });
 
     context.info("Executing data migration Lambda function...");
 
