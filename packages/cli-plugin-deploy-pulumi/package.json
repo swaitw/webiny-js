@@ -17,16 +17,13 @@
     "@webiny/plugins": "0.0.0",
     "@webiny/pulumi-sdk": "0.0.0",
     "@webiny/utils": "0.0.0",
-    "body-parser": "1.20.3",
     "chalk": "^4.1.2",
+    "ci-info": "^3.9.0",
     "execa": "^5.1.1",
     "exit-hook": "^4.0.0",
-    "express": "^4.21.2",
     "fast-glob": "^3.2.7",
     "humanize-duration": "3.32.1",
-    "is-ci": "^3.0.1",
     "listr": "^0.14.3",
-    "localtunnel": "2.0.2",
     "lodash": "^4.17.21",
     "log-update": "^4.0.0",
     "mime": "^3.0.0",
@@ -38,15 +35,26 @@
     "p-retry": "^4.6.2",
     "replace-in-path": "^1.1.0"
   },
+  "devDependencies": {
+    "@types/humanize-duration": "^3.27.4",
+    "@types/listr": "^0.14.9",
+    "@types/node-notifier": "^8.0.5",
+    "@webiny/project-utils": "0.0.0",
+    "rimraf": "^6.0.1",
+    "typescript": "5.3.3"
+  },
   "license": "MIT",
   "publishConfig": {
     "access": "public",
-    "directory": "."
+    "directory": "dist"
+  },
+  "scripts": {
+    "build": "yarn webiny run build",
+    "watch": "yarn webiny run watch"
   },
   "adio": {
     "ignoreDirs": [
       "/node_modules/",
-      "/dist/",
       "commands/newWatch/handler"
     ],
     "ignore": {
@@ -54,6 +62,5 @@
         "exit-hook"
       ]
     }
-  },
-  "gitHead": "b8aec8a1be3f25c3b428b357fe1e352c7cbff9ae"
+  }
 }

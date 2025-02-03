@@ -73,6 +73,7 @@ export default (): CliCommandPlugin[] => {
             // @ts-ignore This plugin doesn't have a type
             create({ yargs }) {
                 yargs.command(["link-extensions"], `Link all project extensions.`, async () => {
+                    // eslint-disable-next-line
                     await import(__dirname + "/utils/linkAllExtensions.js").then(m =>
                         m.linkAllExtensions()
                     );

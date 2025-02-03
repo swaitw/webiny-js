@@ -18,25 +18,19 @@ export const ApiOutput = createAppModule({
             }
 
             return {
-                apiDomain: output["apiDomain"] as string,
-                apiUrl: output["apiUrl"] as string,
-                graphqlLambdaRole: output["graphqlLambdaRole"] as string,
-                apwSchedulerEventRule: output["apwSchedulerEventRule"] as string | undefined,
-                apwSchedulerEventTargetId: output["apwSchedulerEventTargetId"] as
-                    | string
-                    | undefined,
-                apwSchedulerExecuteAction: output["apwSchedulerExecuteAction"] as
-                    | string
-                    | undefined,
-                apwSchedulerScheduleAction: output["apwSchedulerScheduleAction"] as
-                    | string
-                    | undefined,
-                cognitoAppClientId: output["cognitoAppClientId"] as string,
-                cognitoUserPoolId: output["cognitoUserPoolId"] as string,
-                cognitoUserPoolPasswordPolicy: output["cognitoUserPoolPasswordPolicy"] as string,
-                dynamoDbTable: output["dynamoDbTable"] as string,
-                region: output["region"] as string,
-                websocketApiUrl: output["websocketApiUrl"] as string
+                apiDomain: output["apiDomain"],
+                apiUrl: output["apiUrl"],
+                graphqlLambdaRole: output["graphqlLambdaRole"],
+                apwSchedulerEventRule: output["apwSchedulerEventRule"],
+                apwSchedulerEventTargetId: output["apwSchedulerEventTargetId"],
+                apwSchedulerExecuteAction: output["apwSchedulerExecuteAction"],
+                apwSchedulerScheduleAction: output["apwSchedulerScheduleAction"],
+                cognitoAppClientId: output["cognitoAppClientId"],
+                cognitoUserPoolId: output["cognitoUserPoolId"],
+                cognitoUserPoolPasswordPolicy: output["cognitoUserPoolPasswordPolicy"],
+                dynamoDbTable: output["dynamoDbTable"],
+                region: output["region"],
+                websocketApiUrl: output["websocketApiUrl"]
             };
         });
     }

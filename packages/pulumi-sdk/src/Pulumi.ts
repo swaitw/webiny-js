@@ -10,7 +10,7 @@ import downloadBinaries from "./downloadBinaries";
 type Command = string | string[];
 
 export interface PulumiArgs {
-    [key: string]: string | boolean;
+    [key: string]: string | boolean | undefined | string[];
 }
 
 export interface ExecaArgs {

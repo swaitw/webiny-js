@@ -40,7 +40,7 @@ export const createSettingsStorageOperations = (
                 ex.code || "GET_SETTINGS_ERROR",
                 {
                     keys,
-                    params
+                    entity: entity.name
                 }
             );
         }

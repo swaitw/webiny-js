@@ -61,7 +61,7 @@
     "packages/*/dist",
     "scripts/**",
     "**jest**",
-    "packages/cli-plugin-deploy-pulumi",
+    "packages/cli-plugin-deploy-pulumi/src/utils/workspaceTemplate/**",
     "packages/cli",
     "packages/create-webiny-project",
     "packages/cwp-template-aws/**",

@@ -1,6 +1,5 @@
 import path from "path";
 import invariant from "invariant";
-
 import { getStackOutput } from "@webiny/cli-plugin-deploy-pulumi/utils";
 import { BuildAppConfigOverrides, createBuildApp, createWatchApp } from "@webiny/project-utils";
 import { Configuration as WebpackConfig } from "webpack";
@@ -57,7 +56,7 @@ export interface EntryModifier {
 }
 
 export interface ReactAppEnv {
-    [key: string]: string | number | boolean;
+    [key: string]: string | number | boolean | undefined | string[] | number[];
 }
 
 export interface ReactAppEnvMap {
@@ -116,7 +115,7 @@ function createEnvModifierFromMap(
             env: options.env,
             variant: options.variant,
             map
-        }) as ReactAppEnv;
+        });
 
         invariant(output, NO_API_MESSAGE(options.env));
 

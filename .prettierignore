@@ -8,7 +8,7 @@
 **/.pulumi/
 .webiny/**
 packages/ui/src/RichTextEditor/editorjs/**
-packages/cli-plugin-deploy-pulumi/commands/newWatch/handler/mqtt.js
+packages/cli-plugin-deploy-pulumi/src/commands/newWatch/handler/mqtt.js
 packages/cli-plugin-scaffold-ci/src/githubActions/files/workflows/
 lerna.json
 coverage/**

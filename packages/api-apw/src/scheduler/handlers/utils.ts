@@ -123,11 +123,15 @@ export interface ApwSettings {
 }
 
 const getVariant = (): string => {
-    const value = process.env.WEBINY_ENV_VARIANT;
-    if (!value || value === "undefined" || typeof value !== "string") {
-        return "";
-    }
-    return String(value);
+    /**
+     * Variant can only be default for now.
+     */
+    return "default";
+    // const value = process.env.WEBINY_ENV_VARIANT;
+    // if (!value || value === "undefined" || typeof value !== "string") {
+    //     return "";
+    // }
+    // return String(value);
 };
 
 export const getApwSettings = async (): Promise<ApwSettings> => {

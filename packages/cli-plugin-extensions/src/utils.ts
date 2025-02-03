@@ -2,8 +2,6 @@ import readJson from "load-json-file";
 import { PackageJson } from "@webiny/cli-plugin-scaffold/types";
 import writeJson from "write-json-file";
 import path from "path";
-
-// @ts-expect-error No types available for this package.
 import { getProject } from "@webiny/cli/utils";
 
 export const updateDependencies = async (

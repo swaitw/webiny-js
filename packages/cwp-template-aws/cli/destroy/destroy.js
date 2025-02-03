@@ -4,6 +4,10 @@ const { getPulumi } = require("@webiny/cli-plugin-deploy-pulumi/utils");
 const path = require("path");
 const execa = require("execa");
 
+const convertToBoolean = value => {
+    return value === "true" || value === true;
+};
+
 const destroy = ({ stack, env, variant, inputs }) => {
     const command = [
         "webiny",
@@ -12,11 +16,11 @@ const destroy = ({ stack, env, variant, inputs }) => {
         "--env",
         env,
         "--debug",
-        Boolean(inputs.debug),
+        convertToBoolean(inputs.debug),
         "--build",
-        Boolean(inputs.build),
+        convertToBoolean(inputs.build),
         "--preview",
-        Boolean(inputs.preview)
+        convertToBoolean(inputs.preview)
     ];
     if (variant) {
         command.push("--variant", variant);
@@ -29,10 +33,8 @@ const destroy = ({ stack, env, variant, inputs }) => {
 module.exports = async (inputs, context) => {
     const { env, variant = "" } = inputs;
 
-    // Ensure Pulumi is installed.
-    const pulumi = await getPulumi({ install: false });
-
-    pulumi.install();
+    // This will ensure that the user has Pulumi CLI installed.
+    await getPulumi();
 
     const hasCore = fs.existsSync(path.join(context.project.root, "apps", "core"));
 

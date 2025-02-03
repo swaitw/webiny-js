@@ -1,7 +1,10 @@
-const getStackOutput = require("@webiny/cli-plugin-deploy-pulumi/utils/getStackOutput");
+const {
+    getStackOutput,
+    splitStackName,
+    getPulumi
+} = require("@webiny/cli-plugin-deploy-pulumi/utils");
 const path = require("path");
 const { blue } = require("chalk");
-const { splitStackName } = require("@webiny/cli-plugin-deploy-pulumi/utils/getStackName");
 
 const getInfo = async params => {
     if (typeof params !== "object" || !params.env) {
@@ -119,6 +122,9 @@ module.exports = {
                 });
             },
             async args => {
+                // This will ensure that the user has Pulumi CLI installed.
+                await getPulumi();
+
                 if (!args.env) {
                     // Get all existing environments
                     const glob = require("fast-glob");

@@ -1,5 +1,5 @@
 const { globalConfig } = require("@webiny/global-config");
-const isCI = require("is-ci");
+const { isCI } = require("ci-info");
 const { WTS } = require("wts-client/node");
 const baseSendEvent = require("./sendEvent");
 

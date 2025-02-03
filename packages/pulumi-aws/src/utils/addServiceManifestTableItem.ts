@@ -29,7 +29,7 @@ export const addServiceManifestTableItem = (
                 .apply(res => {
                     return pulumi.interpolate`{
                 "PK": "SERVICE_MANIFEST#${app.name}#${manifest.name}",
-                "SK": "${app.params.run.variant || "default"}",
+                "SK": "default",
                 "GSI1_PK": "SERVICE_MANIFESTS",
                 "GSI1_SK": "${app.name}#${manifest.name}",
                 "data": {

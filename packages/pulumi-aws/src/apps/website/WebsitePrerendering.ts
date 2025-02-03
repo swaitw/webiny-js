@@ -65,7 +65,7 @@ function createPrerenderingSettingsDbItem(
             rangeKey: params.dbTableRangeKey,
             item: pulumi.interpolate`{
                 "PK": "PS#SETTINGS",
-                "SK": "${app.params.run.variant || "default"}",
+                "SK": "default",
                 "data": {
                     "appUrl": "${params.appUrl}",
                     "deliveryUrl": "${params.deliveryUrl}",

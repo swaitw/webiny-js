@@ -1,0 +1,176 @@
+import path from "path";
+// @ts-expect-error
+import { getProject, getProjectApplication, sendEvent } from "@webiny/cli/utils";
+import {
+    createProjectApplicationWorkspace,
+    ICreateProjectApplicationWorkspaceCallable
+} from "./createProjectApplicationWorkspace";
+import { login } from "./login";
+import { loadEnvVariables } from "./loadEnvVariables";
+import { getPulumi } from "./getPulumi";
+import { measureDuration } from "./measureDuration";
+import { GracefulPulumiError } from "./GracefulPulumiError";
+import { ProjectApplication } from "@webiny/cli/types";
+import { Context, IPulumi, IUserCommandInput } from "~/types";
+
+export interface ICreatePulumiCommandParamsCommandParams {
+    inputs: IUserCommandInput;
+    context: Context;
+    getDuration: () => string;
+    pulumi: IPulumi;
+    projectApplication: ProjectApplication;
+}
+
+export interface ICreatePulumiCommandParamsCommand {
+    (params: ICreatePulumiCommandParamsCommandParams): Promise<unknown>;
+}
+
+export interface ICreatePulumiCommandParams {
+    name: string;
+    command: ICreatePulumiCommandParamsCommand;
+    createProjectApplicationWorkspace?: ICreateProjectApplicationWorkspaceCallable | boolean;
+    telemetry?: boolean;
+}
+
+export const createPulumiCommand = ({
+    name,
+    command,
+    createProjectApplicationWorkspace: createProjectApplicationWorkspaceParam,
+    telemetry
+}: ICreatePulumiCommandParams) => {
+    return async (params: IUserCommandInput, context: Context) => {
+        // If folder not specified, that means we want to deploy the whole project (all project applications).
+        // For that, we look if there are registered plugins that perform that.
+        if (!params.folder) {
+            const plugin = context.plugins.byName(`cli-command-deployment-${name}-all`);
+            if (!plugin) {
+                throw new GracefulPulumiError(
+                    `Cannot continue - "cli-command-deployment-${name}-all" plugin not found.`
+                );
+            }
+
+            return plugin[name](params, context);
+        }
+
+        // Before proceeding, let's detect if multiple project applications were passed.
+        const folders = params.folder.split(",").map(current => current.trim());
+        if (folders.length > 1) {
+            for (let i = 0; i < folders.length; i++) {
+                const folder = folders[i];
+                await createPulumiCommand({ name, command, createProjectApplicationWorkspace })(
+                    {
+                        ...params,
+                        folder
+                    },
+                    context
+                );
+            }
+
+            return;
+        }
+
+        // Detect if an app alias was provided.
+        const project = getProject();
+        if (project.config.appAliases) {
+            const appAliases = project.config.appAliases;
+            if (appAliases[params.folder]) {
+                params.folder = appAliases[params.folder];
+            }
+        }
+
+        const sendTelemetryEvents = telemetry === true && params.telemetry !== false;
+        const getTelemetryEventName = (stage: string) => `cli-pulumi-command-${name}-${stage}`;
+        const telemetryProperties = {
+            env: params.env || "unknown",
+            variant: params.variant || "unknown",
+            commandParams: JSON.stringify(params)
+        };
+
+        let projectApplication: ProjectApplication | undefined = undefined;
+
+        try {
+            if (sendTelemetryEvents) {
+                const eventName = getTelemetryEventName("start");
+                await sendEvent(eventName, telemetryProperties);
+            }
+
+            if (!params.env) {
+                throw new GracefulPulumiError(`Please specify environment, for example "dev".`);
+            }
+
+            const getDuration = measureDuration();
+
+            const cwd = path.join(process.cwd(), params.folder);
+
+            // Get project application metadata.
+            projectApplication = getProjectApplication({ cwd });
+
+            if (createProjectApplicationWorkspaceParam !== false) {
+                await createProjectApplicationWorkspace({
+                    projectApplication,
+                    inputs: params
+                });
+            }
+
+            // Check if there are any plugins that need to be registered. This needs to happen
+            // always, no matter the value of `createProjectApplicationWorkspaceParam` parameter.
+            if (projectApplication.config.plugins) {
+                context.plugins.register(projectApplication.config.plugins);
+            }
+
+            // Load env vars specified via .env files located in project application folder.
+            await loadEnvVariables(params, context);
+
+            await login(projectApplication);
+
+            const pulumi = await getPulumi({ projectApplication });
+
+            const result = await command({
+                inputs: params,
+                context,
+                projectApplication,
+                pulumi,
+                getDuration
+            });
+
+            if (sendTelemetryEvents) {
+                const eventName = getTelemetryEventName("end");
+                await sendEvent(eventName, telemetryProperties);
+            }
+
+            return result;
+        } catch (e) {
+            const gracefulError = GracefulPulumiError.from(e, {
+                projectApplication: {
+                    id: projectApplication?.id || "unknown"
+                },
+                commandParams: params
+            });
+
+            if (sendTelemetryEvents) {
+                const eventName = gracefulError
+                    ? getTelemetryEventName("error-graceful")
+                    : getTelemetryEventName("error");
+
+                await sendEvent(eventName, {
+                    ...telemetryProperties,
+                    errorMessage: e.message,
+                    errorStack: e.stack
+                });
+            }
+
+            let message = "Command failed with an unexpected error. Please check the above logs.";
+            if (!params.debug) {
+                const debugFlag = context.error.hl(`--debug`);
+                message += ` Alternatively, try running the same command with the ${debugFlag} flag to get more detailed information.`;
+            }
+
+            throw new Error(message, {
+                cause: {
+                    error: e,
+                    gracefulError: gracefulError
+                }
+            });
+        }
+    };
+};

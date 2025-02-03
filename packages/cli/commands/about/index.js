@@ -1,5 +1,5 @@
 const NO_VALUE = "-";
-const isCI = require("is-ci");
+const { isCI } = require("ci-info");
 
 const getData = async context => {
     const { getUser } = require("../wcp/utils");

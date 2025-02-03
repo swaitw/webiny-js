@@ -1,4 +1,4 @@
-const getStackOutput = require("@webiny/cli-plugin-deploy-pulumi/utils/getStackOutput");
+const { getStackOutput } = require("@webiny/cli-plugin-deploy-pulumi/utils/getStackOutput");
 const open = require("open");
 
 module.exports = {

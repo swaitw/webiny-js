@@ -2,7 +2,7 @@ const { version } = require("@webiny/project-utils/package.json");
 const { getProject } = require("@webiny/cli/utils");
 const { isEnabled } = require("@webiny/telemetry/cli");
 const { globalConfig } = require("@webiny/global-config");
-const isCI = require("is-ci");
+const { isCI } = require("ci-info");
 
 module.exports.applyDefaults = () => {
     let telemetry;

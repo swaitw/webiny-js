@@ -468,8 +468,14 @@ export const createHandler = (params: CreateHandlerParams) => {
         /**
          * Log error to cloud, as these can be extremely annoying to debug!
          */
-        console.error("@webiny/handler");
-        console.error(stringifyError(error));
+        console.error("Logging error in @webiny/handler");
+        try {
+            console.error(stringifyError(error));
+        } catch (ex) {
+            console.warn("Could not stringify error:");
+            console.log(error);
+            console.error("Stringify error:", ex);
+        }
 
         reply
             .status(500)

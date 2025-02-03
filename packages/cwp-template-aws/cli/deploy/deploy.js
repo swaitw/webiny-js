@@ -5,12 +5,12 @@ const {
 } = require("@webiny/cli-plugin-deploy-pulumi/utils");
 const { sendEvent } = require("@webiny/cli/utils");
 const { bold } = require("chalk");
-const deployCommand = require("@webiny/cli-plugin-deploy-pulumi/commands/deploy");
+const { deployCommand } = require("@webiny/cli-plugin-deploy-pulumi/commands/deploy");
 const { getInfo } = require("../info");
 const sleep = require("../utils/sleep");
 const open = require("open");
 const ora = require("ora");
-const isCI = require("is-ci");
+const { isCI } = require("ci-info");
 
 const deployApp = async ({ name, folder, inputs, context, isFirstDeployment }) => {
     context.info(`Deploying %s project application...`, name);

@@ -18,36 +18,30 @@ export const CoreOutput = createAppModule({
             }
 
             return {
-                fileManagerBucketId: output["fileManagerBucketId"] as string,
-                primaryDynamodbTableArn: output["primaryDynamodbTableArn"] as string,
-                primaryDynamodbTableName: output["primaryDynamodbTableName"] as string,
-                primaryDynamodbTableHashKey: output["primaryDynamodbTableHashKey"] as string,
-                primaryDynamodbTableRangeKey: output["primaryDynamodbTableRangeKey"] as string,
-                logDynamodbTableArn: output["logDynamodbTableArn"] as string,
-                logDynamodbTableName: output["logDynamodbTableName"] as string,
-                logDynamodbTableHashKey: output["logDynamodbTableHashKey"] as string,
-                logDynamodbTableRangeKey: output["logDynamodbTableRangeKey"] as string,
-                cognitoUserPoolId: output["cognitoUserPoolId"] as string,
-                cognitoUserPoolArn: output["cognitoUserPoolArn"] as string,
-                cognitoUserPoolPasswordPolicy: output["cognitoUserPoolPasswordPolicy"] as string,
-                cognitoAppClientId: output["cognitoAppClientId"] as string,
-                eventBusName: output["eventBusName"] as string,
-                eventBusArn: output["eventBusArn"] as string,
+                fileManagerBucketId: output["fileManagerBucketId"],
+                primaryDynamodbTableArn: output["primaryDynamodbTableArn"],
+                primaryDynamodbTableName: output["primaryDynamodbTableName"],
+                primaryDynamodbTableHashKey: output["primaryDynamodbTableHashKey"],
+                primaryDynamodbTableRangeKey: output["primaryDynamodbTableRangeKey"],
+                logDynamodbTableArn: output["logDynamodbTableArn"],
+                logDynamodbTableName: output["logDynamodbTableName"],
+                logDynamodbTableHashKey: output["logDynamodbTableHashKey"],
+                logDynamodbTableRangeKey: output["logDynamodbTableRangeKey"],
+                cognitoUserPoolId: output["cognitoUserPoolId"],
+                cognitoUserPoolArn: output["cognitoUserPoolArn"],
+                cognitoUserPoolPasswordPolicy: output["cognitoUserPoolPasswordPolicy"],
+                cognitoAppClientId: output["cognitoAppClientId"],
+                eventBusName: output["eventBusName"],
+                eventBusArn: output["eventBusArn"],
                 // These outputs are optional, since VPC is not always enabled.
-                vpcPublicSubnetIds: output["vpcPublicSubnetIds"] as string[] | undefined,
-                vpcPrivateSubnetIds: output["vpcPrivateSubnetIds"] as string[] | undefined,
-                vpcSecurityGroupIds: output["vpcSecurityGroupIds"] as string[] | undefined,
-
-                elasticsearchDomainArn: output["elasticsearchDomainArn"] as string | undefined,
-                elasticsearchDomainEndpoint: output["elasticsearchDomainEndpoint"] as
-                    | string
-                    | undefined,
-                elasticsearchDynamodbTableArn: output["elasticsearchDynamodbTableArn"] as
-                    | string
-                    | undefined,
-                elasticsearchDynamodbTableName: output["elasticsearchDynamodbTableName"] as
-                    | string
-                    | undefined
+                vpcPublicSubnetIds: output["vpcPublicSubnetIds"],
+                vpcPrivateSubnetIds: output["vpcPrivateSubnetIds"],
+                vpcSecurityGroupIds: output["vpcSecurityGroupIds"],
+                // These outputs are optional, since Elasticsearch is not always enabled.
+                elasticsearchDomainArn: output["elasticsearchDomainArn"],
+                elasticsearchDomainEndpoint: output["elasticsearchDomainEndpoint"],
+                elasticsearchDynamodbTableArn: output["elasticsearchDynamodbTableArn"],
+                elasticsearchDynamodbTableName: output["elasticsearchDynamodbTableName"]
             };
         });
     }

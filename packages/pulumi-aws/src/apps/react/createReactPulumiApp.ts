@@ -167,7 +167,7 @@ export const createReactPulumiApp = (projectAppParams: CreateReactPulumiAppParam
                         .apply(key => key || "SK"),
                     item: pulumi.interpolate`{
                           "PK": {"S": "ADMIN#SETTINGS"},
-                          "SK": {"S": "${app.params.run.variant || "default"}"},
+                          "SK": {"S": "default"},
                           "data": {
                             "M": {
                               "appUrl": {
