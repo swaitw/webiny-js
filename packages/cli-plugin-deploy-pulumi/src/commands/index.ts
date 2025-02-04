@@ -357,7 +357,7 @@ export const commands: CliCommandPlugin[] = [
                                  * When we have a variant, a user must also send the `confirm-destroy-variant` option.
                                  */
                                 if (!args.variant) {
-                                    return;
+                                    return true;
                                 } else if (!confirmDestroyVariant) {
                                     throw new Error(
                                         `Please confirm complete project destruction by appending ${red(
