@@ -1,6 +1,7 @@
 import * as aws from "@pulumi/aws";
 import { PulumiApp } from "@webiny/pulumi";
 import { ApiOutput } from "~/apps/api";
+import { getEnvVariableAwsRegion } from "~/env/awsRegion";
 
 export function createPublicAppBucket(app: PulumiApp, name: string) {
     const bucket = app.addResource(aws.s3.Bucket, {
@@ -57,7 +58,7 @@ export function createPrivateAppBucket(app: PulumiApp, name: string) {
         domainName: bucket.output.bucket.apply(
             // We need to create a regional domain name. Otherwise, we'll run into the following issue:
             // https://aws.amazon.com/premiumsupport/knowledge-center/s3-http-307-response/
-            name => `${name}.s3.${String(process.env.AWS_REGION)}.amazonaws.com`
+            name => `${name}.s3.${getEnvVariableAwsRegion()}.amazonaws.com`
         ),
         s3OriginConfig: {
             originAccessIdentity: originIdentity.output.cloudfrontAccessIdentityPath

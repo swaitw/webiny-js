@@ -15,6 +15,9 @@ import { DEFAULT_PROD_ENV_NAMES } from "~/constants";
 import * as random from "@pulumi/random";
 import { featureFlags } from "@webiny/feature-flags";
 import { LogDynamo } from "./LogDynamo";
+import { getEnvVariableWebinyVariant } from "~/env/variant";
+import { getEnvVariableWebinyEnv } from "~/env/env";
+import { getEnvVariableWebinyProjectName } from "~/env/projectName";
 
 export type CorePulumiApp = ReturnType<typeof createCorePulumiApp>;
 
@@ -203,9 +206,9 @@ export function createCorePulumiApp(projectAppParams: CreateCorePulumiAppParams 
             });
 
             tagResources({
-                WbyProjectName: String(process.env["WEBINY_PROJECT_NAME"]),
-                WbyEnvironment: String(process.env["WEBINY_ENV"]),
-                WbyEnvironmentVariant: String(process.env["WEBINY_ENV_VARIANT"])
+                WbyProjectName: getEnvVariableWebinyProjectName(),
+                WbyEnvironment: getEnvVariableWebinyEnv(),
+                WbyEnvironmentVariant: getEnvVariableWebinyVariant()
             });
 
             return {

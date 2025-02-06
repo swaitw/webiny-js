@@ -4,6 +4,7 @@ import { IdentityProviderArgs } from "@pulumi/aws/cognito";
 import * as pulumi from "@pulumi/pulumi";
 import { PulumiApp, PulumiAppResource, PulumiAppResourceConstructor } from "@webiny/pulumi";
 import { getIdpConfig } from "./getIdpConfig";
+import { getEnvVariableAwsRegion } from "~/env/awsRegion";
 
 export type IdentityAttributeMapping = {
     "custom:id": string;
@@ -42,7 +43,7 @@ export const configureAdminCognitoFederation = (
     app: PulumiApp,
     config: CognitoIdentityProvidersConfig
 ) => {
-    const region = String(process.env.AWS_REGION);
+    const region = getEnvVariableAwsRegion();
 
     const userPool = app.resources.userPool as PulumiAppResource<
         PulumiAppResourceConstructor<aws.cognito.UserPool>

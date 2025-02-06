@@ -51,6 +51,10 @@ export interface IUploadFolderToS3Params {
     cacheControl?: PutObjectCommandInput["CacheControl"] | CacheControlMap;
 }
 
+/**
+ * TODO @adrian
+ * This is not used anywhere.
+ */
 export const uploadFolderToS3 = async ({
     path: root,
     bucket,

@@ -1,6 +1,20 @@
 import { red } from "chalk";
 import { CliCommandPlugin } from "@webiny/cli/types";
 import { IUserCommandInput } from "~/types";
+import { regions } from "@webiny/cli/regions";
+
+const validateRegion = (args: Pick<IUserCommandInput, "region">): boolean => {
+    const { region: input } = args;
+    const region = (input || "").trim();
+    if (!region) {
+        return true;
+    }
+    const exists = regions.some(item => item.value === region);
+    if (exists) {
+        return true;
+    }
+    throw new Error(`Webiny does not support region "${region}".`);
+};
 
 export const commands: CliCommandPlugin[] = [
     {
@@ -32,11 +46,13 @@ export const commands: CliCommandPlugin[] = [
                         type: "string",
                         required: false
                     });
-                    yargs.option("region", {
-                        describe: `Region to deploy the infrastructure to`,
-                        type: "string",
-                        required: false
-                    });
+                    yargs
+                        .option("region", {
+                            describe: `Region to target`,
+                            type: "string",
+                            required: false
+                        })
+                        .check(validateRegion);
                     yargs.option("build", {
                         default: true,
                         describe: `Build packages before deploying`,
@@ -174,6 +190,13 @@ export const commands: CliCommandPlugin[] = [
                             describe: `Project application folder or application name`,
                             type: "string"
                         });
+                        yargs
+                            .option("region", {
+                                describe: `Region to target`,
+                                type: "string",
+                                required: false
+                            })
+                            .check(validateRegion);
                         yargs.option("env", {
                             describe: `Environment`,
                             type: "string"
@@ -244,6 +267,13 @@ export const commands: CliCommandPlugin[] = [
                             describe: `Project application folder`,
                             type: "string"
                         });
+                        yargs
+                            .option("region", {
+                                describe: `Region to target`,
+                                type: "string",
+                                required: false
+                            })
+                            .check(validateRegion);
                         yargs.option("env", {
                             describe: `Environment`,
                             type: "string"
@@ -313,6 +343,13 @@ export const commands: CliCommandPlugin[] = [
                         describe: `Project application folder`,
                         type: "string"
                     });
+                    yargs
+                        .option("region", {
+                            describe: `Region to target`,
+                            type: "string",
+                            required: false
+                        })
+                        .check(validateRegion);
                     yargs.option("env", {
                         required: true,
                         describe: `Environment`,
@@ -399,6 +436,13 @@ export const commands: CliCommandPlugin[] = [
                         describe: `Project application folder`,
                         type: "string"
                     });
+                    yargs
+                        .option("region", {
+                            describe: `Region to target`,
+                            type: "string",
+                            required: false
+                        })
+                        .check(validateRegion);
                     yargs.option("env", {
                         required: true,
                         describe: `Environment`,
@@ -435,6 +479,13 @@ export const commands: CliCommandPlugin[] = [
                         describe: `Project application folder`,
                         type: "string"
                     });
+                    yargs
+                        .option("region", {
+                            describe: `Region to target`,
+                            type: "string",
+                            required: false
+                        })
+                        .check(validateRegion);
 
                     yargs.option("env", {
                         describe: `Environment`,
@@ -469,6 +520,14 @@ export const commands: CliCommandPlugin[] = [
                         describe: `Pattern to match against the migration ID.`,
                         type: "string"
                     });
+
+                    yargs
+                        .option("region", {
+                            describe: `Region to target`,
+                            type: "string",
+                            required: false
+                        })
+                        .check(validateRegion);
 
                     yargs.option("env", {
                         describe: `Environment`,

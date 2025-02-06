@@ -7,6 +7,7 @@ import chunk from "lodash/chunk";
 import { relative } from "path";
 import { crawlDirectory } from "./crawlDirectory";
 import { getPresignedPost } from "./getPresignedPost";
+import { getEnvVariableAwsRegion } from "~/env/awsRegion";
 
 function getFileChecksum(file: string): Promise<string> {
     const crypto = require("crypto");
@@ -67,7 +68,9 @@ export const uploadFolderToS3 = async ({
     acl = "public-read",
     cacheControl = "max-age=31536000"
 }: UploadFolderToS3Params) => {
-    const s3 = new S3Client({ region: process.env.AWS_REGION });
+    const s3 = new S3Client({
+        region: getEnvVariableAwsRegion()
+    });
 
     if (!fs.existsSync(root)) {
         throw new Error("Cannot continue, folder does not exist.");

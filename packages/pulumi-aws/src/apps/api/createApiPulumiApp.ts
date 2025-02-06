@@ -22,6 +22,10 @@ import {
     withServiceManifest
 } from "~/utils";
 import { DEFAULT_PROD_ENV_NAMES } from "~/constants";
+import { getEnvVariableWebinyVariant } from "~/env/variant";
+import { getEnvVariableWebinyEnv } from "~/env/env";
+import { getEnvVariableWebinyProjectName } from "~/env/projectName";
+import { getEnvVariableAwsRegion } from "~/env/awsRegion";
 
 export type ApiPulumiApp = ReturnType<typeof createApiPulumiApp>;
 
@@ -135,10 +139,6 @@ export const createApiPulumiApp = (projectAppParams: CreateApiPulumiAppParams = 
                 app.params.create.productionEnvironments || DEFAULT_PROD_ENV_NAMES;
             const isProduction = productionEnvironments.includes(app.params.run.env);
 
-            // Enables logs forwarding.
-            // https://www.webiny.com/docs/how-to-guides/use-watch-command#enabling-logs-forwarding
-            const WEBINY_LOGS_FORWARD_URL = String(process.env.WEBINY_LOGS_FORWARD_URL);
-
             // Register core output as a module available to all the other modules
             const core = app.addModule(CoreOutput);
 
@@ -148,7 +148,7 @@ export const createApiPulumiApp = (projectAppParams: CreateApiPulumiAppParams = 
 
             const pageBuilder = app.addModule(ApiPageBuilder, {
                 env: {
-                    COGNITO_REGION: String(process.env.AWS_REGION),
+                    COGNITO_REGION: getEnvVariableAwsRegion(),
                     COGNITO_USER_POOL_ID: core.cognitoUserPoolId,
                     DB_TABLE: core.primaryDynamodbTableName,
                     DB_TABLE_LOG: core.logDynamodbTableName,
@@ -160,8 +160,7 @@ export const createApiPulumiApp = (projectAppParams: CreateApiPulumiAppParams = 
                     ELASTIC_SEARCH_INDEX_PREFIX: process.env.ELASTIC_SEARCH_INDEX_PREFIX,
                     ELASTICSEARCH_SHARED_INDEXES: process.env.ELASTICSEARCH_SHARED_INDEXES,
 
-                    S3_BUCKET: core.fileManagerBucketId,
-                    WEBINY_LOGS_FORWARD_URL
+                    S3_BUCKET: core.fileManagerBucketId
                 }
             });
 
@@ -169,18 +168,17 @@ export const createApiPulumiApp = (projectAppParams: CreateApiPulumiAppParams = 
                 primaryDynamodbTableArn: core.primaryDynamodbTableArn,
 
                 env: {
-                    COGNITO_REGION: String(process.env.AWS_REGION),
+                    COGNITO_REGION: getEnvVariableAwsRegion(),
                     COGNITO_USER_POOL_ID: core.cognitoUserPoolId,
                     DB_TABLE: core.primaryDynamodbTableName,
                     DB_TABLE_LOG: core.logDynamodbTableName,
-                    S3_BUCKET: core.fileManagerBucketId,
-                    WEBINY_LOGS_FORWARD_URL
+                    S3_BUCKET: core.fileManagerBucketId
                 }
             });
 
             const graphql = app.addModule(ApiGraphql, {
                 env: {
-                    COGNITO_REGION: String(process.env.AWS_REGION),
+                    COGNITO_REGION: getEnvVariableAwsRegion(),
                     COGNITO_USER_POOL_ID: core.cognitoUserPoolId,
                     DB_TABLE: core.primaryDynamodbTableName,
                     DB_TABLE_LOG: core.logDynamodbTableName,
@@ -198,7 +196,6 @@ export const createApiPulumiApp = (projectAppParams: CreateApiPulumiAppParams = 
                     EXPORT_PROCESS_HANDLER: pageBuilder.export.functions.process.output.arn,
                     // TODO: move to okta plugin
                     OKTA_ISSUER: process.env["OKTA_ISSUER"],
-                    WEBINY_LOGS_FORWARD_URL,
                     APW_SCHEDULER_SCHEDULE_ACTION_HANDLER:
                         apwScheduler.scheduleAction.lambda.output.arn
                 },
@@ -303,9 +300,9 @@ export const createApiPulumiApp = (projectAppParams: CreateApiPulumiAppParams = 
             });
 
             tagResources({
-                WbyProjectName: String(process.env["WEBINY_PROJECT_NAME"]),
-                WbyEnvironment: String(process.env["WEBINY_ENV"]),
-                WbyEnvironmentVariant: String(process.env["WEBINY_ENV_VARIANT"])
+                WbyProjectName: getEnvVariableWebinyProjectName(),
+                WbyEnvironment: getEnvVariableWebinyEnv(),
+                WbyEnvironmentVariant: getEnvVariableWebinyVariant()
             });
 
             return {

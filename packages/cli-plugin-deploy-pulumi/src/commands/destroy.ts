@@ -1,4 +1,12 @@
 import { createPulumiCommand, getStackName, processHooks } from "~/utils";
+import {
+    createEnvConfiguration,
+    withEnv,
+    withEnvVariant,
+    withProjectName,
+    withPulumiConfigPassphrase,
+    withRegion
+} from "~/utils/env";
 
 export const destroyCommand = createPulumiCommand({
     name: "destroy",
@@ -15,8 +23,7 @@ export const destroyCommand = createPulumiCommand({
 
         let stackExists = true;
         try {
-            const PULUMI_SECRETS_PROVIDER = process.env.PULUMI_SECRETS_PROVIDER as string;
-            const PULUMI_CONFIG_PASSPHRASE = process.env.PULUMI_CONFIG_PASSPHRASE;
+            const PULUMI_SECRETS_PROVIDER = process.env.PULUMI_SECRETS_PROVIDER;
 
             await pulumi.run({
                 command: ["stack", "select", stackName],
@@ -24,9 +31,9 @@ export const destroyCommand = createPulumiCommand({
                     secretsProvider: PULUMI_SECRETS_PROVIDER
                 },
                 execa: {
-                    env: {
-                        PULUMI_CONFIG_PASSPHRASE
-                    }
+                    env: createEnvConfiguration({
+                        configurations: [withPulumiConfigPassphrase()]
+                    })
                 }
             });
         } catch (e) {
@@ -55,11 +62,14 @@ export const destroyCommand = createPulumiCommand({
             },
             execa: {
                 stdio: "inherit",
-                env: {
-                    WEBINY_ENV: env,
-                    WEBINY_ENV_VARIANT: variant || "",
-                    WEBINY_PROJECT_NAME: context.project.name
-                }
+                env: createEnvConfiguration({
+                    configurations: [
+                        withRegion(inputs),
+                        withEnv(inputs),
+                        withEnvVariant(inputs),
+                        withProjectName(context)
+                    ]
+                })
             }
         });
 

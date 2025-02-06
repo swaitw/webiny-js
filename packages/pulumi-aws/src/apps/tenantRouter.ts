@@ -4,6 +4,7 @@ import * as aws from "@pulumi/aws";
 import { PulumiApp, PulumiAppResource } from "@webiny/pulumi";
 import { CoreOutput } from "./common";
 import { LAMBDA_RUNTIME } from "~/constants";
+import { getEnvVariableAwsRegion } from "~/env/awsRegion";
 
 interface Params {
     region: string;
@@ -31,7 +32,7 @@ export function applyTenantRouter(
     app: PulumiApp,
     cloudfront: PulumiAppResource<typeof aws.cloudfront.Distribution>
 ) {
-    const region = String(process.env.AWS_REGION);
+    const region = getEnvVariableAwsRegion();
 
     // Get Core app output
     const core = app.getModule(CoreOutput);

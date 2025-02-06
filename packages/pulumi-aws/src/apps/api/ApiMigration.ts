@@ -7,6 +7,7 @@ import { createLambdaRole, getCommonLambdaEnvVariables } from "../lambdaUtils";
 import { CoreOutput, VpcConfig } from "../common";
 import { ApiGraphql } from "~/apps";
 import { LAMBDA_RUNTIME } from "~/constants";
+import { getEnvVariableAwsRegion } from "~/env/awsRegion";
 
 export type ApiMigration = PulumiAppModule<typeof ApiMigration>;
 
@@ -38,7 +39,7 @@ export const ApiMigration = createAppModule({
                 environment: {
                     variables: getCommonLambdaEnvVariables().apply(value => ({
                         ...value,
-                        COGNITO_REGION: String(process.env.AWS_REGION),
+                        COGNITO_REGION: getEnvVariableAwsRegion(),
                         COGNITO_USER_POOL_ID: core.cognitoUserPoolId,
                         DB_TABLE: core.primaryDynamodbTableName,
                         DB_TABLE_LOG: core.logDynamodbTableName,

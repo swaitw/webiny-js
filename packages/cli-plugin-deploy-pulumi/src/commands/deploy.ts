@@ -17,6 +17,7 @@ export interface IDeployParams {
     region: string | undefined;
     folder: string;
     cwd: string;
+    telemetry?: boolean;
 }
 
 export const deployCommand = (params: IDeployParams, context: CliContext) => {
@@ -77,7 +78,12 @@ export const deployCommand = (params: IDeployParams, context: CliContext) => {
                 context
             });
 
-            await pulumiLoginSelectStack({ inputs, projectApplication, pulumi });
+            try {
+                await pulumiLoginSelectStack({ inputs, projectApplication, pulumi });
+            } catch (ex) {
+                context.error(ex.message);
+                throw ex;
+            }
 
             console.log();
 

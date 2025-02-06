@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.json",
+  "include": ["src", "__tests__"],
+  "references": [{ "path": "../aws-sdk" }, { "path": "../cli-plugin-deploy-pulumi" }],
+  "compilerOptions": {
+    "rootDirs": ["./src", "./__tests__"],
+    "outDir": "./dist",
+    "declarationDir": "./dist",
+    "paths": {
+      "~/*": ["./src/*"],
+      "~tests/*": ["./__tests__/*"],
+      "@webiny/aws-sdk/*": ["../aws-sdk/src/*"],
+      "@webiny/aws-sdk": ["../aws-sdk/src"],
+      "@webiny/cli-plugin-deploy-pulumi/*": ["../cli-plugin-deploy-pulumi/src/*"],
+      "@webiny/cli-plugin-deploy-pulumi": ["../cli-plugin-deploy-pulumi/src"]
+    },
+    "baseUrl": "."
+  }
+}

@@ -12251,7 +12251,6 @@ __metadata:
     "@webiny/handler-client": "npm:0.0.0"
     "@webiny/handler-db": "npm:0.0.0"
     "@webiny/handler-graphql": "npm:0.0.0"
-    "@webiny/handler-logs": "npm:0.0.0"
     "@webiny/plugins": "npm:0.0.0"
     "@webiny/project-utils": "npm:0.0.0"
     "@webiny/pubsub": "npm:0.0.0"
@@ -14998,7 +14997,7 @@ __metadata:
     "@webiny/pulumi-sdk": "npm:0.0.0"
     "@webiny/utils": "npm:0.0.0"
     chalk: "npm:^4.1.2"
-    ci-info: "npm:^3.9.0"
+    ci-info: "npm:^4.1.0"
     execa: "npm:^5.1.1"
     exit-hook: "npm:^4.0.0"
     fast-glob: "npm:^3.2.7"
@@ -15242,7 +15241,7 @@ __metadata:
     boolean: "npm:^3.2.0"
     camelcase: "npm:^6.3.0"
     chalk: "npm:^4.1.2"
-    ci-info: "npm:^3.9.0"
+    ci-info: "npm:^4.1.0"
     dotenv: "npm:^8.2.0"
     execa: "npm:^5.1.1"
     fast-glob: "npm:^3.2.7"
@@ -15270,8 +15269,9 @@ __metadata:
     "@webiny/aws-sdk": "npm:0.0.0"
     "@webiny/cli": "npm:0.0.0"
     "@webiny/cli-plugin-deploy-pulumi": "npm:0.0.0"
+    "@webiny/project-utils": "npm:0.0.0"
     chalk: "npm:^4.1.2"
-    ci-info: "npm:^3.9.0"
+    ci-info: "npm:^4.1.0"
     dotenv: "npm:^8.2.0"
     execa: "npm:^5.1.1"
     fast-glob: "npm:^3.2.7"
@@ -15282,6 +15282,9 @@ __metadata:
     lodash: "npm:^4.17.21"
     open: "npm:^8.4.2"
     ora: "npm:4.1.1"
+    rimraf: "npm:^6.0.1"
+    type-fest: "npm:4.14.0"
+    typescript: "npm:5.3.3"
     write-json-file: "npm:^4.3.0"
   languageName: unknown
   linkType: soft
@@ -15490,18 +15493,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@webiny/handler-logs@npm:0.0.0, @webiny/handler-logs@workspace:packages/handler-logs":
+"@webiny/handler-logs@workspace:packages/handler-logs":
   version: 0.0.0-use.local
   resolution: "@webiny/handler-logs@workspace:packages/handler-logs"
-  dependencies:
-    "@types/node-fetch": "npm:^2.6.1"
-    "@webiny/cli": "npm:0.0.0"
-    "@webiny/handler": "npm:0.0.0"
-    "@webiny/handler-aws": "npm:0.0.0"
-    "@webiny/project-utils": "npm:0.0.0"
-    node-fetch: "npm:2.6.7"
-    rimraf: "npm:^6.0.1"
-    typescript: "npm:5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -15773,7 +15767,7 @@ __metadata:
     camelcase: "npm:^6.3.0"
     case-sensitive-paths-webpack-plugin: "npm:2.4.0"
     chalk: "npm:^4.1.2"
-    ci-info: "npm:^3.9.0"
+    ci-info: "npm:^4.1.0"
     crypto-browserify: "npm:^3.12.0"
     css-loader: "npm:^6.10.0"
     css-minimizer-webpack-plugin: "npm:^7.0.0"
@@ -16032,7 +16026,6 @@ __metadata:
     "@webiny/global-config": "npm:0.0.0"
     "@webiny/handler-aws": "npm:0.0.0"
     "@webiny/handler-db": "npm:0.0.0"
-    "@webiny/handler-logs": "npm:0.0.0"
     "@webiny/migrations": "npm:0.0.0"
     "@webiny/plugins": "npm:0.0.0"
     "@webiny/project-utils": "npm:0.0.0"
@@ -16099,7 +16092,7 @@ __metadata:
   resolution: "@webiny/telemetry@workspace:packages/telemetry"
   dependencies:
     "@webiny/global-config": "npm:0.0.0"
-    ci-info: "npm:^3.9.0"
+    ci-info: "npm:^4.1.0"
     jsesc: "npm:^3.0.2"
     strip-ansi: "npm:^6.0.1"
     wts-client: "npm:^1.0.1"
@@ -17038,7 +17031,6 @@ __metadata:
     "@webiny/handler-aws": "npm:0.0.0"
     "@webiny/handler-db": "npm:0.0.0"
     "@webiny/handler-graphql": "npm:0.0.0"
-    "@webiny/handler-logs": "npm:0.0.0"
     "@webiny/project-utils": "npm:0.0.0"
     "@webiny/tasks": "npm:0.0.0"
     graphql-request: "npm:^3.7.0"
@@ -17080,7 +17072,6 @@ __metadata:
     "@webiny/db-dynamodb": "npm:0.0.0"
     "@webiny/handler-aws": "npm:0.0.0"
     "@webiny/handler-db": "npm:0.0.0"
-    "@webiny/handler-logs": "npm:0.0.0"
     "@webiny/project-utils": "npm:0.0.0"
   languageName: unknown
   linkType: soft
@@ -17112,7 +17103,6 @@ __metadata:
     "@webiny/db-dynamodb": "npm:0.0.0"
     "@webiny/handler-aws": "npm:0.0.0"
     "@webiny/handler-db": "npm:0.0.0"
-    "@webiny/handler-logs": "npm:0.0.0"
     "@webiny/project-utils": "npm:0.0.0"
   languageName: unknown
   linkType: soft
@@ -17139,7 +17129,6 @@ __metadata:
     "@webiny/db-dynamodb": "npm:0.0.0"
     "@webiny/handler-aws": "npm:0.0.0"
     "@webiny/handler-db": "npm:0.0.0"
-    "@webiny/handler-logs": "npm:0.0.0"
     "@webiny/project-utils": "npm:0.0.0"
   languageName: unknown
   linkType: soft
@@ -17173,7 +17162,6 @@ __metadata:
     "@webiny/db-dynamodb": "npm:0.0.0"
     "@webiny/handler-aws": "npm:0.0.0"
     "@webiny/handler-db": "npm:0.0.0"
-    "@webiny/handler-logs": "npm:0.0.0"
     "@webiny/project-utils": "npm:0.0.0"
   languageName: unknown
   linkType: soft
@@ -19227,21 +19215,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ci-info@npm:^3.2.0":
-  version: 3.7.1
-  resolution: "ci-info@npm:3.7.1"
-  checksum: 10/9e045db2901d4340ccba95b5cf755839a51ca6c2257a8e510cf3ccdadfe0243b0b5239254bf32ee4a8652cdd58c0b7ddbf61d304d1d59b86dc630baf2cd7988d
-  languageName: node
-  linkType: hard
-
-"ci-info@npm:^3.6.1, ci-info@npm:^3.9.0":
+"ci-info@npm:^3.2.0, ci-info@npm:^3.6.1":
   version: 3.9.0
   resolution: "ci-info@npm:3.9.0"
   checksum: 10/75bc67902b4d1c7b435497adeb91598f6d52a3389398e44294f6601b20cfef32cf2176f7be0eb961d9e085bb333a8a5cae121cb22f81cf238ae7f58eb80e9397
   languageName: node
   linkType: hard
 
-"ci-info@npm:^4.0.0":
+"ci-info@npm:^4.0.0, ci-info@npm:^4.1.0":
   version: 4.1.0
   resolution: "ci-info@npm:4.1.0"
   checksum: 10/546628efd04e37da3182a58b6995a3313deb86ec7c8112e22ffb644317a61296b89bbfa128219e5bfcce43d9613a434ed89907ed8e752db947f7291e0405125f

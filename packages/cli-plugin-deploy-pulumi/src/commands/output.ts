@@ -1,4 +1,5 @@
 import { createPulumiCommand, getStackName } from "~/utils";
+import { createEnvConfiguration, withPulumiConfigPassphrase } from "~/utils/env";
 
 export const outputCommand = createPulumiCommand({
     name: "output",
@@ -13,8 +14,7 @@ export const outputCommand = createPulumiCommand({
 
         let stackExists = true;
         try {
-            const PULUMI_SECRETS_PROVIDER = process.env.PULUMI_SECRETS_PROVIDER as string;
-            const PULUMI_CONFIG_PASSPHRASE = process.env.PULUMI_CONFIG_PASSPHRASE;
+            const PULUMI_SECRETS_PROVIDER = process.env.PULUMI_SECRETS_PROVIDER;
 
             await pulumi.run({
                 command: ["stack", "select", `${stackName}`],
@@ -22,9 +22,9 @@ export const outputCommand = createPulumiCommand({
                     secretsProvider: PULUMI_SECRETS_PROVIDER
                 },
                 execa: {
-                    env: {
-                        PULUMI_CONFIG_PASSPHRASE
-                    }
+                    env: createEnvConfiguration({
+                        configurations: [withPulumiConfigPassphrase()]
+                    })
                 }
             });
         } catch (e) {

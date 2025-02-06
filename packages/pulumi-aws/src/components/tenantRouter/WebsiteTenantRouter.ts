@@ -3,6 +3,8 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import { getStackOutput } from "@webiny/cli-plugin-deploy-pulumi/utils";
 import { LAMBDA_RUNTIME } from "~/constants";
+import { getEnvVariableWebinyVariant } from "~/env/variant";
+import { getEnvVariableWebinyEnv } from "~/env/env";
 
 interface Config {
     apiFolder?: string;
@@ -35,8 +37,8 @@ export class WebsiteTenantRouter extends pulumi.ComponentResource {
 
         const { region, dynamoDbTable } = getStackOutput({
             folder: config?.apiFolder || "api",
-            env: config?.apiEnv || process.env.WEBINY_ENV || "",
-            variant: config?.apiVariant || process.env.WEBINY_ENV_VARIANT || ""
+            env: config?.apiEnv || getEnvVariableWebinyEnv(),
+            variant: config?.apiVariant || getEnvVariableWebinyVariant()
         });
 
         const inlinePolicies = Promise.all([aws.getCallerIdentity({})]).then(([callerIdentity]) => [

@@ -8,14 +8,14 @@
   },
   "publishConfig": {
     "access": "public",
-    "directory": "."
+    "directory": "dist"
   },
   "dependencies": {
     "@webiny/aws-sdk": "0.0.0",
     "@webiny/cli": "0.0.0",
     "@webiny/cli-plugin-deploy-pulumi": "0.0.0",
     "chalk": "^4.1.2",
-    "ci-info": "^3.9.0",
+    "ci-info": "^4.1.0",
     "execa": "^5.1.1",
     "fast-glob": "^3.2.7",
     "fs-extra": "^11.2.0",
@@ -25,20 +25,23 @@
     "lodash": "^4.17.21",
     "open": "^8.4.2",
     "ora": "4.1.1",
+    "type-fest": "4.14.0",
     "write-json-file": "^4.3.0"
   },
   "devDependencies": {
-    "dotenv": "^8.2.0"
+    "@webiny/project-utils": "0.0.0",
+    "dotenv": "^8.2.0",
+    "rimraf": "^6.0.1",
+    "typescript": "5.3.3"
   },
   "adio": {
-    "ignore": {
-      "dependencies": [
-        "@webiny/cli"
-      ]
-    },
     "ignoreDirs": [
-      "/template/"
+      "template/"
     ]
   },
-  "gitHead": "b8aec8a1be3f25c3b428b357fe1e352c7cbff9ae"
+  "gitHead": "b8aec8a1be3f25c3b428b357fe1e352c7cbff9ae",
+  "scripts": {
+    "build": "yarn webiny run build",
+    "watch": "yarn webiny run watch"
+  }
 }

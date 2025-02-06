@@ -39,6 +39,7 @@ export default {
                                 return null;
                             }
                         }
+                        return null;
                     })
                     .filter(Boolean);
             } catch (e) {

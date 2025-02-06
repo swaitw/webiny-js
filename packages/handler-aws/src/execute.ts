@@ -77,6 +77,7 @@ export const execute = (params: ExecuteParams): Promise<any> => {
                 method: "POST",
                 url,
                 payload: payload || {},
+                body: payload || {},
                 query,
                 headers,
                 cookies

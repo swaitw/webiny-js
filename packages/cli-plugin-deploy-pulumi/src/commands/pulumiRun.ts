@@ -1,4 +1,12 @@
 import { createPulumiCommand, getStackName } from "~/utils";
+import {
+    createEnvConfiguration,
+    withEnv,
+    withEnvVariant,
+    withProjectName,
+    withPulumiConfigPassphrase,
+    withRegion
+} from "~/utils/env";
 
 export const pulumiRunCommand = createPulumiCommand({
     name: "pulumi",
@@ -17,8 +25,7 @@ export const pulumiRunCommand = createPulumiCommand({
 
             let stackExists = true;
             try {
-                const PULUMI_SECRETS_PROVIDER = process.env.PULUMI_SECRETS_PROVIDER as string;
-                const PULUMI_CONFIG_PASSPHRASE = process.env.PULUMI_CONFIG_PASSPHRASE;
+                const PULUMI_SECRETS_PROVIDER = process.env.PULUMI_SECRETS_PROVIDER;
 
                 await pulumi.run({
                     command: ["stack", "select", stackName],
@@ -26,9 +33,9 @@ export const pulumiRunCommand = createPulumiCommand({
                         secretsProvider: PULUMI_SECRETS_PROVIDER
                     },
                     execa: {
-                        env: {
-                            PULUMI_CONFIG_PASSPHRASE
-                        }
+                        env: createEnvConfiguration({
+                            configurations: [withPulumiConfigPassphrase()]
+                        })
                     }
                 });
             } catch (e) {
@@ -58,11 +65,14 @@ export const pulumiRunCommand = createPulumiCommand({
             command: command as string[],
             execa: {
                 stdio: "inherit",
-                env: {
-                    WEBINY_ENV: env,
-                    WEBINY_ENV_VARIANT: variant || "",
-                    WEBINY_PROJECT_NAME: context.project.name
-                }
+                env: createEnvConfiguration({
+                    configurations: [
+                        withRegion(inputs),
+                        withEnv(inputs),
+                        withEnvVariant(inputs),
+                        withProjectName(context)
+                    ]
+                })
             }
         });
     }

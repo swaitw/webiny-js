@@ -18,7 +18,6 @@ import { createFileManagerStorageOperations } from "@webiny/api-file-manager-ddb
 import { CmsParametersPlugin, createHeadlessCmsContext } from "@webiny/api-headless-cms";
 import { createStorageOperations as createHeadlessCmsStorageOperations } from "@webiny/api-headless-cms-ddb";
 import fileManagerS3 from "@webiny/api-file-manager-s3";
-import logsPlugins from "@webiny/handler-logs";
 import securityPlugins from "./security";
 
 const documentClient = getDocumentClient();
@@ -28,7 +27,6 @@ const debug = process.env.DEBUG === "true";
 export const handler = createHandler({
     plugins: [
         dynamoDbPlugins(),
-        logsPlugins(),
         dbPlugins({
             table: process.env.DB_TABLE,
             driver: new DynamoDbDriver({ documentClient })

@@ -10,6 +10,9 @@ import { addDomainsUrlsOutputs, tagResources, withCommonLambdaEnvVariables } fro
 import { applyTenantRouter } from "~/apps/tenantRouter";
 import { withServiceManifest } from "~/utils/withServiceManifest";
 import { DEFAULT_PROD_ENV_NAMES } from "~/constants";
+import { getEnvVariableWebinyVariant } from "~/env/variant";
+import { getEnvVariableWebinyEnv } from "~/env/env";
+import { getEnvVariableWebinyProjectName } from "~/env/projectName";
 
 export type WebsitePulumiApp = ReturnType<typeof createWebsitePulumiApp>;
 
@@ -316,9 +319,9 @@ export const createWebsitePulumiApp = (projectAppParams: CreateWebsitePulumiAppP
             });
 
             tagResources({
-                WbyProjectName: String(process.env["WEBINY_PROJECT_NAME"]),
-                WbyEnvironment: String(process.env["WEBINY_ENV"]),
-                WbyEnvironmentVariant: String(process.env["WEBINY_ENV_VARIANT"])
+                WbyProjectName: getEnvVariableWebinyProjectName(),
+                WbyEnvironment: getEnvVariableWebinyEnv(),
+                WbyEnvironmentVariant: getEnvVariableWebinyVariant()
             });
 
             return {

@@ -213,3 +213,17 @@ export interface CliCommandPlugin extends Plugin {
     name: string;
     create: (args: CliCommandPluginArgs) => void;
 }
+
+export interface CliCommandErrorPluginHandleParams {
+    context: CliContext;
+    error: Error;
+}
+
+export interface CliCommandErrorPluginHandle {
+    (params: CliCommandErrorPluginHandleParams):void;
+}
+
+export interface CliCommandErrorPlugin extends Plugin {
+    type: "cli-command-error";
+    handle: CliCommandErrorPluginHandle;
+}

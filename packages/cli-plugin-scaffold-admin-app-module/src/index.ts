@@ -18,7 +18,7 @@ import {
 import { projectHasCodeFolders } from "./utils";
 const ncp = util.promisify(ncpBase.ncp);
 
-interface Input {
+export interface Input {
     dataModelName: string;
     graphqlPluginsFolderPath: string;
     adminPluginsFolderPath: string;

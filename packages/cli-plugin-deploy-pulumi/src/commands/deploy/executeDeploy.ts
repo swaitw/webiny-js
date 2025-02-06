@@ -2,6 +2,14 @@ import { Context, IPulumi, IUserCommandInput } from "~/types";
 import { measureDuration } from "~/utils";
 import ora from "ora";
 import { isCI } from "ci-info";
+import {
+    createEnvConfiguration,
+    withEnv,
+    withEnvVariant,
+    withProjectName,
+    withPulumiConfigPassphrase,
+    withRegion
+} from "~/utils/env";
 
 const spinnerMessages: [number, string][] = [
     [60, "Still deploying..."],
@@ -32,8 +40,7 @@ export const executeDeploy = async ({ inputs, context, pulumi }: IExecuteDeployP
     // We always show deployment logs when doing previews.
     const showDeploymentLogs = isCI || inputs.deploymentLogs;
 
-    const PULUMI_SECRETS_PROVIDER = process.env.PULUMI_SECRETS_PROVIDER as string;
-    const PULUMI_CONFIG_PASSPHRASE = process.env.PULUMI_CONFIG_PASSPHRASE;
+    const PULUMI_SECRETS_PROVIDER = process.env.PULUMI_SECRETS_PROVIDER;
 
     const getDeploymentDuration = measureDuration();
 
@@ -49,12 +56,15 @@ export const executeDeploy = async ({ inputs, context, pulumi }: IExecuteDeployP
                 debug: !!inputs.debug
             },
             execa: {
-                env: {
-                    WEBINY_ENV: inputs.env,
-                    WEBINY_ENV_VARIANT: inputs.variant || "",
-                    WEBINY_PROJECT_NAME: context.project.name,
-                    PULUMI_CONFIG_PASSPHRASE
-                }
+                env: createEnvConfiguration({
+                    configurations: [
+                        withRegion(inputs),
+                        withEnv(inputs),
+                        withEnvVariant(inputs),
+                        withProjectName(context),
+                        withPulumiConfigPassphrase()
+                    ]
+                })
             }
         });
 

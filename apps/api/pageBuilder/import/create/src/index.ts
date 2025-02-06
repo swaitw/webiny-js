@@ -16,7 +16,6 @@ import importCreatePlugins from "@webiny/api-page-builder-import-export/import/c
 import dbPlugins from "@webiny/handler-db";
 import { DynamoDbDriver } from "@webiny/db-dynamodb";
 import dynamoDbPlugins from "@webiny/db-dynamodb/plugins";
-import logsPlugins from "@webiny/handler-logs";
 import securityPlugins from "./security";
 
 const documentClient = getDocumentClient();
@@ -26,7 +25,6 @@ const debug = process.env.DEBUG === "true";
 export const handler = createHandler({
     plugins: [
         dynamoDbPlugins(),
-        logsPlugins(),
         dbPlugins({
             table: process.env.DB_TABLE,
             driver: new DynamoDbDriver({ documentClient })

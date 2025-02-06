@@ -19,7 +19,6 @@ import elasticSearch, {
     createElasticsearchClient,
     createGzipCompression
 } from "@webiny/api-elasticsearch";
-import logsPlugins from "@webiny/handler-logs";
 import securityPlugins from "./security";
 
 const documentClient = getDocumentClient();
@@ -33,7 +32,6 @@ const debug = process.env.DEBUG === "true";
 export const handler = createHandler({
     plugins: [
         dynamoDbPlugins(),
-        logsPlugins(),
         createGzipCompression(),
         elasticSearch(elasticsearchClient),
         dbPlugins({

@@ -13,7 +13,6 @@ import exportProcessPlugins from "@webiny/api-page-builder-import-export/export/
 import dbPlugins from "@webiny/handler-db";
 import { DynamoDbDriver } from "@webiny/db-dynamodb";
 import dynamoDbPlugins from "@webiny/db-dynamodb/plugins";
-import logsPlugins from "@webiny/handler-logs";
 import { CmsParametersPlugin, createHeadlessCmsContext } from "@webiny/api-headless-cms";
 import { createStorageOperations as createHeadlessCmsStorageOperations } from "@webiny/api-headless-cms-ddb";
 import { createFileManagerContext } from "@webiny/api-file-manager";
@@ -28,7 +27,6 @@ const debug = process.env.DEBUG === "true";
 export const handler = createHandler({
     plugins: [
         dynamoDbPlugins(),
-        logsPlugins(),
         dbPlugins({
             table: process.env.DB_TABLE,
             driver: new DynamoDbDriver({ documentClient })

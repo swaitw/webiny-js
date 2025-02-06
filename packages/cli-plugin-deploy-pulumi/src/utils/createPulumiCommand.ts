@@ -1,5 +1,4 @@
 import path from "path";
-// @ts-expect-error
 import { getProject, getProjectApplication, sendEvent } from "@webiny/cli/utils";
 import {
     createProjectApplicationWorkspace,

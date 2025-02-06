@@ -4,7 +4,6 @@ import { getDocumentClient } from "@webiny/aws-sdk/client-dynamodb";
 import dbPlugins from "@webiny/handler-db";
 import { DynamoDbDriver } from "@webiny/db-dynamodb";
 import dynamoDbPlugins from "@webiny/db-dynamodb/plugins";
-import logsPlugins from "@webiny/handler-logs";
 import { InvocationTypes } from "~/scheduler/types";
 
 /**
@@ -104,7 +103,6 @@ export const documentClient = getDocumentClient();
 
 export const basePlugins = () => [
     dynamoDbPlugins(),
-    logsPlugins(),
     dbPlugins({
         table: process.env.DB_TABLE,
         driver: new DynamoDbDriver({

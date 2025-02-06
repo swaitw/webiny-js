@@ -23,7 +23,7 @@ import { projectHasCodeFolders } from "./utils";
 
 const ncp = util.promisify(ncpBase.ncp);
 
-interface Input {
+export interface Input {
     pluginsFolderPath: string;
     dataModelName: string;
     showConfirmation?: boolean;
