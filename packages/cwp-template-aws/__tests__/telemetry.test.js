@@ -1,9 +1,9 @@
-import path from "path";
-import fs from "fs-extra";
+const path = require("path");
+const fs = require("fs-extra");
 
 describe("Telemetry events test", () => {
     test("should send telemetry events", async () => {
-        const events: string[] = [
+        const events = [
             "project-deploy-start",
             "project-deploy-end",
             "project-deploy-error",
@@ -11,7 +11,7 @@ describe("Telemetry events test", () => {
         ];
 
         const deployScript = await fs.readFile(
-            path.resolve(__dirname, "..", "src", "cli", "deploy", "deploy.ts")
+            path.resolve(__dirname, "..", "cli", "deploy", "deploy.js")
         );
 
         for (const event of events) {

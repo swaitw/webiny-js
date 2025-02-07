@@ -1,20 +1,17 @@
-import { getPulumi, getStackOutput, splitStackName } from "@webiny/cli-plugin-deploy-pulumi/utils";
-import path from "path";
-import { blue } from "chalk";
-import type { CliCommandPlugin } from "@webiny/cli/types";
-import glob from "fast-glob";
+const {
+    getStackOutput,
+    splitStackName,
+    getPulumi
+} = require("@webiny/cli-plugin-deploy-pulumi/utils");
+const path = require("path");
+const { blue } = require("chalk");
 
-interface IGetInfoParams {
-    env: string;
-    variant?: string;
-}
-
-export const getInfo = async (params: IGetInfoParams) => {
+const getInfo = async params => {
     if (typeof params !== "object" || !params.env) {
         throw new Error("Please provide an object with `env` and `variant` properties.");
     }
     const { env, variant } = params;
-    const apiOutputPromise = new Promise<Record<string, any>>(resolve => {
+    const apiOutputPromise = new Promise(resolve => {
         resolve(
             getStackOutput({
                 folder: "apps/api",
@@ -24,7 +21,7 @@ export const getInfo = async (params: IGetInfoParams) => {
         );
     });
 
-    const adminOutputPromise = new Promise<Record<string, any>>(resolve => {
+    const adminOutputPromise = new Promise(resolve => {
         resolve(
             getStackOutput({
                 folder: "apps/admin",
@@ -34,7 +31,7 @@ export const getInfo = async (params: IGetInfoParams) => {
         );
     });
 
-    const websiteOutputPromise = new Promise<Record<string, any>>(resolve => {
+    const websiteOutputPromise = new Promise(resolve => {
         resolve(
             getStackOutput({
                 folder: "apps/website",
@@ -106,7 +103,7 @@ export const getInfo = async (params: IGetInfoParams) => {
     return output.join("\n");
 };
 
-export const infoCommand: CliCommandPlugin = {
+module.exports = {
     type: "cli-command",
     name: "cli-command-info",
     create({ yargs, context }) {
@@ -129,6 +126,9 @@ export const infoCommand: CliCommandPlugin = {
                 await getPulumi();
 
                 if (!args.env) {
+                    // Get all existing environments
+                    const glob = require("fast-glob");
+
                     // We just get stack files for deployed Core application. That's enough
                     // to determine into which environments the user has deployed their project.
                     const pulumiAdminStackFilesPaths = glob.sync(
@@ -138,7 +138,7 @@ export const infoCommand: CliCommandPlugin = {
                             onlyFiles: true,
                             dot: true
                         }
-                    ) as string[];
+                    );
 
                     const existingEnvs = pulumiAdminStackFilesPaths.map(current => {
                         return splitStackName(path.basename(current, ".json"));
@@ -170,8 +170,8 @@ export const infoCommand: CliCommandPlugin = {
                 } else {
                     console.log(
                         await getInfo({
-                            env: args.env as string,
-                            variant: args.variant as string | undefined
+                            env: args.env,
+                            variant: args.variant || ""
                         })
                     );
                     console.log();
@@ -185,3 +185,5 @@ export const infoCommand: CliCommandPlugin = {
         );
     }
 };
+
+module.exports.getInfo = getInfo;

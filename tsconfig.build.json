@@ -64,7 +64,7 @@
     "packages/cli-plugin-deploy-pulumi/src/utils/workspaceTemplate/**",
     "packages/cli",
     "packages/create-webiny-project",
-    "packages/cwp-template-aws/template",
+    "packages/cwp-template-aws/**",
     "packages/project-utils",
     "packages/tracking"
   ]

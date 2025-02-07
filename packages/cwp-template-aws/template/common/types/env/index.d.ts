@@ -13,6 +13,7 @@ declare namespace NodeJS {
         ELASTICSEARCH_SHARED_INDEXES?: "true" | "false" | string;
         WEBINY_VERSION?: string;
         WEBINY_ENABLE_VERSION_HEADER?: "true" | "false" | string;
+        WEBINY_LOGS_FORWARD_URL?: string;
         WEBINY_FILE_UPLOAD_CHUNK_SIZE?: string;
         WEBINY_FILE_UPLOAD_PARALLEL_CHUNKS?: string;
         AWS_LAMBDA_FUNCTION_NAME?: string;

@@ -1,24 +1,15 @@
-import fs from "fs";
-import { green } from "chalk";
-import { getPulumi } from "@webiny/cli-plugin-deploy-pulumi/utils";
-import path from "path";
-import execa from "execa";
-import type { IUserCommandInput } from "@webiny/cli-plugin-deploy-pulumi/types";
-import type { CliContext } from "@webiny/cli/types";
+const fs = require("fs");
+const { green } = require("chalk");
+const { getPulumi } = require("@webiny/cli-plugin-deploy-pulumi/utils");
+const path = require("path");
+const execa = require("execa");
 
-const convertToBoolean = (value: unknown): boolean => {
+const convertToBoolean = value => {
     return value === "true" || value === true;
 };
 
-interface IDestroyAppParams {
-    stack: string;
-    env: string;
-    variant: string;
-    inputs: IUserCommandInput;
-}
-
-const destroyApp = ({ stack, env, variant, inputs }: IDestroyAppParams) => {
-    const command: (string | boolean)[] = [
+const destroy = ({ stack, env, variant, inputs }) => {
+    const command = [
         "webiny",
         "destroy",
         stack,
@@ -34,12 +25,12 @@ const destroyApp = ({ stack, env, variant, inputs }: IDestroyAppParams) => {
     if (variant) {
         command.push("--variant", variant);
     }
-    return execa("yarn", command as string[], {
+    return execa("yarn", command, {
         stdio: "inherit"
     });
 };
 
-export const destroy = async (inputs: IUserCommandInput, context: CliContext) => {
+module.exports = async (inputs, context) => {
     const { env, variant = "" } = inputs;
 
     // This will ensure that the user has Pulumi CLI installed.
@@ -49,7 +40,7 @@ export const destroy = async (inputs: IUserCommandInput, context: CliContext) =>
 
     console.log();
     context.info(`Destroying ${green("Website")} project application...`);
-    await destroyApp({
+    await destroy({
         stack: "apps/website",
         env,
         variant,
@@ -58,7 +49,7 @@ export const destroy = async (inputs: IUserCommandInput, context: CliContext) =>
 
     console.log();
     context.info(`Destroying ${green("Admin")} project application...`);
-    await destroyApp({
+    await destroy({
         stack: "apps/admin",
         env,
         variant,
@@ -67,7 +58,7 @@ export const destroy = async (inputs: IUserCommandInput, context: CliContext) =>
 
     console.log();
     context.info(`Destroying ${green("API")} project application...`);
-    await destroyApp({
+    await destroy({
         stack: "apps/api",
         env,
         variant,
@@ -77,7 +68,7 @@ export const destroy = async (inputs: IUserCommandInput, context: CliContext) =>
     if (hasCore) {
         console.log();
         context.info(`Destroying ${green("Core")} project application...`);
-        await destroyApp({
+        await destroy({
             stack: "apps/core",
             env,
             variant,

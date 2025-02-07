@@ -1,34 +1,18 @@
-import {
-    getPulumi,
+const {
     getStackOutput,
+    getPulumi,
     GracefulPulumiError
-} from "@webiny/cli-plugin-deploy-pulumi/utils";
-import { sendEvent } from "@webiny/cli/utils";
-import { bold } from "chalk";
-import type { IDeployParams } from "@webiny/cli-plugin-deploy-pulumi/commands/deploy";
-import { deployCommand } from "@webiny/cli-plugin-deploy-pulumi/commands/deploy";
-import { getInfo } from "../info";
-import { sleep } from "../utils/sleep";
-import open from "open";
-import ora from "ora";
-import { isCI } from "ci-info";
-import type { CliContext } from "@webiny/cli/types";
+} = require("@webiny/cli-plugin-deploy-pulumi/utils");
+const { sendEvent } = require("@webiny/cli/utils");
+const { bold } = require("chalk");
+const { deployCommand } = require("@webiny/cli-plugin-deploy-pulumi/commands/deploy");
+const { getInfo } = require("../info");
+const sleep = require("../utils/sleep");
+const open = require("open");
+const ora = require("ora");
+const { isCI } = require("ci-info");
 
-export interface IDeployAppParams {
-    name: string;
-    folder: string;
-    inputs: IDeployParams;
-    context: CliContext;
-    isFirstDeployment: boolean;
-}
-
-const deployApp = async ({
-    name,
-    folder,
-    inputs,
-    context,
-    isFirstDeployment
-}: IDeployAppParams) => {
+const deployApp = async ({ name, folder, inputs, context, isFirstDeployment }) => {
     context.info(`Deploying %s project application...`, name);
     console.log();
 
@@ -49,7 +33,7 @@ const deployApp = async ({
     isFirstDeployment && (await sleep());
 };
 
-export const deploy = async (inputs: IDeployParams, context: CliContext): Promise<void> => {
+module.exports = async (inputs, context) => {
     await sendEvent("cli-project-deploy-start");
 
     try {
@@ -133,7 +117,7 @@ export const deploy = async (inputs: IDeployParams, context: CliContext): Promis
 
             try {
                 await sleep(7000);
-                await open(adminAppOutput.appUrl as string);
+                await open(adminAppOutput.appUrl);
                 spinner.succeed(
                     `Successfully opened ${context.info.hl("Admin")} app in your browser.`
                 );

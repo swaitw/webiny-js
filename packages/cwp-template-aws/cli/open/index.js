@@ -1,8 +1,7 @@
-import { getStackOutput } from "@webiny/cli-plugin-deploy-pulumi/utils";
-import open from "open";
-import type { CliCommandPlugin } from "@webiny/cli/types";
+const { getStackOutput } = require("@webiny/cli-plugin-deploy-pulumi/utils/getStackOutput");
+const open = require("open");
 
-export const openCommand: CliCommandPlugin = {
+module.exports = {
     type: "cli-command",
     name: "cli-command-open",
     create({ yargs, context }) {
@@ -21,7 +20,7 @@ export const openCommand: CliCommandPlugin = {
                     required: false
                 });
             },
-            async (args: Record<string, any>) => {
+            async args => {
                 const appName = args.app === "website" ? "public website" : "Admin app";
                 context.info(`Opening ${appName}...`);
 
@@ -51,7 +50,7 @@ export const openCommand: CliCommandPlugin = {
                 return new Promise(resolve => {
                     setTimeout(() => {
                         context.success(`Successfully opened ${appName}.`);
-                        open(appUrl as string);
+                        open(appUrl);
                         resolve();
                     }, 1000);
                 });

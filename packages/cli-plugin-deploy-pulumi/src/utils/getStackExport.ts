@@ -55,7 +55,12 @@ const getOutputJson = ({
             cwd: cwd || project.root
         });
 
-        return (cache[cacheKey] = JSON.parse(stdout));
+        const parsed = JSON.parse(stdout);
+        if (Object.keys(parsed).length === 0) {
+            return null;
+        }
+        cache[cacheKey] = parsed;
+        return parsed;
     } catch (e) {
         return null;
     }

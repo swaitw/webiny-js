@@ -1,13 +1,13 @@
-import { setup } from "~/setup";
-import path from "path";
-import fs from "fs-extra";
-import writeJsonFile from "write-json-file";
-import dotenv from "dotenv";
+const setup = require("../setup");
+const path = require("path");
+const fs = require("fs-extra");
+const writeJsonFile = require("write-json-file");
+const dotenv = require("dotenv");
 
 const PROJECT_NAME = "test-123";
 const PROJECT_ROOT = path.join(__dirname, PROJECT_NAME);
 
-const getPackageJson = (projectName: string) => ({
+const getPackageJson = projectName => ({
     name: projectName,
     version: "0.1.0",
     private: true
@@ -21,13 +21,11 @@ describe("root .env file generation test", () => {
         await writeJsonFile(path.join(PROJECT_ROOT, "package.json"), packageJson);
 
         await setup({
-            isGitAvailable: false,
             projectName: PROJECT_NAME,
             projectRoot: PROJECT_ROOT,
             templateOptions: {
                 region: "eu-central-1"
-            },
-            overrideDirname: path.resolve(__dirname, "..")
+            }
         });
     });
 

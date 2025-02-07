@@ -40,7 +40,12 @@ const getOutputJson = ({ folder, env, cwd, variant }: IGetOutputJsonParams) => {
 
         // Let's get the output after the first line break. Everything before is just yarn stuff.
         const extractedJSON = stdout.substring(stdout.indexOf("{"));
-        return (cache[cacheKey] = JSON.parse(extractedJSON));
+        const parsed = JSON.parse(extractedJSON);
+        if (Object.keys(parsed).length === 0) {
+            return null;
+        }
+        cache[cacheKey] = parsed;
+        return parsed;
     } catch (e) {
         return null;
     }

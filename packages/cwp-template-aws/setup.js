@@ -1,54 +1,31 @@
-import fs from "fs-extra";
-import path from "path";
-import execa from "execa";
-import crypto from "crypto";
-import { renames } from "./setup/renames";
-import merge from "lodash/merge";
-import writeJsonFile from "write-json-file";
-import type { PackageJson } from "type-fest";
-import loadJsonFile from "load-json-file";
-// @ts-expect-error
-import getPackages from "get-yarn-workspaces";
-import { yellow } from "chalk";
-import ora from "ora";
+const fs = require("fs-extra");
+const path = require("path");
+const execa = require("execa");
+const crypto = require("crypto");
+const renames = require("./setup/renames");
+const merge = require("lodash/merge");
+const writeJsonFile = require("write-json-file");
+const loadJsonFile = require("load-json-file");
+const getPackages = require("get-yarn-workspaces");
+const { yellow } = require("chalk");
+const ora = require("ora");
 
 const IS_TEST = process.env.NODE_ENV === "test";
 
-function getDefaultRegion(): string {
-    return process.env.AWS_REGION || "us-east-1";
+// Automatic detection could be added here.
+function getDefaultRegion() {
+    return "us-east-1";
 }
 
-function random(length: number = 32): string {
+function random(length = 32) {
     return crypto
         .randomBytes(Math.ceil(length / 2))
         .toString("hex")
         .slice(0, length);
 }
 
-export interface ISetupParams {
-    isGitAvailable: boolean;
-    projectRoot: string;
-    projectName: string;
-    templateOptions: {
-        region?: string;
-        storageOperations?: string;
-    };
-    /**
-     * @internal
-     *
-     * Used for testing.
-     */
-    overrideDirname?: string;
-}
-
-export const setup = async (params: ISetupParams) => {
-    const {
-        isGitAvailable,
-        projectRoot,
-        projectName,
-        templateOptions = {},
-        overrideDirname
-    } = params;
+const setup = async args => {
+    const { isGitAvailable, projectRoot, projectName, templateOptions = {} } = args;
     const { region = getDefaultRegion(), storageOperations = "ddb" } = templateOptions;
     /**
      * We need to check for the existence of the common and storageOperations folders to continue.
@@ -58,11 +35,8 @@ export const setup = async (params: ISetupParams) => {
         process.exit(1);
     }
 
-    const commonTemplate = path.join(overrideDirname || __dirname, `template/common`);
-    const storageOperationsTemplate = path.join(
-        overrideDirname || __dirname,
-        `template/${storageOperations}`
-    );
+    const commonTemplate = path.join(__dirname, `template/common`);
+    const storageOperationsTemplate = path.join(__dirname, `template/${storageOperations}`);
     if (!fs.existsSync(commonTemplate)) {
         console.log(`Missing common template folder "${commonTemplate}".`);
         process.exit(1);
@@ -100,10 +74,8 @@ export const setup = async (params: ISetupParams) => {
     await writeJsonFile(packageJsonPath, packageJson);
 
     await fs.removeSync(dependenciesJsonPath);
-    /**
-     * Had to change from ./package.json to full path, because package.json does not exist in the src folder during development / testing.
-     */
-    const { name, version } = require("@webiny/cwp-template-aws/package.json");
+
+    const { name, version } = require("./package.json");
 
     if (!IS_TEST && isGitAvailable) {
         // Commit .gitignore.
@@ -140,10 +112,10 @@ export const setup = async (params: ISetupParams) => {
 
     for (let i = 0; i < workspaces.length; i++) {
         const packageJsonPath = path.join(workspaces[i], "package.json");
-        const packageJson = await loadJsonFile<Required<PackageJson>>(packageJsonPath);
-        const depsList = Object.keys(packageJson.dependencies).filter(name => {
-            return name.startsWith("@webiny");
-        });
+        const packageJson = await loadJsonFile(packageJsonPath);
+        const depsList = Object.keys(packageJson.dependencies).filter(name =>
+            name.startsWith("@webiny")
+        );
 
         depsList.forEach(name => {
             packageJson.dependencies[name] = latestVersion;
@@ -162,7 +134,7 @@ export const setup = async (params: ISetupParams) => {
     try {
         const subprocess = execa("yarn", [], {
             cwd: projectRoot,
-            maxBuffer: 500_000_000
+            maxBuffer: "500_000_000"
         });
         await subprocess;
         spinner.succeed("Packages installed successfully.");
@@ -177,3 +149,5 @@ export const setup = async (params: ISetupParams) => {
         );
     }
 };
+
+module.exports = setup;

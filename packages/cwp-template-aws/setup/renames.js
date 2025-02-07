@@ -1,9 +1,4 @@
-export interface IRenameValue {
-    prev: string;
-    next: string;
-}
-
-export const renames: IRenameValue[] = [
+module.exports = [
     {
         prev: "example.env",
         next: ".env"

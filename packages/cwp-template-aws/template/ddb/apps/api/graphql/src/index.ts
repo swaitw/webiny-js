@@ -18,6 +18,7 @@ import { DynamoDbDriver } from "@webiny/db-dynamodb";
 import dynamoDbPlugins from "@webiny/db-dynamodb/plugins";
 import { createFileManagerContext, createFileManagerGraphQL } from "@webiny/api-file-manager";
 import { createFileManagerStorageOperations } from "@webiny/api-file-manager-ddb";
+import logsPlugins from "@webiny/handler-logs";
 import fileManagerS3, { createAssetDelivery } from "@webiny/api-file-manager-s3";
 import { createFormBuilder } from "@webiny/api-form-builder";
 import { createFormBuilderStorageOperations } from "@webiny/api-form-builder-so-ddb";
@@ -50,6 +51,7 @@ export const handler = createHandler({
         createWcpContext(),
         createWcpGraphQL(),
         dynamoDbPlugins(),
+        logsPlugins(),
         graphqlPlugins({ debug }),
         dbPlugins({
             table: process.env.DB_TABLE,

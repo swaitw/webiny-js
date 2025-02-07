@@ -1,9 +1,7 @@
-import { blue } from "chalk";
-import type { CliCommandErrorPlugin } from "@webiny/cli/types";
-
+const { blue } = require("chalk");
 const MATCH_STRING = "SubscriptionRequiredException";
 
-export const subscriptionRequiredException: CliCommandErrorPlugin = {
+module.exports = {
     type: "cli-command-error",
     handle: ({ context, error }) => {
         const { message } = error;

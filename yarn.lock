@@ -15269,7 +15269,6 @@ __metadata:
     "@webiny/aws-sdk": "npm:0.0.0"
     "@webiny/cli": "npm:0.0.0"
     "@webiny/cli-plugin-deploy-pulumi": "npm:0.0.0"
-    "@webiny/project-utils": "npm:0.0.0"
     chalk: "npm:^4.1.2"
     ci-info: "npm:^4.1.0"
     dotenv: "npm:^8.2.0"
@@ -15282,9 +15281,6 @@ __metadata:
     lodash: "npm:^4.17.21"
     open: "npm:^8.4.2"
     ora: "npm:4.1.1"
-    rimraf: "npm:^6.0.1"
-    type-fest: "npm:4.14.0"
-    typescript: "npm:5.3.3"
     write-json-file: "npm:^4.3.0"
   languageName: unknown
   linkType: soft
