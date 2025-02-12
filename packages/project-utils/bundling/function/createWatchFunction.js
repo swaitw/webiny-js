@@ -1,7 +1,8 @@
-const watchFunction = require("./watchFunction");
 const { prepareOptions } = require("../../utils");
 
-module.exports = config => async (options, context) => {
+module.exports = config => async options => {
     const preparedOptions = prepareOptions({ config, options });
-    return watchFunction(preparedOptions, context);
+    const { FunctionBundler } = require("./bundlers/FunctionBundler");
+    const bundler = new FunctionBundler(preparedOptions);
+    return bundler.watch();
 };

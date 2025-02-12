@@ -1,10 +1,13 @@
 import path from "path";
-import { Worker } from "worker_threads";
 import Listr from "listr";
 import { BasePackagesBuilder } from "./BasePackagesBuilder";
 import { gray } from "chalk";
 import { measureDuration } from "~/utils";
 import { IProjectApplicationPackage } from "@webiny/cli/types";
+import { fork } from "child_process";
+import { deserializeError } from "serialize-error";
+
+const WORKER_PATH = path.resolve(__dirname, "worker.js");
 
 export class MultiplePackagesBuilder extends BasePackagesBuilder {
     public override async build(): Promise<void> {
@@ -14,79 +17,57 @@ export class MultiplePackagesBuilder extends BasePackagesBuilder {
 
         const getBuildDuration = measureDuration();
 
-        const { env, variant, debug } = inputs;
-
         context.info(`Building %s packages...`, packages.length);
 
-        const buildTasks = [];
+        const tasksList = packages.map(pkg => {
+            return {
+                title: this.getPackageLabel(pkg),
+                task: () => {
+                    return new Promise<void>((resolve, reject) => {
+                        const buildConfig = JSON.stringify({
+                            ...inputs,
+                            package: { paths: pkg.paths }
+                        });
+                        const child = fork(WORKER_PATH, [buildConfig], { silent: true });
 
-        for (let i = 0; i < packages.length; i++) {
-            const pkg = packages[i];
+                        // We only send one message from the child process, and that is the error, if any.
+                        child.on("message", serializedError => {
+                            const error = deserializeError(serializedError);
+                            reject(new Error("Build failed.", { cause: { pkg, error } }));
+                        });
 
-            buildTasks.push({
-                pkg: pkg,
-                task: new Promise((resolve, reject) => {
-                    const enableLogs = inputs.logs === true;
+                        // Handle child process error events
+                        child.on("error", error => {
+                            reject(new Error("Build failed.", { cause: { pkg, error } }));
+                        });
 
-                    const workerData = {
-                        options: {
-                            env,
-                            variant,
-                            debug,
-                            logs: enableLogs
-                        },
-                        package: { ...pkg.paths }
-                    };
+                        // Handle child process exit and check for errors
+                        child.on("exit", code => {
+                            if (code !== 0) {
+                                const error = new Error(`Build process exited with code ${code}.`);
+                                reject(new Error("Build failed.", { cause: { pkg, error } }));
+                                return;
+                            }
 
-                    const worker = new Worker(path.join(__dirname, "./worker.js"), {
-                        workerData,
-                        stderr: true,
-                        stdout: true
+                            resolve();
+                        });
                     });
+                }
+            };
+        });
 
-                    worker.on("message", threadMessage => {
-                        const { type, stdout, stderr, error } = JSON.parse(threadMessage);
-
-                        const result = {
-                            package: pkg,
-                            stdout,
-                            stderr,
-                            error,
-                            duration: getBuildDuration()
-                        };
-
-                        if (type === "error") {
-                            reject(result);
-                            return;
-                        }
-
-                        if (type === "success") {
-                            resolve(result);
-                        }
-                    });
-                })
-            });
-        }
-
-        const tasks = new Listr(
-            buildTasks.map(({ pkg, task }) => {
-                return {
-                    title: this.getPackageLabel(pkg),
-                    task: () => task
-                };
-            }),
-            { concurrent: true, exitOnError: false }
-        );
+        const tasks = new Listr(tasksList, { concurrent: true, exitOnError: false });
 
         await tasks.run().catch(err => {
             console.log();
             context.error(`Failed to build all packages. For more details, check the logs below.`);
             console.log();
+
             /**
              * Seems List package has wrong types or this never worked.
              */
-            // @ts-expect-error
-            err.errors.forEach(({ package: pkg, error }, i) => {
+            err.errors.forEach((err: Error, i: number) => {
+                const { pkg, error } = err.cause as Record<string, any>;
                 const number = `${i + 1}.`;
                 const name = context.error.hl(pkg.name);
                 const relativePath = gray(`(${pkg.paths.relative})`);
@@ -94,7 +75,10 @@ export class MultiplePackagesBuilder extends BasePackagesBuilder {
 
                 console.log(title);
                 console.log(error.message);
-                console.log();
+
+                if (inputs.debug) {
+                    console.log(error.stack);
+                }
             });
 
             throw new Error(`Failed to build all packages.`);

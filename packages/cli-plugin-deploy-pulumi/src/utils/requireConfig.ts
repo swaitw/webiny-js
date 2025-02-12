@@ -6,7 +6,6 @@ export interface IRequireConfigOptions {
     region: string | undefined;
     debug?: boolean;
     cwd: string;
-    logs: boolean;
 }
 
 export interface IRequireConfigResult {

@@ -1,7 +1,8 @@
-const buildFunction = require("./buildFunction");
 const { prepareOptions } = require("../../utils");
 
 module.exports = config => async options => {
     const preparedOptions = prepareOptions({ config, options });
-    return buildFunction(preparedOptions);
+    const { FunctionBundler } = require("./bundlers/FunctionBundler");
+    const bundler = new FunctionBundler(preparedOptions);
+    return bundler.build();
 };

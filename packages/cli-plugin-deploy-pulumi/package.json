@@ -33,7 +33,8 @@
     "node-notifier": "^10.0.1",
     "ora": "4.1.1",
     "p-retry": "^4.6.2",
-    "replace-in-path": "^1.1.0"
+    "replace-in-path": "^1.1.0",
+    "serialize-error": "^8.0.0"
   },
   "devDependencies": {
     "@types/humanize-duration": "^3.27.4",

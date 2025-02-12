@@ -14,9 +14,6 @@ module.exports.prepareOptions = ({ config, options }) => {
         mergedOptions.overrides = {};
     }
 
-    // We want to have logs enabled by default.
-    mergedOptions.logs = mergedOptions.logs !== false;
-
     // We want to have debug logs disabled by default.
     mergedOptions.debug = mergedOptions.debug === true;
 

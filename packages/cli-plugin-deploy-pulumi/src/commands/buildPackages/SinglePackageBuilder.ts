@@ -19,9 +19,7 @@ export class SinglePackageBuilder extends BasePackagesBuilder {
             variant,
             region,
             debug,
-            cwd: pkg.paths.root,
-            // Not much sense in turning off logs when a single package is being built.
-            logs: true
+            cwd: pkg.paths.root
         };
 
         const config = requireConfigWithExecute(pkg.paths.config, {
