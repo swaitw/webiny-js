@@ -13,6 +13,7 @@ export type CorePulumiAppAdvancedVpcParams = Partial<{
     useVpcEndpoints: boolean;
     useExistingVpc: {
         elasticSearchDomainVpcConfig?: aws.types.input.elasticsearch.DomainVpcOptions;
+        openSearchDomainVpcConfig?: aws.types.input.opensearch.DomainVpcOptions;
         lambdaFunctionsVpcConfig: aws.types.input.lambda.FunctionVpcConfig;
     };
 }>;
@@ -64,6 +65,20 @@ export function createCorePulumiApp(projectAppParams: CreateCorePulumiAppParams 
                             resource.config.vpcOptions(
                                 useExistingVpc!.elasticSearchDomainVpcConfig
                             );
+                        }
+                    });
+                }
+
+                if (projectAppParams.openSearch) {
+                    if (!useExistingVpc.openSearchDomainVpcConfig) {
+                        throw new Error(
+                            "Cannot specify `useExistingVpc` parameter because the `openSearchDomainVpcConfig` parameter wasn't provided."
+                        );
+                    }
+
+                    onResource(resource => {
+                        if (isResourceOfType(resource, aws.opensearch.Domain)) {
+                            resource.config.vpcOptions(useExistingVpc!.openSearchDomainVpcConfig);
                         }
                     });
                 }
