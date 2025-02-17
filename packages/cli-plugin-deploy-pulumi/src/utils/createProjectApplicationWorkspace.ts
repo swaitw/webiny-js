@@ -4,7 +4,7 @@ import ncpBase from "ncp";
 import { replaceInPath } from "replace-in-path";
 // @ts-expect-error
 import { createProjectApplicationWorkspace as baseCreateProjectApplicationWorkspace } from "@webiny/cli/utils";
-import { IUserCommandInput, ProjectApplication } from "~/types";
+import type { IUserCommandInput, ProjectApplication } from "~/types";
 
 const ncp = util.promisify(ncpBase.ncp);
 

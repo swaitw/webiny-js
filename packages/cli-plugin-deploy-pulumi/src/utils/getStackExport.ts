@@ -1,4 +1,4 @@
-import { IUserCommandInput } from "~/types";
+import type { IUserCommandInput } from "~/types";
 import execa from "execa";
 import { getProject } from "@webiny/cli/utils";
 

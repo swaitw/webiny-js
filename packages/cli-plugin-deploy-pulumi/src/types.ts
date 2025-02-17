@@ -2,7 +2,8 @@ export {
     CliContext as Context,
     ProjectApplication,
     IProjectApplicationPackage,
-    Project
+    Project,
+    NonEmptyArray
 } from "@webiny/cli/types";
 
 import type { Pulumi } from "@webiny/pulumi-sdk";

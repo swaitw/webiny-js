@@ -2,6 +2,8 @@ import { red } from "chalk";
 import { CliCommandPlugin } from "@webiny/cli/types";
 import { IUserCommandInput } from "~/types";
 import { regions } from "@webiny/cli/regions";
+import { attachPrimaryVariantCommands } from "~/commands/attachPrimaryVariantCommands";
+import { validateVariantName } from "~/utils";
 
 const validateRegion = (args: Pick<IUserCommandInput, "region">): boolean => {
     const { region: input } = args;
@@ -14,6 +16,11 @@ const validateRegion = (args: Pick<IUserCommandInput, "region">): boolean => {
         return true;
     }
     throw new Error(`Webiny does not support region "${region}".`);
+};
+
+const validateVariant = (args: Pick<IUserCommandInput, "variant">): boolean => {
+    validateVariantName(args);
+    return true;
 };
 
 export const commands: CliCommandPlugin[] = [
@@ -41,11 +48,13 @@ export const commands: CliCommandPlugin[] = [
                         describe: `Environment`,
                         type: "string"
                     });
-                    yargs.option("variant", {
-                        describe: `Variant`,
-                        type: "string",
-                        required: false
-                    });
+                    yargs
+                        .option("variant", {
+                            describe: `Variant`,
+                            type: "string",
+                            required: false
+                        })
+                        .check(validateVariant);
                     yargs
                         .option("region", {
                             describe: `Region to target`,
@@ -145,11 +154,13 @@ export const commands: CliCommandPlugin[] = [
                         describe: `Environment`,
                         type: "string"
                     });
-                    yargs.option("variant", {
-                        describe: `Variant`,
-                        type: "string",
-                        required: false
-                    });
+                    yargs
+                        .option("variant", {
+                            describe: `Variant`,
+                            type: "string",
+                            required: false
+                        })
+                        .check(validateVariant);
                     yargs.option("debug", {
                         default: false,
                         describe: `Turn on debug logs`,
@@ -201,11 +212,13 @@ export const commands: CliCommandPlugin[] = [
                             describe: `Environment`,
                             type: "string"
                         });
-                        yargs.option("variant", {
-                            describe: `Variant`,
-                            type: "string",
-                            required: false
-                        });
+                        yargs
+                            .option("variant", {
+                                describe: `Variant`,
+                                type: "string",
+                                required: false
+                            })
+                            .check(validateVariant);
                         yargs.option("package", {
                             alias: "p",
                             describe: `One or more packages that will be watched for code changes`,
@@ -278,11 +291,13 @@ export const commands: CliCommandPlugin[] = [
                             describe: `Environment`,
                             type: "string"
                         });
-                        yargs.option("variant", {
-                            describe: `Variant`,
-                            type: "string",
-                            required: false
-                        });
+                        yargs
+                            .option("variant", {
+                                describe: `Variant`,
+                                type: "string",
+                                required: false
+                            })
+                            .check(validateVariant);
                         yargs.option("build", {
                             describe: `While making code changes, re-build all relevant packages`,
                             type: "boolean"
@@ -355,11 +370,13 @@ export const commands: CliCommandPlugin[] = [
                         describe: `Environment`,
                         type: "string"
                     });
-                    yargs.option("variant", {
-                        describe: `Variant`,
-                        type: "string",
-                        required: false
-                    });
+                    yargs
+                        .option("variant", {
+                            describe: `Variant`,
+                            type: "string",
+                            required: false
+                        })
+                        .check(validateVariant);
                     yargs.option("confirm-destroy-variant", {
                         describe:
                             "Confirm environment variant to destroy. Must be passed when destroying the whole project.",
@@ -448,11 +465,13 @@ export const commands: CliCommandPlugin[] = [
                         describe: `Environment`,
                         type: "string"
                     });
-                    yargs.option("variant", {
-                        describe: `Variant`,
-                        type: "string",
-                        required: false
-                    });
+                    yargs
+                        .option("variant", {
+                            describe: `Variant`,
+                            type: "string",
+                            required: false
+                        })
+                        .check(validateVariant);
                     yargs.option("json", {
                         describe: `Emit output as JSON`,
                         type: "boolean"
@@ -491,11 +510,13 @@ export const commands: CliCommandPlugin[] = [
                         describe: `Environment`,
                         type: "string"
                     });
-                    yargs.option("variant", {
-                        describe: `Variant`,
-                        type: "string",
-                        required: false
-                    });
+                    yargs
+                        .option("variant", {
+                            describe: `Variant`,
+                            type: "string",
+                            required: false
+                        })
+                        .check(validateVariant);
                     yargs.option("debug", {
                         default: false,
                         describe: `Turn on debug logs`,
@@ -534,11 +555,13 @@ export const commands: CliCommandPlugin[] = [
                         type: "string",
                         required: true
                     });
-                    yargs.option("variant", {
-                        describe: `Variant`,
-                        type: "string",
-                        required: false
-                    });
+                    yargs
+                        .option("variant", {
+                            describe: `Variant`,
+                            type: "string",
+                            required: false
+                        })
+                        .check(validateVariant);
                     yargs.option("force", {
                         describe: `!!USE WITH CAUTION!! Force execution of the migrations.`,
                         type: "boolean",
@@ -550,6 +573,8 @@ export const commands: CliCommandPlugin[] = [
                     return executeMigrationsCommand(argv, context);
                 }
             );
+
+            attachPrimaryVariantCommands({ yargs, context });
         }
     }
 ];

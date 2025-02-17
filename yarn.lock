@@ -15220,6 +15220,7 @@ __metadata:
     rimraf: "npm:^6.0.1"
     serialize-error: "npm:^8.0.0"
     typescript: "npm:5.3.3"
+    yargs: "npm:^17.7.2"
   languageName: unknown
   linkType: soft
 

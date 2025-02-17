@@ -1,10 +1,10 @@
 import fs from "fs";
 
-export interface ICallback {
+export interface ICrawlDirectoryCallback {
     (filePath: string): void;
 }
 
-export const crawlDirectory = (dir: string, callback: ICallback) => {
+export const crawlDirectory = (dir: string, callback: ICrawlDirectoryCallback) => {
     if (!fs.existsSync(dir)) {
         return;
     }

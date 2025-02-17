@@ -37,7 +37,12 @@ interface Project {
     /**
      * Configurations.
      */
-    config: Record<string, any>;
+    config: {
+        appAliases: {
+            [key: string]: string;
+        }
+        [key: string]: any;
+    };
     /**
      * Root path of the project.
      */
