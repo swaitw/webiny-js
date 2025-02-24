@@ -3,12 +3,10 @@ import classnames from "classnames";
 import styled from "@emotion/styled";
 import { css } from "emotion";
 import classNames from "classnames";
-import { isEqual } from "lodash";
-import { ChromePicker } from "react-color";
+import isEqual from "lodash/isEqual";
+import { ChromePicker, ColorState, RGBColor } from "react-color";
 import { Menu } from "@webiny/ui/Menu";
-import { usePageBuilder } from "~/hooks/usePageBuilder";
 import { usePageElements } from "@webiny/app-page-builder-elements/hooks/usePageElements";
-import { Theme } from "@webiny/app-page-builder-elements/types";
 
 // Icons
 import { ReactComponent as IconPalette } from "../../assets/icons/round-color_lens-24px.svg";
@@ -171,30 +169,30 @@ const styles = {
     })
 };
 
-type ColorPickerProps = {
+interface ColorPickerProps {
     value: string;
-    onChange: Function;
-    onChangeComplete: Function;
+    onChange: (value: string) => void;
+    onChangeComplete: (value: string) => void;
     compact?: boolean;
     handlerClassName?: string;
-};
+}
 
 const ColorPicker = ({ value, onChange, onChangeComplete, compact = false }: ColorPickerProps) => {
     const [showPicker, setShowPicker] = useState(false);
 
-    const getColorValue = useCallback(rgb => {
+    const getColorValue = useCallback((rgb: RGBColor) => {
         return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${rgb.a})`;
     }, []);
 
     const onColorChange = useCallback(
-        color => {
+        (color: ColorState) => {
             onChange(getColorValue(color.rgb));
         },
         [onChange]
     );
 
     const onColorChangeComplete = useCallback(
-        ({ rgb }) => {
+        ({ rgb }: ColorState) => {
             onChangeComplete(getColorValue(rgb));
         },
         [onChangeComplete]
@@ -205,27 +203,34 @@ const ColorPicker = ({ value, onChange, onChangeComplete, compact = false }: Col
     }, [setShowPicker]);
 
     const togglePicker = useCallback(
-        e => {
+        (e: React.MouseEvent) => {
             e.stopPropagation();
             setShowPicker(!showPicker);
         },
         [showPicker, setShowPicker]
     );
 
-    const { theme } = usePageBuilder();
-    let peTheme: Theme = {};
     const pageElements = usePageElements();
-    if (pageElements) {
-        peTheme = pageElements.theme;
+
+    const themeColors: Record<string, any> = {};
+
+    const colors = pageElements.theme?.styles?.colors;
+    if (colors) {
+        for (const key in colors) {
+            if (colors[key]) {
+                themeColors[key] = colors[key];
+            }
+        }
     }
 
-    const themeColors = { ...theme.colors, ...peTheme.styles?.colors };
+    // Either a custom color or a color coming from the theme object.
+    const actualSelectedColor = themeColors[value] || value || "#fff";
 
     let themeColor = false;
-
     const colorPicker = (
         <ColorPickerStyle onClick={hidePicker}>
-            {Object.values(themeColors).map((color, index) => {
+            {Object.keys(themeColors).map((key, index) => {
+                const color = themeColors[key];
                 if (color === value || value === "transparent") {
                     themeColor = true;
                 }
@@ -233,11 +238,14 @@ const ColorPicker = ({ value, onChange, onChangeComplete, compact = false }: Col
                 return (
                     <ColorBox key={index}>
                         <Color
-                            className={color === value ? styles.selectedColor : null}
+                            className={key === value ? styles.selectedColor : ""}
                             style={{ backgroundColor: color }}
                             onClick={() => {
                                 hidePicker();
-                                onChangeComplete(color);
+
+                                // With page elements implementation, we want to store the color key and
+                                // then the actual color will be retrieved from the theme object.
+                                onChangeComplete(key);
                             }}
                         />
                     </ColorBox>
@@ -258,7 +266,7 @@ const ColorPicker = ({ value, onChange, onChangeComplete, compact = false }: Col
 
             <ColorBox>
                 <Color
-                    className={value && !themeColor ? styles.selectedColor : null}
+                    className={value && !themeColor ? styles.selectedColor : ""}
                     style={{ backgroundColor: themeColor ? "#fff" : value }}
                     onClick={togglePicker}
                 >
@@ -268,7 +276,7 @@ const ColorPicker = ({ value, onChange, onChangeComplete, compact = false }: Col
             {showPicker && (
                 <span onClick={e => e.stopPropagation()} className={chromePickerStyles}>
                     <ChromePicker
-                        color={value || "#fff"}
+                        color={actualSelectedColor}
                         onChange={onColorChange}
                         onChangeComplete={onColorChangeComplete}
                     />
@@ -296,7 +304,7 @@ const ColorPicker = ({ value, onChange, onChangeComplete, compact = false }: Col
                     {value ? (
                         <button
                             className={classNames(styles.button, "color")}
-                            style={{ backgroundColor: value }}
+                            style={{ backgroundColor: actualSelectedColor }}
                             onClick={() => onChange("")}
                         />
                     ) : (

@@ -1,13 +1,13 @@
-import invariant from "invariant";
-import { DragObjectWithTypeWithTarget } from "../../../components/Droppable";
+import { DragObjectWithTypeWithTarget } from "~/editor/components/Droppable";
 import {
     PbEditorPageElementPlugin,
     EventActionCallable,
     EventActionHandlerCallableState,
     PbEditorElement
-} from "../../../../types";
+} from "~/types";
 import { plugins } from "@webiny/plugins";
 import { DropElementActionArgsType } from "./types";
+import { onReceived } from "~/editor/helpers";
 
 const elementPluginType = "pb-editor-page-element";
 
@@ -25,7 +25,8 @@ const getSourceElement = async (
     source: DragObjectWithTypeWithTarget
 ): Promise<PbEditorElement | DragObjectWithTypeWithTarget> => {
     if (source.id) {
-        return await state.getElementById(source.id);
+        const element = await state.getElementById(source.id);
+        return (await state.getElementTree({ element })) as PbEditorElement;
     }
 
     return source;
@@ -36,6 +37,11 @@ export const dropElementAction: EventActionCallable<DropElementActionArgsType> =
     meta,
     args
 ) => {
+    if (!args) {
+        return {
+            actions: []
+        };
+    }
     const { source, target } = args;
     const { id, type, position } = target;
     const targetElement = await state.getElementById(id);
@@ -43,14 +49,12 @@ export const dropElementAction: EventActionCallable<DropElementActionArgsType> =
         throw new Error(`There is no element with id "${id}"`);
     }
     const plugin = getElementTypePlugin(type);
-    invariant(
-        plugin.onReceived,
-        "To accept drops, element plugin must implement `onReceived` function"
-    );
 
     const sourceElement = await getSourceElement(state, source);
 
-    return plugin.onReceived({
+    const onReceivedCallback = plugin.onReceived || onReceived;
+
+    return onReceivedCallback!({
         state,
         meta,
         source: sourceElement,

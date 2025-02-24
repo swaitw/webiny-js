@@ -1,0 +1,47 @@
+{
+  "name": "@webiny/api-record-locking",
+  "version": "0.0.0",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webiny/webiny-js.git"
+  },
+  "description": "Record Locking built on top of the Headless CMS.",
+  "contributors": [
+    "Bruno Zorić <bruno@webiny.com>"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@webiny/api": "0.0.0",
+    "@webiny/api-headless-cms": "0.0.0",
+    "@webiny/api-websockets": "0.0.0",
+    "@webiny/error": "0.0.0",
+    "@webiny/handler": "0.0.0",
+    "@webiny/handler-aws": "0.0.0",
+    "@webiny/handler-graphql": "0.0.0",
+    "@webiny/plugins": "0.0.0",
+    "@webiny/pubsub": "0.0.0",
+    "@webiny/utils": "0.0.0"
+  },
+  "devDependencies": {
+    "@webiny/api-i18n": "0.0.0",
+    "@webiny/api-security": "0.0.0",
+    "@webiny/api-tenancy": "0.0.0",
+    "@webiny/api-wcp": "0.0.0",
+    "@webiny/cli": "0.0.0",
+    "@webiny/project-utils": "0.0.0",
+    "graphql": "^15.9.0",
+    "rimraf": "^6.0.1",
+    "type-fest": "4.14.0",
+    "typescript": "5.3.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
+  "scripts": {
+    "build": "yarn webiny run build",
+    "watch": "yarn webiny run watch"
+  },
+  "gitHead": "8476da73b653c89cc1474d968baf55c1b0ae0e5f"
+}

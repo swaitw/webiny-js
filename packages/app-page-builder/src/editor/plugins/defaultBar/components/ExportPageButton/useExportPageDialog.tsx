@@ -12,6 +12,7 @@ import { usePageBuilder } from "~/hooks/usePageBuilder";
 import { ReactComponent as FileDownloadIcon } from "~/editor/assets/icons/file_download_black_24dp.svg";
 import ExportPageLoadingDialogContent from "./ExportPageLoadingDialogContent";
 import useExportPage from "./useExportPage";
+import { PbListPagesWhereInput } from "~/admin/graphql/types";
 
 const t = i18n.ns("app-page-builder/editor/plugins/defaultBar/exportPageButton");
 
@@ -25,9 +26,8 @@ const linkWrapper = css`
 
     & .link-text {
         padding: 8px 0 8px 16px;
-    }
-
-    & .copy-button__wrapper {
+        width: 100%;
+        overflow: hidden;
     }
 `;
 
@@ -44,24 +44,38 @@ const spinnerWrapper = css`
     height: 180px;
 `;
 
+const createWhere = (where?: PbListPagesWhereInput, ids?: string[]) => {
+    if (!ids?.length) {
+        return where;
+    }
+    return {
+        ...(where || {}),
+        pid_in: ids
+    };
+};
+
 export interface ExportPagesDialogProps {
     ids?: string[];
-    where?: Record<string, any>;
+    where?: PbListPagesWhereInput;
     sort?: string;
     search?: { query: string };
 }
 
-const ExportPageLoadingDialogMessage: React.FC<ExportPagesDialogProps> = props => {
+const ExportPageLoadingDialogMessage = (props: ExportPagesDialogProps) => {
     const { exportPage } = useExportPage();
     const {
         exportPageData: { revisionType }
     } = usePageBuilder();
 
+    const { ids, sort, ...variables } = props;
+
     useEffect(() => {
         exportPage({
             variables: {
+                ...variables,
+                where: createWhere(variables.where, ids),
                 revisionType,
-                ...props
+                sort: sort ? [sort] : undefined
             }
         });
     }, []);
@@ -79,7 +93,7 @@ interface ExportPageDialogProps {
     exportUrl: string;
 }
 
-const ExportPageDialogMessage: React.FunctionComponent<ExportPageDialogProps> = ({ exportUrl }) => {
+const ExportPageDialogMessage = ({ exportUrl }: ExportPageDialogProps) => {
     const { showSnackbar } = useSnackbar();
 
     return (
@@ -90,10 +104,14 @@ const ExportPageDialogMessage: React.FunctionComponent<ExportPageDialogProps> = 
                 </Cell>
                 <Cell span={12}>
                     <div className={linkWrapper}>
-                        <Typography use={"body2"} className={"link-text"}>
+                        <Typography
+                            use={"body2"}
+                            className={"link-text"}
+                            data-testid={"pb-pages-export-dialog-export-url"}
+                        >
                             {exportUrl}
                         </Typography>
-                        <span className={"copy-button__wrapper"}>
+                        <span>
                             <CopyButton
                                 data-testid={"export-pages.export-ready-dialog.copy-button"}
                                 value={exportUrl}
@@ -123,11 +141,18 @@ const ExportPageDialogMessage: React.FunctionComponent<ExportPageDialogProps> = 
     );
 };
 
-const useExportPageDialog = () => {
+interface UseExportPageDialog {
+    showExportPageContentDialog: (props: ExportPageDialogProps) => void;
+    showExportPageLoadingDialog: (taskId: string) => void;
+    showExportPageInitializeDialog: (props: ExportPagesDialogProps) => void;
+    hideDialog: () => void;
+}
+
+const useExportPageDialog = (): UseExportPageDialog => {
     const { showDialog, hideDialog } = useDialog();
 
     return {
-        showExportPageContentDialog: (props: ExportPageDialogProps) => {
+        showExportPageContentDialog: props => {
             showDialog(<ExportPageDialogMessage {...props} />, {
                 title: t`Your export is now ready!`,
                 actions: {

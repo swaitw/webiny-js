@@ -14,6 +14,8 @@ import {
     SimpleButton
 } from "../../../elementSettings/components/StyledComponents";
 
+import { PeCodesandbox } from "./PeCodesandbox";
+
 const PreviewBox = styled("div")({
     textAlign: "center",
     height: 50,
@@ -39,9 +41,13 @@ export default () => [
         },
         oembed: {
             onData(data) {
-                data.html = data.html.replace(/1000px/g, "100%").replace(/1000/g, "100%");
+                data["html"] = data["html"].replace(/1000px/g, "100%").replace(/1000/g, "100%");
                 return data;
             }
+        },
+        render: params => {
+            // @ts-expect-error No need to worry about different element.elements type.
+            return <PeCodesandbox {...params} />;
         }
     }),
     createEmbedSettingsPlugin({

@@ -1,11 +1,11 @@
-import * as React from "react";
+import React from "react";
 import { Radio as RmwcRadio } from "@rmwc/radio";
-import { FormComponentProps } from "./../types";
-import { FormElementMessage } from "../FormElementMessage";
+import { FormComponentProps } from "~/types";
+import { FormElementMessage } from "~/FormElementMessage";
 
 type Props = FormComponentProps & {
     // Component label.
-    label?: React.ReactNode;
+    label?: string;
 
     // Is radio disabled?
     disabled?: boolean;
@@ -19,30 +19,28 @@ type Props = FormComponentProps & {
  * Each Radio component must receive value and onChange callback via props.
  */
 class Radio extends React.Component<Props> {
-    static defaultProps = {
-        validation: { isValid: null }
-    };
-
     onChange = (e: React.SyntheticEvent<HTMLInputElement>) => {
-        this.props.onChange && this.props.onChange((e.target as any).checked);
+        this.props.onChange && this.props.onChange((e.target as HTMLInputElement).checked);
     };
 
-    render() {
+    public override render() {
         const { value, label, disabled, description, validation } = this.props;
+
+        const { isValid: validationIsValid, message: validationMessage } = validation || {};
+
         return (
             <React.Fragment>
                 <RmwcRadio
                     disabled={disabled}
                     checked={Boolean(value)}
                     onChange={this.onChange}
-                    // @ts-ignore Although the label is React.ReactNode internally, an error is still thrown.
                     label={label}
                 />
-                {validation.isValid === false && (
-                    <FormElementMessage error>{validation.message}</FormElementMessage>
+                {validationIsValid === false && (
+                    <FormElementMessage error>{validationMessage}</FormElementMessage>
                 )}
 
-                {validation.isValid !== false && description && (
+                {validationIsValid !== false && description && (
                     <FormElementMessage>{description}</FormElementMessage>
                 )}
             </React.Fragment>

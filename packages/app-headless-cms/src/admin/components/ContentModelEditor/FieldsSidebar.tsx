@@ -1,9 +1,9 @@
-import React from "react";
+import React, { DragEventHandler } from "react";
 import { plugins } from "@webiny/plugins";
 import styled from "@emotion/styled";
 import { Icon } from "@webiny/ui/Icon";
 import Draggable from "../Draggable";
-import { CmsEditorFieldTypePlugin } from "~/types";
+import { CmsModelFieldTypePlugin } from "~/types";
 
 const FieldContainer = styled("div")({
     padding: "10px 15px",
@@ -29,11 +29,13 @@ const FileInfo = styled("div")({});
 const FieldLabel = styled("div")({
     textTransform: "uppercase",
     lineHeight: "145%",
+    fontFamily: "var(--mdc-typography-font-family)",
     color: "var(--mdc-theme-on-surface)"
 });
 
 const FieldDescription = styled("div")({
     fontSize: 14,
+    fontFamily: "var(--mdc-typography-font-family)",
     color: "var(--mdc-theme-text-secondary-on-background)"
 });
 
@@ -42,7 +44,16 @@ const FieldHandle = styled("div")({
     color: "var(--mdc-theme-on-surface)"
 });
 
-const Field = ({ onFieldDragStart, fieldType: { type, label, icon, description } }) => {
+interface FieldProps {
+    onFieldDragStart: DragEventHandler;
+    fieldType: CmsModelFieldTypePlugin["field"];
+}
+
+const Field = (props: FieldProps) => {
+    const {
+        onFieldDragStart,
+        fieldType: { type, label, icon, description }
+    } = props;
     return (
         <Draggable beginDrag={{ type: "newField", fieldType: type }}>
             {({ drag }) => (
@@ -54,7 +65,7 @@ const Field = ({ onFieldDragStart, fieldType: { type, label, icon, description }
                 >
                     <FieldContainer>
                         <FieldHandle>
-                            <Icon icon={icon} />
+                            <Icon icon={icon as React.ReactElement} />
                         </FieldHandle>
                         <FileInfo>
                             <FieldLabel>{label}</FieldLabel>
@@ -67,8 +78,12 @@ const Field = ({ onFieldDragStart, fieldType: { type, label, icon, description }
     );
 };
 
-export const FieldsSidebar = ({ onFieldDragStart }) => {
-    const fieldTypePlugin = plugins.byType<CmsEditorFieldTypePlugin>("cms-editor-field-type");
+interface FieldsSidebarProps {
+    onFieldDragStart: DragEventHandler;
+}
+
+export const FieldsSidebar = ({ onFieldDragStart }: FieldsSidebarProps) => {
+    const fieldTypePlugin = plugins.byType<CmsModelFieldTypePlugin>("cms-editor-field-type");
 
     return (
         <React.Fragment>

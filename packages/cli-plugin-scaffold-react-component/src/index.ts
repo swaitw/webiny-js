@@ -1,7 +1,7 @@
 import {
     CliCommandScaffoldTemplate,
-    TsConfigJson,
-    PackageJson
+    PackageJson,
+    TsConfigJson
 } from "@webiny/cli-plugin-scaffold/types";
 import fs from "fs";
 import path from "path";
@@ -65,7 +65,7 @@ export default (): CliCommandScaffoldTemplate<Input> => ({
                 {
                     name: "location",
                     message: `Enter the package location`,
-                    default: answers => {
+                    default: (answers: Input) => {
                         return `packages/${Case.kebab(answers.componentName)}`;
                     },
                     validate: location => {
@@ -84,7 +84,7 @@ export default (): CliCommandScaffoldTemplate<Input> => ({
                 {
                     name: "packageName",
                     message: "Enter the package name",
-                    default: answers => {
+                    default: (answers: Input) => {
                         return `@custom-components/${Case.kebab(answers.componentName)}`;
                     },
                     validate: packageName => {
@@ -237,8 +237,12 @@ export default (): CliCommandScaffoldTemplate<Input> => ({
 
             // Update root tsconfig.build.json file paths
             ora.start(`Updating base tsconfig compilerOptions.paths to contain the package...`);
+
             if (!baseTsConfigBuildJson.compilerOptions) {
                 baseTsConfigBuildJson.compilerOptions = {};
+            }
+            if (!baseTsConfigBuildJson.compilerOptions.paths) {
+                baseTsConfigBuildJson.compilerOptions.paths = {};
             }
             baseTsConfigBuildJson.compilerOptions.paths[`${packageName}`] = [
                 `./${locationRelative}/src`

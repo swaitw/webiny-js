@@ -1,18 +1,17 @@
-import { CmsModelFieldInput, CmsGroup } from "~/types";
-import mdbid from "mdbid";
-import { useContentGqlHandler } from "../utils/useContentGqlHandler";
-import * as helpers from "../utils/helpers";
+import { CmsGroup, CmsModel, CmsModelField, CmsModelFieldInput } from "~/types";
+import { useGraphQLHandler } from "../testHelpers/useGraphQLHandler";
+import * as helpers from "../testHelpers/helpers";
 import models from "./mocks/contentModels";
-import { useCategoryManageHandler } from "../utils/useCategoryManageHandler";
-import { pubSubTracker, assignModelEvents } from "./mocks/lifecycleHooks";
-import { useBugManageHandler } from "../utils/useBugManageHandler";
+import { useCategoryManageHandler } from "../testHelpers/useCategoryManageHandler";
+import { assignModelEvents, pubSubTracker } from "./mocks/lifecycleHooks";
+import { useBugManageHandler } from "../testHelpers/useBugManageHandler";
 
-const getTypeFields = type => {
-    return type.fields.filter(f => f.name !== "_empty").map(f => f.name);
+const getTypeFields = (type: any) => {
+    return type.fields.filter((f: any) => f.name !== "_empty").map((f: any) => f.name);
 };
 
-const getTypeObject = (schema, type) => {
-    return schema.types.find(t => t.name === type);
+const getTypeObject = (schema: any, type: string) => {
+    return schema.types.find((t: any) => t.name === type);
 };
 
 const createPermissions = ({ models, groups }: { models?: string[]; groups?: string[] }) => [
@@ -44,13 +43,14 @@ const createPermissions = ({ models, groups }: { models?: string[]; groups?: str
     }
 ];
 
-jest.setTimeout(100000);
-
 describe("content model test", () => {
     const readHandlerOpts = { path: "read/en-US" };
     const manageHandlerOpts = { path: "manage/en-US" };
 
-    const { createContentModelGroupMutation } = useContentGqlHandler(manageHandlerOpts);
+    const {
+        createContentModelGroupMutation,
+        createContentModelMutation: baseCreateContentModelMutation
+    } = useGraphQLHandler(manageHandlerOpts);
 
     let contentModelGroup: CmsGroup;
 
@@ -70,8 +70,8 @@ describe("content model test", () => {
 
     test("base schema should only contain relevant queries and mutations", async () => {
         // create a "read" and "manage" endpoints
-        const readAPI = useContentGqlHandler(readHandlerOpts);
-        const manageAPI = useContentGqlHandler(manageHandlerOpts);
+        const readAPI = useGraphQLHandler(readHandlerOpts);
+        const manageAPI = useGraphQLHandler(manageHandlerOpts);
 
         const [read] = await readAPI.introspect();
         const [manage] = await manageAPI.introspect();
@@ -86,19 +86,28 @@ describe("content model test", () => {
 
         expect(getTypeFields(ReadQuery)).toEqual(["getContentModel", "listContentModels"]);
         expect(getTypeFields(ManageQuery)).toEqual([
+            "exportStructure",
             "getContentModel",
             "listContentModels",
             "searchContentEntries",
             "getContentEntry",
+            "getLatestContentEntry",
+            "getPublishedContentEntry",
             "getContentEntries",
+            "getLatestContentEntries",
+            "getPublishedContentEntries",
             "getContentModelGroup",
             "listContentModelGroups"
         ]);
         expect(getTypeFields(ReadMutation)).toEqual([]);
         expect(getTypeFields(ManageMutation)).toEqual([
+            "validateImportStructure",
+            "importStructure",
             "createContentModel",
+            "createContentModelFrom",
             "updateContentModel",
             "deleteContentModel",
+            "initializeModel",
             "createContentModelGroup",
             "updateContentModelGroup",
             "deleteContentModelGroup"
@@ -112,13 +121,16 @@ describe("content model test", () => {
             updateContentModelMutation,
             listContentModelsQuery,
             deleteContentModelMutation
-        } = useContentGqlHandler(manageHandlerOpts);
+        } = useGraphQLHandler(manageHandlerOpts);
 
         const [createResponse] = await createContentModelMutation({
             data: {
                 name: "Test Content model",
                 modelId: "test-content-model",
-                group: contentModelGroup.id
+                singularApiName: "TestContentModel",
+                pluralApiName: "TestContentModels",
+                group: contentModelGroup.id,
+                icon: "fa/fas"
             }
         });
 
@@ -127,9 +139,13 @@ describe("content model test", () => {
                 createContentModel: {
                     data: {
                         name: "Test Content model",
-                        description: null,
+                        description: "",
                         titleFieldId: "id",
+                        descriptionFieldId: null,
+                        imageFieldId: null,
                         modelId: "testContentModel",
+                        singularApiName: "TestContentModel",
+                        pluralApiName: "TestContentModels",
                         createdBy: helpers.identity,
                         createdOn: expect.stringMatching(/^20/),
                         savedOn: expect.stringMatching(/^20/),
@@ -138,8 +154,10 @@ describe("content model test", () => {
                         plugin: false,
                         group: {
                             id: contentModelGroup.id,
-                            name: contentModelGroup.name
-                        }
+                            name: contentModelGroup.name,
+                            slug: contentModelGroup.slug
+                        },
+                        icon: "fa/fas"
                     },
                     error: null
                 }
@@ -154,7 +172,10 @@ describe("content model test", () => {
         expect(getResponse).toEqual({
             data: {
                 getContentModel: {
-                    data: createResponse.data.createContentModel.data,
+                    data: {
+                        ...createResponse.data.createContentModel.data,
+                        description: null
+                    },
                     error: null
                 }
             }
@@ -174,6 +195,7 @@ describe("content model test", () => {
                 updateContentModel: {
                     data: {
                         ...createResponse.data.createContentModel.data,
+                        description: null,
                         savedOn: expect.stringMatching(/^20/)
                     },
                     error: null
@@ -188,7 +210,8 @@ describe("content model test", () => {
                 name: "changed name",
                 description: "changed description",
                 fields: [],
-                layout: []
+                layout: [],
+                icon: "fa/updated"
             }
         });
 
@@ -196,7 +219,8 @@ describe("content model test", () => {
             ...createdContentModel,
             name: "changed name",
             description: "changed description",
-            savedOn: expect.stringMatching(/^20/)
+            savedOn: expect.stringMatching(/^20/),
+            icon: "fa/updated"
         };
 
         expect(changedUpdateResponse).toEqual({
@@ -235,12 +259,14 @@ describe("content model test", () => {
 
     test("delete existing content model", async () => {
         const { createContentModelMutation, deleteContentModelMutation } =
-            useContentGqlHandler(manageHandlerOpts);
+            useGraphQLHandler(manageHandlerOpts);
 
         const [createResponse] = await createContentModelMutation({
             data: {
                 name: "Test Content model",
                 modelId: "test-content-model",
+                singularApiName: "TestContentModel",
+                pluralApiName: "TestContentModels",
                 group: contentModelGroup.id
             }
         });
@@ -266,17 +292,32 @@ describe("content model test", () => {
             createContentModelMutation,
             updateContentModelMutation,
             deleteContentModelMutation
-        } = useContentGqlHandler(manageHandlerOpts);
-        const { createCategory, until, listCategories } =
-            useCategoryManageHandler(manageHandlerOpts);
+        } = useGraphQLHandler(manageHandlerOpts);
+        const { createCategory, deleteCategory } = useCategoryManageHandler(manageHandlerOpts);
         const category = models.find(m => m.modelId === "category");
+        if (!category) {
+            throw new Error("Could not find model `category`.");
+        }
 
         // Create initial record
         const [createContentModelResponse] = await createContentModelMutation({
             data: {
                 name: category.name,
                 modelId: category.modelId,
+                singularApiName: category.singularApiName,
+                pluralApiName: category.pluralApiName,
                 group: contentModelGroup.id
+            }
+        });
+
+        expect(createContentModelResponse).toMatchObject({
+            data: {
+                createContentModel: {
+                    data: {
+                        modelId: category.modelId
+                    },
+                    error: null
+                }
             }
         });
 
@@ -288,35 +329,97 @@ describe("content model test", () => {
             }
         });
 
+        expect(updateContentModelResponse).toMatchObject({
+            data: {
+                updateContentModel: {
+                    data: {
+                        modelId: category.modelId
+                    },
+                    error: null
+                }
+            }
+        });
+
         const model = updateContentModelResponse.data.updateContentModel.data;
 
-        await createCategory({
+        const [createCategoryResponse] = await createCategory({
             data: {
                 title: "Category",
                 slug: "title"
             }
         });
-
-        // If this `until` resolves successfully, we know entry is accessible via the "read" API
-        await until(
-            () => listCategories().then(([data]) => data),
-            ({ data }) => data.listCategories.data.length > 0,
-            { name: "list categories to check that categories are available" }
-        );
-
-        const [response] = await deleteContentModelMutation({
-            modelId: model.modelId
+        expect(createCategoryResponse).toMatchObject({
+            data: {
+                createCategory: {
+                    data: {
+                        id: expect.any(String)
+                    },
+                    error: null
+                }
+            }
         });
 
-        expect(response).toEqual({
+        // Let's try to delete the content model: it should fail because we still have entries for the selected content model.
+        const [deleteWithEntriesResponse] = await deleteContentModelMutation({
+            modelId: model.modelId
+        });
+        expect(deleteWithEntriesResponse).toEqual({
             data: {
                 deleteContentModel: {
                     data: null,
                     error: {
                         message: `Cannot delete content model "${model.modelId}" because there are existing entries.`,
                         code: "CONTENT_MODEL_BEFORE_DELETE_HOOK_FAILED",
-                        data: null
+                        data: {
+                            model: expect.any(Object)
+                        }
                     }
+                }
+            }
+        });
+
+        // Let's move the entry to the trash bin and try to delete the content model: it should fail.
+        await deleteCategory({
+            revision: createCategoryResponse.data.createCategory.data.entryId,
+            options: {
+                permanently: false
+            }
+        });
+        const [deleteWithEntriesInTrashResponse] = await deleteContentModelMutation({
+            modelId: model.modelId
+        });
+        expect(deleteWithEntriesInTrashResponse).toEqual({
+            data: {
+                deleteContentModel: {
+                    data: null,
+                    error: {
+                        message: `Cannot delete content model "${model.modelId}" because there are existing entries in the trash.`,
+                        code: "CONTENT_MODEL_BEFORE_DELETE_HOOK_FAILED",
+                        data: {
+                            model: expect.any(Object)
+                        }
+                    }
+                }
+            }
+        });
+
+        // Let's permanently delete the entry: it should be able to delete the content model.
+        await deleteCategory({
+            revision: createCategoryResponse.data.createCategory.data.entryId,
+            options: {
+                permanently: true
+            }
+        });
+
+        const [deleteWithoutEntriesResponse] = await deleteContentModelMutation({
+            modelId: model.modelId
+        });
+
+        expect(deleteWithoutEntriesResponse).toEqual({
+            data: {
+                deleteContentModel: {
+                    data: true,
+                    error: null
                 }
             }
         });
@@ -324,12 +427,14 @@ describe("content model test", () => {
 
     test("get existing content model", async () => {
         const { createContentModelMutation, getContentModelQuery } =
-            useContentGqlHandler(manageHandlerOpts);
+            useGraphQLHandler(manageHandlerOpts);
 
         const [createResponse] = await createContentModelMutation({
             data: {
                 name: "Test Content model",
                 modelId: "test-content-model",
+                singularApiName: "TestContentModel",
+                pluralApiName: "TestContentModels",
                 group: contentModelGroup.id
             }
         });
@@ -344,7 +449,8 @@ describe("content model test", () => {
             data: {
                 getContentModel: {
                     data: {
-                        ...contentModel
+                        ...contentModel,
+                        description: null
                     },
                     error: null
                 }
@@ -353,7 +459,7 @@ describe("content model test", () => {
     });
 
     test("error when getting non-existing model", async () => {
-        const { getContentModelQuery } = useContentGqlHandler(manageHandlerOpts);
+        const { getContentModelQuery } = useGraphQLHandler(manageHandlerOpts);
         const modelId = "nonExistingId";
         const [response] = await getContentModelQuery({
             modelId
@@ -374,7 +480,7 @@ describe("content model test", () => {
     });
 
     test("error when updating non-existing model", async () => {
-        const { updateContentModelMutation } = useContentGqlHandler(manageHandlerOpts);
+        const { updateContentModelMutation } = useGraphQLHandler(manageHandlerOpts);
         const modelId = "nonExistingId";
         const [response] = await updateContentModelMutation({
             modelId,
@@ -400,7 +506,7 @@ describe("content model test", () => {
     });
 
     test("error when deleting non-existing model", async () => {
-        const { deleteContentModelMutation } = useContentGqlHandler(manageHandlerOpts);
+        const { deleteContentModelMutation } = useGraphQLHandler(manageHandlerOpts);
 
         const modelId = "nonExistingId";
         const [response] = await deleteContentModelMutation({
@@ -423,19 +529,39 @@ describe("content model test", () => {
 
     test("update content model with new fields", async () => {
         const { createContentModelMutation, updateContentModelMutation } =
-            useContentGqlHandler(manageHandlerOpts);
-        const [createResponse] = await createContentModelMutation({
-            data: {
+            useGraphQLHandler(manageHandlerOpts);
+        const modelData: Pick<CmsModel, "name" | "modelId" | "singularApiName" | "pluralApiName"> =
+            {
                 name: "Test Content model",
                 modelId: "test-content-model",
+                singularApiName: "TestContentModel",
+                pluralApiName: "TestContentModels"
+            };
+        const realModelId = "testContentModel";
+        const [createResponse] = await createContentModelMutation({
+            data: {
+                ...modelData,
+                modelId: realModelId,
                 group: contentModelGroup.id
+            }
+        });
+
+        expect(createResponse).toMatchObject({
+            data: {
+                createContentModel: {
+                    data: {
+                        ...modelData,
+                        modelId: realModelId
+                    },
+                    error: null
+                }
             }
         });
 
         const contentModel = createResponse.data.createContentModel.data;
 
         const textField: CmsModelFieldInput = {
-            id: mdbid(),
+            id: "someRandomTextFieldId",
             fieldId: "textField",
             label: "Text field",
             helpText: "help text",
@@ -454,7 +580,7 @@ describe("content model test", () => {
             listValidation: []
         };
         const numberField: CmsModelFieldInput = {
-            id: mdbid(),
+            id: "someRandomNumberFieldId",
             fieldId: "numberField",
             label: "Number field",
             helpText: "number help text",
@@ -489,20 +615,34 @@ describe("content model test", () => {
             data: {
                 updateContentModel: {
                     data: {
+                        ...modelData,
                         savedOn: expect.stringMatching(/^20/),
                         createdBy: helpers.identity,
                         createdOn: expect.stringMatching(/^20/),
                         description: null,
-                        titleFieldId: "textField",
-                        fields: [textField, numberField],
+                        titleFieldId: textField.fieldId,
+                        descriptionFieldId: null,
+                        imageFieldId: null,
+                        fields: [
+                            {
+                                ...textField,
+                                storageId: `${textField.type}@${textField.id}`
+                            },
+                            {
+                                ...numberField,
+                                storageId: `${numberField.type}@${numberField.id}`
+                            }
+                        ],
                         group: {
                             id: contentModelGroup.id,
-                            name: "Group"
+                            name: "Group",
+                            slug: contentModelGroup.slug
                         },
                         modelId: contentModel.modelId,
                         layout: [[textField.id], [numberField.id]],
                         name: "new name",
-                        plugin: false
+                        plugin: false,
+                        icon: null
                     },
                     error: null
                 }
@@ -510,13 +650,15 @@ describe("content model test", () => {
         });
     });
 
-    test("error when assigning titleFieldId on non existing field", async () => {
+    test("when assigning `titleFieldId` to a non-existing field, fall back to the first applicable field", async () => {
         const { createContentModelMutation, updateContentModelMutation } =
-            useContentGqlHandler(manageHandlerOpts);
+            useGraphQLHandler(manageHandlerOpts);
         const [createResponse] = await createContentModelMutation({
             data: {
                 name: "Test Content model",
                 modelId: "test-content-model",
+                singularApiName: "TestContentModel",
+                pluralApiName: "TestContentModels",
                 group: contentModelGroup.id
             }
         });
@@ -524,7 +666,7 @@ describe("content model test", () => {
         const contentModel = createResponse.data.createContentModel.data;
 
         const field: CmsModelFieldInput = {
-            id: mdbid(),
+            id: "someRandomField1Id",
             fieldId: "field1",
             label: "Field 1",
             helpText: "help text",
@@ -552,24 +694,20 @@ describe("content model test", () => {
             }
         });
 
-        expect(response).toEqual({
+        expect(response).toMatchObject({
             data: {
                 updateContentModel: {
-                    data: null,
-                    error: {
-                        code: "VALIDATION_ERROR",
-                        message: `Field does not exist in the model.`,
-                        data: {
-                            fieldId: "nonExistingTitleFieldId"
-                        }
-                    }
+                    data: {
+                        titleFieldId: "field1"
+                    },
+                    error: null
                 }
             }
         });
     });
 
     test("should execute hooks on create", async () => {
-        const { createContentModelMutation } = useContentGqlHandler({
+        const { createContentModelMutation } = useGraphQLHandler({
             ...manageHandlerOpts,
             plugins: [assignModelEvents()]
         });
@@ -578,6 +716,8 @@ describe("content model test", () => {
             data: {
                 name: "Test Content model",
                 modelId: "test-content-model",
+                singularApiName: "TestContentModel",
+                pluralApiName: "TestContentModels",
                 group: contentModelGroup.id
             }
         });
@@ -592,14 +732,16 @@ describe("content model test", () => {
         });
         expect(pubSubTracker.isExecutedOnce("contentModel:beforeCreate")).toEqual(true);
         expect(pubSubTracker.isExecutedOnce("contentModel:afterCreate")).toEqual(true);
+        expect(pubSubTracker.isExecutedOnce("contentModel:beforeCreateFrom")).toEqual(false);
+        expect(pubSubTracker.isExecutedOnce("contentModel:afterCreateFrom")).toEqual(false);
         expect(pubSubTracker.isExecutedOnce("contentModel:beforeUpdate")).toEqual(false);
         expect(pubSubTracker.isExecutedOnce("contentModel:afterUpdate")).toEqual(false);
         expect(pubSubTracker.isExecutedOnce("contentModel:beforeDelete")).toEqual(false);
         expect(pubSubTracker.isExecutedOnce("contentModel:afterDelete")).toEqual(false);
     });
 
-    test("should execute hooks on update", async () => {
-        const { createContentModelMutation, updateContentModelMutation } = useContentGqlHandler({
+    test("should execute hooks on create from", async () => {
+        const { createContentModelMutation, createContentModelFromMutation } = useGraphQLHandler({
             ...manageHandlerOpts,
             plugins: [assignModelEvents()]
         });
@@ -608,6 +750,69 @@ describe("content model test", () => {
             data: {
                 name: "Test Content model",
                 modelId: "test-content-model",
+                singularApiName: "TestContentModel",
+                pluralApiName: "TestContentModels",
+                group: contentModelGroup.id
+            }
+        });
+        const { modelId } = createResponse.data.createContentModel.data;
+        // need to reset because hooks for create have been fired
+        pubSubTracker.reset();
+
+        const [response] = await createContentModelFromMutation({
+            modelId,
+            data: {
+                name: "Cloned model",
+                modelId: "clonedTestModel",
+                singularApiName: "ClonedTestModel",
+                pluralApiName: "ClonedTestModels",
+                description: "Cloned model description",
+                group: contentModelGroup.id
+            }
+        });
+
+        expect(response).toMatchObject({
+            data: {
+                createContentModelFrom: {
+                    data: {
+                        name: "Cloned model",
+                        description: "Cloned model description",
+                        modelId: "clonedTestModel",
+                        group: {
+                            id: contentModelGroup.id,
+                            name: contentModelGroup.name
+                        },
+                        fields: [],
+                        layout: [],
+                        plugin: false
+                    },
+                    error: null
+                }
+            }
+        });
+
+        expect(pubSubTracker.isExecutedOnce("contentModel:beforeCreate")).toEqual(false);
+        expect(pubSubTracker.isExecutedOnce("contentModel:afterCreate")).toEqual(false);
+        expect(pubSubTracker.isExecutedOnce("contentModel:beforeCreateFrom")).toEqual(true);
+        expect(pubSubTracker.isExecutedOnce("contentModel:afterCreateFrom")).toEqual(true);
+        expect(pubSubTracker.isExecutedOnce("contentModel:beforeUpdate")).toEqual(false);
+        expect(pubSubTracker.isExecutedOnce("contentModel:afterUpdate")).toEqual(false);
+        expect(pubSubTracker.isExecutedOnce("contentModel:beforeDelete")).toEqual(false);
+        expect(pubSubTracker.isExecutedOnce("contentModel:afterDelete")).toEqual(false);
+    });
+
+    test("should execute hooks on update", async () => {
+        const { createContentModelMutation, updateContentModelMutation } = useGraphQLHandler({
+            ...manageHandlerOpts,
+            plugins: [assignModelEvents()]
+        });
+
+        const [createResponse] = await createContentModelMutation({
+            data: {
+                name: "Test Content model",
+                modelId: "test-content-model",
+                singularApiName: "TestContentModel",
+                pluralApiName: "TestContentModels",
                 group: contentModelGroup.id
             }
         });
@@ -635,6 +840,8 @@ describe("content model test", () => {
 
         expect(pubSubTracker.isExecutedOnce("contentModel:beforeCreate")).toEqual(false);
         expect(pubSubTracker.isExecutedOnce("contentModel:afterCreate")).toEqual(false);
+        expect(pubSubTracker.isExecutedOnce("contentModel:beforeCreateFrom")).toEqual(false);
+        expect(pubSubTracker.isExecutedOnce("contentModel:afterCreateFrom")).toEqual(false);
         expect(pubSubTracker.isExecutedOnce("contentModel:beforeUpdate")).toEqual(true);
         expect(pubSubTracker.isExecutedOnce("contentModel:afterUpdate")).toEqual(true);
         expect(pubSubTracker.isExecutedOnce("contentModel:beforeDelete")).toEqual(false);
@@ -642,7 +849,7 @@ describe("content model test", () => {
     });
 
     test("should execute hooks on delete", async () => {
-        const { createContentModelMutation, deleteContentModelMutation } = useContentGqlHandler({
+        const { createContentModelMutation, deleteContentModelMutation } = useGraphQLHandler({
             ...manageHandlerOpts,
             plugins: [assignModelEvents()]
         });
@@ -651,6 +858,8 @@ describe("content model test", () => {
             data: {
                 name: "Test Content model",
                 modelId: "test-content-model",
+                singularApiName: "TestContentModel",
+                pluralApiName: "TestContentModels",
                 group: contentModelGroup.id
             }
         });
@@ -673,6 +882,8 @@ describe("content model test", () => {
 
         expect(pubSubTracker.isExecutedOnce("contentModel:beforeCreate")).toEqual(false);
         expect(pubSubTracker.isExecutedOnce("contentModel:afterCreate")).toEqual(false);
+        expect(pubSubTracker.isExecutedOnce("contentModel:beforeCreateFrom")).toEqual(false);
+        expect(pubSubTracker.isExecutedOnce("contentModel:afterCreateFrom")).toEqual(false);
         expect(pubSubTracker.isExecutedOnce("contentModel:beforeUpdate")).toEqual(false);
         expect(pubSubTracker.isExecutedOnce("contentModel:afterUpdate")).toEqual(false);
         expect(pubSubTracker.isExecutedOnce("contentModel:beforeDelete")).toEqual(true);
@@ -681,26 +892,31 @@ describe("content model test", () => {
 
     test("should refresh the schema when added new field", async () => {
         const { createContentModelMutation, updateContentModelMutation } =
-            useContentGqlHandler(manageHandlerOpts);
+            useGraphQLHandler(manageHandlerOpts);
         const { listBugs } = useBugManageHandler(manageHandlerOpts);
 
         const bugModel = models.find(m => m.modelId === "bug");
+        if (!bugModel) {
+            throw new Error("Could not find model `bug`.");
+        }
         // Create initial record
         const [createBugModelResponse] = await createContentModelMutation({
             data: {
                 name: bugModel.name,
                 modelId: bugModel.modelId,
+                singularApiName: bugModel.singularApiName,
+                pluralApiName: bugModel.pluralApiName,
                 group: contentModelGroup.id
             }
         });
 
-        const removedFields = [];
+        const removedFields: CmsModelField[] = [];
 
         const initialFields = Array.from(bugModel.fields);
         const initialLayouts = Array.from(bugModel.layout);
 
-        removedFields.push(initialFields.pop());
-        removedFields.push(initialFields.pop());
+        removedFields.push(initialFields.pop() as CmsModelField);
+        removedFields.push(initialFields.pop() as CmsModelField);
 
         initialLayouts.pop();
         initialLayouts.pop();
@@ -719,15 +935,16 @@ describe("content model test", () => {
             },
             sort: ["createdOn_DESC"]
         });
+
         // should not be able to query bugType or bugValue fields (they are defined in the graphql query)
         expect(listResponse).toEqual({
             errors: [
                 {
-                    message: `Cannot query field "bugValue" on type "Bug". Did you mean "bugType"?`,
+                    message: `Cannot query field "bugValue" on type "${bugModel.singularApiName}". Did you mean "bugType"?`,
                     locations: expect.any(Array)
                 },
                 {
-                    message: `Cannot query field "bugFixed" on type "Bug". Did you mean "bugType"?`,
+                    message: `Cannot query field "bugFixed" on type "${bugModel.singularApiName}". Did you mean "bugType"?`,
                     locations: expect.any(Array)
                 }
             ]
@@ -778,7 +995,7 @@ describe("content model test", () => {
     });
 
     test("should list only specific content models", async () => {
-        const { createContentModelMutation } = useContentGqlHandler(manageHandlerOpts);
+        const { createContentModelMutation } = useGraphQLHandler(manageHandlerOpts);
 
         const createdContentModels = [];
 
@@ -787,14 +1004,20 @@ describe("content model test", () => {
                 data: {
                     name: `Test Content model instance-${i}`,
                     modelId: `test-content-model-${i}`,
+                    singularApiName: `TestContentModel${i}`,
+                    pluralApiName: `TestContentModels${i}`,
                     group: contentModelGroup.id
                 }
             });
             createdContentModels.push(createResponse.data.createContentModel.data);
         }
 
-        const { listContentModelsQuery: listModels } = useContentGqlHandler({
+        const { listContentModelsQuery: listModels } = useGraphQLHandler({
             ...manageHandlerOpts,
+            identity: {
+                ...helpers.identity,
+                id: "identityWithSpecificModelPermissions"
+            },
             permissions: createPermissions({ models: [createdContentModels[0].modelId] })
         });
 
@@ -804,7 +1027,7 @@ describe("content model test", () => {
     });
 
     test("error when getting model without specific group permission", async () => {
-        const { createContentModelMutation } = useContentGqlHandler(manageHandlerOpts);
+        const { createContentModelMutation } = useGraphQLHandler(manageHandlerOpts);
 
         const createdContentModels = [];
 
@@ -813,6 +1036,8 @@ describe("content model test", () => {
                 data: {
                     name: `Test Content model instance-${i}`,
                     modelId: `test-content-model-${i}`,
+                    singularApiName: `TestContentModel${i}`,
+                    pluralApiName: `TestContentModels${i}`,
                     group: contentModelGroup.id
                 }
             });
@@ -823,7 +1048,7 @@ describe("content model test", () => {
             models: [createdContentModels[0].modelId],
             groups: ["some-group-id"]
         });
-        const { getContentModelQuery: getModel } = useContentGqlHandler({
+        const { getContentModelQuery: getModel } = useGraphQLHandler({
             ...manageHandlerOpts,
             permissions
         });
@@ -835,13 +1060,15 @@ describe("content model test", () => {
         expect(response.data.getContentModel.data).toEqual(null);
         expect(response.data.getContentModel.error).toEqual({
             code: "SECURITY_NOT_AUTHORIZED",
-            data: { reason: 'Not allowed to access model "testContentModel0".' },
+            data: {
+                reason: `Not allowed to access content model "Test Content model instance-0".`
+            },
             message: "Not authorized!"
         });
     });
 
     test("should be able to get model with specific group permission", async () => {
-        const { createContentModelMutation } = useContentGqlHandler(manageHandlerOpts);
+        const { createContentModelMutation } = useGraphQLHandler(manageHandlerOpts);
 
         const createdContentModels = [];
 
@@ -850,6 +1077,8 @@ describe("content model test", () => {
                 data: {
                     name: `Test Content model instance-${i}`,
                     modelId: `test-content-model-${i}`,
+                    singularApiName: `TestContentModel${i}`,
+                    pluralApiName: `TestContentModels${i}`,
                     group: contentModelGroup.id
                 }
             });
@@ -861,7 +1090,7 @@ describe("content model test", () => {
             models: [createdContentModels[0].modelId],
             groups: [contentModelGroup.id]
         });
-        const { getContentModelQuery: getModelB } = useContentGqlHandler({
+        const { getContentModelQuery: getModelB } = useGraphQLHandler({
             ...manageHandlerOpts,
             permissions
         });
@@ -870,7 +1099,366 @@ describe("content model test", () => {
             modelId: createdContentModels[0].modelId
         });
 
-        expect(response.data.getContentModel.data).toEqual(createdContentModels[0]);
+        expect(response.data.getContentModel.data).toEqual({
+            ...createdContentModels[0],
+            description: null
+        });
         expect(response.data.getContentModel.error).toEqual(null);
+    });
+
+    it("should allow to update a model with description set to null", async () => {
+        const { createContentModelMutation, updateContentModelMutation } =
+            useGraphQLHandler(manageHandlerOpts);
+
+        const model = {
+            name: `Test Content model instance`,
+            modelId: `testContentModel`,
+            singularApiName: `TestContentModel`,
+            pluralApiName: `TestContentModels`
+        };
+        const [createResponse] = await createContentModelMutation({
+            data: {
+                ...model,
+                group: contentModelGroup.id
+            }
+        });
+        expect(createResponse).toMatchObject({
+            data: {
+                createContentModel: {
+                    data: {
+                        ...model,
+                        description: ""
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [updateNoDescriptionResponse] = await updateContentModelMutation({
+            modelId: model.modelId,
+            data: {
+                name: "Updated",
+                fields: [],
+                layout: []
+            }
+        });
+        expect(updateNoDescriptionResponse).toMatchObject({
+            data: {
+                updateContentModel: {
+                    data: {
+                        name: "Updated",
+                        modelId: model.modelId,
+                        description: null
+                    },
+                    error: null
+                }
+            }
+        });
+        const [updateNullDescriptionResponse] = await updateContentModelMutation({
+            modelId: model.modelId,
+            data: {
+                name: "Updated",
+                fields: [],
+                layout: [],
+                description: null
+            }
+        });
+        expect(updateNullDescriptionResponse).toMatchObject({
+            data: {
+                updateContentModel: {
+                    data: {
+                        name: "Updated",
+                        modelId: model.modelId,
+                        description: null
+                    },
+                    error: null
+                }
+            }
+        });
+        const [updateEmptyDescriptionResponse] = await updateContentModelMutation({
+            modelId: model.modelId,
+            data: {
+                name: "Updated",
+                fields: [],
+                layout: [],
+                description: ""
+            }
+        });
+        expect(updateEmptyDescriptionResponse).toMatchObject({
+            data: {
+                updateContentModel: {
+                    data: {
+                        name: "Updated",
+                        modelId: model.modelId,
+                        description: null
+                    },
+                    error: null
+                }
+            }
+        });
+    });
+
+    it("should assign description field", async () => {
+        const { createContentModelMutation, getContentModelQuery, updateContentModelMutation } =
+            useGraphQLHandler(manageHandlerOpts);
+        const field = {
+            id: "testId",
+            fieldId: "testFieldId",
+            type: "long-text",
+            label: "Test Field"
+        };
+
+        const [createResponseWithInitialLongText] = await createContentModelMutation({
+            data: {
+                name: "Test Content model",
+                modelId: "test-content-model",
+                singularApiName: `TestContentModel`,
+                pluralApiName: `TestContentModels`,
+                group: contentModelGroup.id,
+                fields: [field],
+                layout: [["testId"]]
+            }
+        });
+
+        expect(createResponseWithInitialLongText).toMatchObject({
+            data: {
+                createContentModel: {
+                    data: {
+                        modelId: "testContentModel",
+                        fields: [field],
+                        descriptionFieldId: "testFieldId"
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [responseAfterCreate] = await getContentModelQuery({
+            modelId: "testContentModel"
+        });
+        expect(responseAfterCreate).toMatchObject({
+            data: {
+                getContentModel: {
+                    data: {
+                        modelId: "testContentModel",
+                        fields: [field],
+                        descriptionFieldId: field.fieldId
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [createResponseWithNoFields] = await createContentModelMutation({
+            data: {
+                name: "Test Content model",
+                modelId: "test-content-model-2",
+                singularApiName: `TestContentModel2`,
+                pluralApiName: `TestContentModels2`,
+                group: contentModelGroup.id,
+                fields: [],
+                layout: []
+            }
+        });
+        expect(createResponseWithNoFields).toMatchObject({
+            data: {
+                createContentModel: {
+                    data: {
+                        modelId: "testContentModel2",
+                        fields: [],
+                        descriptionFieldId: null
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [updateResponseWithFields] = await updateContentModelMutation({
+            modelId: "testContentModel2",
+            data: {
+                fields: [field],
+                layout: [[field.id]]
+            }
+        });
+        expect(updateResponseWithFields).toMatchObject({
+            data: {
+                updateContentModel: {
+                    data: {
+                        modelId: "testContentModel2",
+                        fields: [field],
+                        descriptionFieldId: field.fieldId
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [responseAfterUpdate] = await getContentModelQuery({
+            modelId: "testContentModel2"
+        });
+        expect(responseAfterUpdate).toMatchObject({
+            data: {
+                getContentModel: {
+                    data: {
+                        modelId: "testContentModel2",
+                        fields: [field],
+                        descriptionFieldId: field.fieldId
+                    },
+                    error: null
+                }
+            }
+        });
+    });
+
+    it("should assign image field", async () => {
+        const { createContentModelMutation, getContentModelQuery, updateContentModelMutation } =
+            useGraphQLHandler(manageHandlerOpts);
+        const field = {
+            id: "testId",
+            fieldId: "testFieldId",
+            type: "file",
+            label: "Test Field",
+            settings: {
+                imagesOnly: true
+            }
+        };
+
+        const [createResponseWithInitialFile] = await createContentModelMutation({
+            data: {
+                name: "Test Content model",
+                modelId: "test-content-model",
+                singularApiName: `TestContentModel`,
+                pluralApiName: `TestContentModels`,
+                group: contentModelGroup.id,
+                fields: [field],
+                layout: [["testId"]]
+            }
+        });
+
+        expect(createResponseWithInitialFile).toMatchObject({
+            data: {
+                createContentModel: {
+                    data: {
+                        modelId: "testContentModel",
+                        fields: [field],
+                        imageFieldId: "testFieldId"
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [responseAfterCreate] = await getContentModelQuery({
+            modelId: "testContentModel"
+        });
+        expect(responseAfterCreate).toMatchObject({
+            data: {
+                getContentModel: {
+                    data: {
+                        modelId: "testContentModel",
+                        fields: [field],
+                        imageFieldId: field.fieldId
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [createResponseWithNoFields] = await createContentModelMutation({
+            data: {
+                name: "Test Content model",
+                modelId: "test-content-model-2",
+                singularApiName: `TestContentModel2`,
+                pluralApiName: `TestContentModels2`,
+                group: contentModelGroup.id,
+                fields: [],
+                layout: []
+            }
+        });
+        expect(createResponseWithNoFields).toMatchObject({
+            data: {
+                createContentModel: {
+                    data: {
+                        modelId: "testContentModel2",
+                        fields: [],
+                        imageFieldId: null
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [updateResponseWithFields] = await updateContentModelMutation({
+            modelId: "testContentModel2",
+            data: {
+                fields: [field],
+                layout: [[field.id]]
+            }
+        });
+        expect(updateResponseWithFields).toMatchObject({
+            data: {
+                updateContentModel: {
+                    data: {
+                        modelId: "testContentModel2",
+                        fields: [field],
+                        imageFieldId: field.fieldId
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [responseAfterUpdate] = await getContentModelQuery({
+            modelId: "testContentModel2"
+        });
+        expect(responseAfterUpdate).toMatchObject({
+            data: {
+                getContentModel: {
+                    data: {
+                        modelId: "testContentModel2",
+                        fields: [field],
+                        imageFieldId: field.fieldId
+                    },
+                    error: null
+                }
+            }
+        });
+    });
+
+    it("should create a model in a group with custom ID", async () => {
+        await createContentModelGroupMutation({
+            data: {
+                id: "a-custom-group-id",
+                name: "My Group With ID",
+                description: "A group with ID",
+                icon: "fa/fas"
+            }
+        });
+
+        const [response] = await baseCreateContentModelMutation({
+            data: {
+                name: "Test Content model",
+                modelId: "test-content-model-2",
+                singularApiName: `TestContentModel2`,
+                pluralApiName: `TestContentModels2`,
+                group: "a-custom-group-id",
+                fields: [],
+                layout: []
+            }
+        });
+        expect(response).toMatchObject({
+            data: {
+                createContentModel: {
+                    data: {
+                        modelId: "testContentModel2",
+                        group: {
+                            id: "a-custom-group-id",
+                            name: "My Group With ID"
+                        }
+                    },
+                    error: null
+                }
+            }
+        });
     });
 });

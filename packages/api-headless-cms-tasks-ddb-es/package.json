@@ -1,0 +1,33 @@
+{
+  "name": "@webiny/api-headless-cms-tasks-ddb-es",
+  "version": "0.0.0",
+  "main": "index.js",
+  "description": "Background tasks for Webiny Headless CMS - DDB+ES",
+  "keywords": [
+    "api-headless-cms-tasks:base"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webiny/webiny-js.git",
+    "directory": "packages/api-headless-cms-tasks-ddb-es"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@webiny/api-headless-cms-bulk-actions": "0.0.0",
+    "@webiny/api-headless-cms-import-export": "0.0.0",
+    "@webiny/api-headless-cms-tasks": "0.0.0"
+  },
+  "devDependencies": {
+    "@webiny/cli": "0.0.0",
+    "@webiny/project-utils": "0.0.0",
+    "typescript": "5.3.3"
+  },
+  "scripts": {
+    "build": "yarn webiny run build",
+    "watch": "yarn webiny run watch"
+  },
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  }
+}

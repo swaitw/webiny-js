@@ -1,17 +1,23 @@
 import { TableModifier } from "~/types";
-import { DocumentClient } from "aws-sdk/clients/dynamodb";
-import { Table } from "dynamodb-toolbox";
+import { DynamoDBDocument } from "@webiny/aws-sdk/client-dynamodb";
+import { Table } from "@webiny/db-dynamodb/toolbox";
+import { TableConstructor } from "@webiny/db-dynamodb/toolbox";
 
-export interface Params {
+export interface CreateElasticsearchTableParams {
     table?: TableModifier;
-    documentClient: DocumentClient;
+    documentClient: DynamoDBDocument;
 }
-export const createElasticsearchTable = ({ table, documentClient }: Params): Table => {
-    const tableConfig = {
-        name: process.env.DB_TABLE_ELASTICSEARCH,
+export const createElasticsearchTable = ({
+    table,
+    documentClient
+}: CreateElasticsearchTableParams): Table<string, string, string> => {
+    const tableConfig: TableConstructor<string, string, string> = {
+        name: process.env.DB_TABLE_ELASTICSEARCH as string,
         partitionKey: "PK",
         sortKey: "SK",
-        DocumentClient: documentClient
+        DocumentClient: documentClient,
+        autoExecute: true,
+        autoParse: true
     };
 
     const config = typeof table === "function" ? table(tableConfig) : tableConfig;

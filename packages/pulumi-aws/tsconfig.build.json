@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.build.json",
+  "include": ["src"],
+  "references": [
+    { "path": "../aws-sdk/tsconfig.build.json" },
+    { "path": "../cli-plugin-deploy-pulumi/tsconfig.build.json" },
+    { "path": "../pulumi/tsconfig.build.json" },
+    { "path": "../api-page-builder/tsconfig.build.json" },
+    { "path": "../feature-flags/tsconfig.build.json" }
+  ],
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "declarationDir": "./dist",
+    "paths": { "~/*": ["./src/*"], "~tests/*": ["./__tests__/*"] },
+    "baseUrl": "."
+  }
+}

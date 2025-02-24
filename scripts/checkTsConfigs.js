@@ -37,8 +37,9 @@ const TSCONFIG = {
     const errors = {};
     let errorsCount = 0;
     const warningsCount = 0;
+    const includes = ["/packages/"];
 
-    const workspacesPackages = getPackages({ includes: "/packages/" }).filter(pkg => pkg.isTs);
+    const workspacesPackages = getPackages({ includes }).filter(pkg => pkg.isTs);
 
     for (const wpObject of workspacesPackages) {
         if (packagesToCheck.length) {
@@ -85,7 +86,7 @@ const TSCONFIG = {
                             ? depPackageRelativePath
                             : `${depPackageRelativePath}/tsconfig.build.json`;
 
-                    const exists = config.references.find(item => item.path === checkPath);
+                    const exists = (config.references || []).find(item => item.path === checkPath);
 
                     if (!exists) {
                         errorsCount++;
@@ -108,7 +109,7 @@ const TSCONFIG = {
             }
 
             const checkForExtraPackagesInTsConfig = (wpObject, config, configType) => {
-                for (const ref of config.references) {
+                for (const ref of config.references || []) {
                     // Check if a package is defined in TS config, but not listed in package.json.
                     const referencePath = resolve(
                         join(wpObject.packageFolder, dirname(ref.path))

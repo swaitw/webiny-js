@@ -22,15 +22,21 @@ import {
 import { DeleteIcon } from "@webiny/ui/List/DataList/icons";
 import { Cell, Grid } from "@webiny/ui/Grid";
 import { Select } from "@webiny/ui/Select";
-import { useSecurity } from "@webiny/app-security";
 import { ButtonIcon, ButtonSecondary } from "@webiny/ui/Button";
 import SearchUI from "@webiny/app-admin/components/SearchUI";
 import { ReactComponent as AddIcon } from "@webiny/app-admin/assets/icons/add-18px.svg";
 import { ReactComponent as FilterIcon } from "@webiny/app-admin/assets/icons/filter-24px.svg";
+import { PbCategory } from "~/types";
+import { useCategoriesPermissions } from "~/hooks/permissions";
 
 const t = i18n.ns("app-page-builder/admin/categories/data-list");
 
-const SORTERS = [
+interface Sorter {
+    label: string;
+    sort: string;
+}
+
+const SORTERS: Sorter[] = [
     {
         label: t`Newest to oldest`,
         sort: "createdOn_DESC"
@@ -63,7 +69,7 @@ const PageBuilderCategoriesDataList = ({ canCreate }: PageBuilderCategoriesDataL
     });
 
     const filterData = useCallback(
-        ({ slug, name, url }) => {
+        ({ slug, name, url }: PbCategory) => {
             return (
                 slug.toLowerCase().includes(filter) ||
                 name.toLowerCase().includes(filter) ||
@@ -74,29 +80,29 @@ const PageBuilderCategoriesDataList = ({ canCreate }: PageBuilderCategoriesDataL
     );
 
     const sortData = useCallback(
-        categories => {
+        (categories: PbCategory[]) => {
             if (!sort) {
                 return categories;
             }
             const [field, order] = sort.split("_");
-            return orderBy(categories, field, order.toLowerCase());
+            return orderBy(categories, field, order.toLowerCase() as "asc" | "desc");
         },
         [sort]
     );
 
     const { showConfirmation } = useConfirmationDialog();
 
-    const data = listQuery?.data?.pageBuilder?.listCategories?.data || [];
+    const data: PbCategory[] = listQuery?.data?.pageBuilder?.listCategories?.data || [];
     const slug = new URLSearchParams(location.search).get("slug");
 
     const deleteItem = useCallback(
-        item => {
+        (item: PbCategory) => {
             showConfirmation(async () => {
                 const response = await deleteIt({
                     variables: item
                 });
 
-                const error = response?.data?.pageBuilder?.deletePageBuilderCategory?.error;
+                const error = response?.data?.pageBuilder?.deleteCategory?.error;
                 if (error) {
                     return showSnackbar(error.message);
                 }
@@ -111,23 +117,7 @@ const PageBuilderCategoriesDataList = ({ canCreate }: PageBuilderCategoriesDataL
         [slug]
     );
 
-    const { identity } = useSecurity();
-    const pbMenuPermission = useMemo(() => {
-        return identity.getPermission("pb.category");
-    }, []);
-
-    const canDelete = useCallback(item => {
-        if (pbMenuPermission.own) {
-            const identityId = identity.id || identity.login;
-            return item.createdBy.id === identityId;
-        }
-
-        if (typeof pbMenuPermission.rwd === "string") {
-            return pbMenuPermission.rwd.includes("d");
-        }
-
-        return true;
-    }, []);
+    const { canDelete } = useCategoriesPermissions();
 
     const loading = [listQuery, deleteMutation].find(item => item.loading);
 
@@ -140,7 +130,7 @@ const PageBuilderCategoriesDataList = ({ canCreate }: PageBuilderCategoriesDataL
                             value={sort}
                             onChange={setSort}
                             label={t`Sort by`}
-                            description={"Sort pages by"}
+                            description={"Sort categories by"}
                         >
                             {SORTERS.map(({ label, sort: value }) => {
                                 return (
@@ -157,8 +147,8 @@ const PageBuilderCategoriesDataList = ({ canCreate }: PageBuilderCategoriesDataL
         [sort]
     );
 
-    const filteredData = filter === "" ? data : data.filter(filterData);
-    const categoryList = sortData(filteredData);
+    const filteredData: PbCategory[] = filter === "" ? data : data.filter(filterData);
+    const categoryList: PbCategory[] = sortData(filteredData);
 
     return (
         <DataList
@@ -190,7 +180,7 @@ const PageBuilderCategoriesDataList = ({ canCreate }: PageBuilderCategoriesDataL
                 />
             }
         >
-            {({ data }) => (
+            {({ data }: { data: PbCategory[] }) => (
                 <ScrollList data-testid="default-data-list">
                     {data.map(item => (
                         <ListItem key={item.slug} selected={item.slug === slug}>
@@ -203,7 +193,7 @@ const PageBuilderCategoriesDataList = ({ canCreate }: PageBuilderCategoriesDataL
                                 <ListItemTextSecondary>{item.url}</ListItemTextSecondary>
                             </ListItemText>
 
-                            {canDelete(item) && (
+                            {canDelete(item?.createdBy?.id) && (
                                 <ListItemMeta>
                                     <ListActions>
                                         <DeleteIcon onClick={() => deleteItem(item)} />

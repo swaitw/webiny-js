@@ -1,12 +1,12 @@
-import React, { createContext } from "react";
+import React from "react";
+import { makeDecoratable } from "@webiny/app-admin";
 import { EventActionHandlerProvider } from "./EventActionHandlerProvider";
+import { EditorPageElementsProvider } from "~/editor/contexts/EditorPageElementsProvider";
 
-const EditorContext = createContext(null);
-
-export const EditorProvider: React.FunctionComponent<any> = props => {
+export const EditorProvider = makeDecoratable("EditorProvider", ({ children }) => {
     return (
         <EventActionHandlerProvider>
-            <EditorContext.Provider {...props}>{props.children}</EditorContext.Provider>
+            <EditorPageElementsProvider>{children}</EditorPageElementsProvider>
         </EventActionHandlerProvider>
     );
-};
+});

@@ -1,0 +1,60 @@
+{
+  "name": "@webiny/app-website",
+  "version": "0.0.0",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webiny/webiny-js.git",
+    "directory": "packages/app-website"
+  },
+  "description": "A set of frontend Webiny Control Panel (WCP)-related utilities.",
+  "author": "Webiny Ltd.",
+  "license": "MIT",
+  "dependencies": {
+    "@apollo/react-hooks": "^3.1.5",
+    "@emotion/cache": "^11.10.5",
+    "@emotion/react": "11.10.8",
+    "@emotion/styled": "11.10.6",
+    "@webiny/app": "0.0.0",
+    "@webiny/app-page-builder": "0.0.0",
+    "@webiny/app-page-builder-elements": "0.0.0",
+    "@webiny/app-theme": "0.0.0",
+    "@webiny/plugins": "0.0.0",
+    "@webiny/react-router": "0.0.0",
+    "apollo-client": "^2.6.10",
+    "apollo-link": "^1.2.14",
+    "apollo-link-batch-http": "^1.2.14",
+    "graphql-tag": "^2.12.6",
+    "lz-string": "^1.5.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-helmet": "^6.1.0",
+    "reset-css": "^5.0.1"
+  },
+  "devDependencies": {
+    "@webiny/cli": "0.0.0",
+    "@webiny/project-utils": "0.0.0",
+    "rimraf": "^6.0.1",
+    "typescript": "5.3.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
+  "scripts": {
+    "build": "yarn webiny run build",
+    "watch": "yarn webiny run watch"
+  },
+  "adio": {
+    "ignore": {
+      "dependencies": [
+        "reset-css"
+      ]
+    }
+  },
+  "svgo": {
+    "plugins": {
+      "removeViewBox": false
+    }
+  }
+}

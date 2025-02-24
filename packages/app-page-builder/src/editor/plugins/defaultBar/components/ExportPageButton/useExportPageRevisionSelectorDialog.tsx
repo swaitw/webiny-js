@@ -8,6 +8,8 @@ import { Radio, RadioGroup } from "@webiny/ui/Radio";
 import { Form } from "@webiny/form";
 import { Alert } from "@webiny/ui/Alert";
 import { usePageBuilder } from "~/hooks/usePageBuilder";
+import { PbElementDataSettingsFormType } from "~/types";
+import { PbRevisionType } from "~/contexts/PageBuilder";
 
 const t = i18n.ns("app-page-builder/editor/plugins/defaultBar/exportPageButton");
 
@@ -20,8 +22,11 @@ const gridStyles = css`
         padding-top: 0;
     }
 `;
+interface ExportPageDialogMessageProps {
+    selected: string[];
+}
 
-const ExportPageDialogMessage: React.FC<{ selected: string[] }> = ({ selected }) => {
+const ExportPageDialogMessage = ({ selected }: ExportPageDialogMessageProps) => {
     const { exportPageData } = usePageBuilder();
     const { revisionType: value, setRevisionType: setValue } = exportPageData;
 
@@ -34,7 +39,16 @@ const ExportPageDialogMessage: React.FC<{ selected: string[] }> = ({ selected })
                     >{t`Choose which revision of the page(s) you want to export:`}</Typography>
                 </Cell>
                 <Cell span={12}>
-                    <Form data={{ revision: value }} onChange={data => setValue(data.revision)}>
+                    <Form
+                        data={{ revision: value }}
+                        onChange={data => {
+                            const { revision } = data as unknown as PbElementDataSettingsFormType;
+                            /**
+                             * We expect revision to be string.
+                             */
+                            return setValue(revision as PbRevisionType);
+                        }}
+                    >
                         {({ Bind }) => (
                             <Bind name="revision">
                                 <RadioGroup
@@ -80,7 +94,17 @@ const ExportPageDialogMessage: React.FC<{ selected: string[] }> = ({ selected })
     );
 };
 
-const useExportPageRevisionSelectorDialog = () => {
+interface UseExportPageRevisionSelectorDialogShowParams {
+    onAccept: () => void;
+    selected: string[];
+}
+interface UseExportPageRevisionSelectorDialog {
+    showExportPageRevisionSelectorDialog: (
+        params: UseExportPageRevisionSelectorDialogShowParams
+    ) => void;
+    hideDialog: () => void;
+}
+const useExportPageRevisionSelectorDialog = (): UseExportPageRevisionSelectorDialog => {
     const { showDialog, hideDialog } = useDialog();
 
     return {

@@ -13,21 +13,32 @@ import {
     SimpleFormHeader
 } from "@webiny/app-admin/components/SimpleForm";
 import { validation } from "@webiny/validation";
-import { GET_CATEGORY, CREATE_CATEGORY, UPDATE_CATEGORY, LIST_CATEGORIES } from "./graphql";
+import {
+    GET_CATEGORY,
+    CREATE_CATEGORY,
+    UPDATE_CATEGORY,
+    LIST_CATEGORIES,
+    GetCategoryQueryResponse,
+    GetCategoryQueryVariables,
+    UpdateCategoryMutationResponse,
+    UpdateCategoryMutationVariables,
+    CreateCategoryMutationResponse,
+    CreateCategoryMutationVariables
+} from "./graphql";
 import { useRouter } from "@webiny/react-router";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
 import { Input } from "@webiny/ui/Input";
 import { categoryUrlValidator } from "./validators";
 import { plugins } from "@webiny/plugins";
-import { PbPageLayoutPlugin } from "../../../types";
+import { PbCategory, PbPageLayoutPlugin } from "~/types";
 import { Select } from "@webiny/ui/Select";
-import { useSecurity } from "@webiny/app-security";
-import pick from "object.pick";
+import pick from "lodash/pick";
 import get from "lodash/get";
 import set from "lodash/set";
 import isEmpty from "lodash/isEmpty";
 import EmptyView from "@webiny/app-admin/components/EmptyView";
 import { ReactComponent as AddIcon } from "@webiny/app-admin/assets/icons/add-18px.svg";
+import { useCategoriesPermissions } from "~/hooks/permissions";
 
 const t = i18n.ns("app-page-builder/admin/categories/form");
 
@@ -36,22 +47,25 @@ const ButtonWrapper = styled("div")({
     justifyContent: "space-between"
 });
 
-type CategoriesFormProps = {
+interface CategoriesFormProps {
     canCreate: boolean;
-};
+}
+
 const CategoriesForm = ({ canCreate }: CategoriesFormProps) => {
     const { location, history } = useRouter();
     const { showSnackbar } = useSnackbar();
 
-    const layouts = React.useMemo(
-        () => plugins.byType<PbPageLayoutPlugin>("pb-page-layout").map(pl => pl.layout),
-        []
-    );
+    const layouts = React.useMemo(() => {
+        const layoutPlugins = plugins.byType<PbPageLayoutPlugin>("pb-page-layout");
+        return (layoutPlugins || []).map(pl => pl.layout);
+    }, []);
     const newEntry = new URLSearchParams(location.search).get("new") === "true";
     const slug = new URLSearchParams(location.search).get("slug");
 
-    const getQuery = useQuery(GET_CATEGORY, {
-        variables: { slug },
+    const getQuery = useQuery<GetCategoryQueryResponse, GetCategoryQueryVariables>(GET_CATEGORY, {
+        variables: {
+            slug: slug as string
+        },
         skip: !slug,
         onCompleted: data => {
             const error = data?.pageBuilder?.getCategory?.error;
@@ -62,23 +76,34 @@ const CategoriesForm = ({ canCreate }: CategoriesFormProps) => {
         }
     });
 
-    const loadedCategory = getQuery.data?.pageBuilder?.getCategory?.data || {};
+    const loadedCategory = getQuery.data?.pageBuilder?.getCategory?.data || {
+        slug: null,
+        createdBy: {
+            id: null
+        }
+    };
 
-    const [create, createMutation] = useMutation(CREATE_CATEGORY, {
+    const [create, createMutation] = useMutation<
+        CreateCategoryMutationResponse,
+        CreateCategoryMutationVariables
+    >(CREATE_CATEGORY, {
         refetchQueries: [{ query: LIST_CATEGORIES }]
     });
 
-    const [update, updateMutation] = useMutation(UPDATE_CATEGORY, {
+    const [update, updateMutation] = useMutation<
+        UpdateCategoryMutationResponse,
+        UpdateCategoryMutationVariables
+    >(UPDATE_CATEGORY, {
         refetchQueries: [{ query: LIST_CATEGORIES }],
         update: (cache, { data }) => {
-            const categoryDataFromCache = cache.readQuery<Record<string, any>>({
+            const categoryDataFromCache = cache.readQuery<GetCategoryQueryResponse>({
                 query: GET_CATEGORY,
                 variables: { slug }
-            });
+            }) as GetCategoryQueryResponse;
             const updatedCategoryData = get(data, "pageBuilder.category.data");
 
             if (updatedCategoryData) {
-                cache.writeQuery({
+                cache.writeQuery<GetCategoryQueryResponse, GetCategoryQueryVariables>({
                     query: GET_CATEGORY,
                     data: set(
                         categoryDataFromCache,
@@ -93,54 +118,49 @@ const CategoriesForm = ({ canCreate }: CategoriesFormProps) => {
     const loading = [getQuery, createMutation, updateMutation].find(item => item.loading);
 
     const onSubmit = useCallback(
-        async formData => {
+        async (formData: PbCategory) => {
             const isUpdate = loadedCategory.slug;
             const data = pick(formData, ["slug", "name", "url", "layout"]);
 
-            const [operation, args] = isUpdate
-                ? [update, { variables: { slug: formData.slug, data } }]
-                : [create, { variables: { data } }];
+            // const [operation, args] = isUpdate
+            //     ? [update, { variables: { slug: formData.slug, data } }]
+            //     : [create, { variables: { data } }];
 
-            const response = await operation(args);
+            // const response = await operation(args);
+
+            let response;
+            if (isUpdate) {
+                response = await update({
+                    variables: { slug: formData.slug, data }
+                });
+            } else {
+                response = await create({
+                    variables: {
+                        data
+                    }
+                });
+            }
 
             const error = response?.data?.pageBuilder?.category?.error;
             if (error) {
-                return showSnackbar(error.message);
+                showSnackbar(error.message);
+                return;
             }
 
-            !isUpdate && history.push(`/page-builder/categories?slug=${formData.slug}`);
+            if (!isUpdate) {
+                history.push(`/page-builder/categories?slug=${formData.slug}`);
+            }
+
             showSnackbar(t`Category saved successfully.`);
         },
         [loadedCategory.slug]
     );
 
-    const data = useMemo(() => {
-        return getQuery.data?.pageBuilder?.getCategory.data || {};
+    const data = useMemo((): PbCategory => {
+        return getQuery.data?.pageBuilder?.getCategory.data || ({} as PbCategory);
     }, [loadedCategory.slug]);
 
-    const { identity } = useSecurity();
-    const pbMenuPermission = useMemo(() => {
-        return identity.getPermission("pb.category");
-    }, []);
-
-    const canSave = useMemo(() => {
-        // User should be able to save the form
-        // if it's a new entry and user has the "own" permission set.
-        if (!loadedCategory.slug && pbMenuPermission.own) {
-            return true;
-        }
-
-        if (pbMenuPermission.own) {
-            const identityId = identity.id || identity.login;
-            return loadedCategory?.createdBy?.id === identityId;
-        }
-
-        if (typeof pbMenuPermission.rwd === "string") {
-            return pbMenuPermission.rwd.includes("w");
-        }
-
-        return true;
-    }, [loadedCategory.slug]);
+    const { canWrite } = useCategoriesPermissions();
 
     const showEmptyView = !newEntry && !loading && isEmpty(data);
     // Render "No content selected" view.
@@ -158,7 +178,9 @@ const CategoriesForm = ({ canCreate }: CategoriesFormProps) => {
                         >
                             <ButtonIcon icon={<AddIcon />} /> {t`New Category`}
                         </ButtonDefault>
-                    ) : null
+                    ) : (
+                        <></>
+                    )
                 }
             />
         );
@@ -169,17 +191,27 @@ const CategoriesForm = ({ canCreate }: CategoriesFormProps) => {
             {({ data, form, Bind }) => (
                 <SimpleForm>
                     {loading && <CircularProgress />}
-                    <SimpleFormHeader title={data.name || t`New category`} />
+                    <SimpleFormHeader
+                        title={data.name || t`New category`}
+                        data-testid={"pb-categories-form-title"}
+                    />
                     <SimpleFormContent>
                         <Grid>
                             <Cell span={6}>
                                 <Bind name="name" validators={validation.create("required")}>
-                                    <Input label={t`Name`} />
+                                    <Input
+                                        label={t`Name`}
+                                        data-testid="pb.category.new.form.name"
+                                    />
                                 </Bind>
                             </Cell>
                             <Cell span={6}>
                                 <Bind name="slug" validators={validation.create("required")}>
-                                    <Input disabled={data.createdOn} label={t`Slug`} />
+                                    <Input
+                                        disabled={Boolean(data.createdOn)}
+                                        label={t`Slug`}
+                                        data-testid="pb.category.new.form.slug"
+                                    />
                                 </Bind>
                             </Cell>
                             <Cell span={12}>
@@ -190,12 +222,18 @@ const CategoriesForm = ({ canCreate }: CategoriesFormProps) => {
                                         categoryUrlValidator
                                     ]}
                                 >
-                                    <Input disabled={data.id} label={t`URL`} />
+                                    <Input label={t`URL`} data-testid="pb.category.new.form.url" />
                                 </Bind>
                             </Cell>
                             <Cell span={6}>
-                                <Bind name="layout" defaultValue={layouts[0].name}>
-                                    <Select label={t`Layout`}>
+                                <Bind
+                                    name="layout"
+                                    defaultValue={layouts.length ? layouts[0].name : ""}
+                                >
+                                    <Select
+                                        label={t`Layout`}
+                                        data-testid="pb.category.new.form.layout"
+                                    >
                                         {layouts.map(({ name, title }) => (
                                             <option key={name} value={name}>
                                                 {title}
@@ -210,10 +248,14 @@ const CategoriesForm = ({ canCreate }: CategoriesFormProps) => {
                         <ButtonWrapper>
                             <ButtonDefault
                                 onClick={() => history.push("/page-builder/categories")}
+                                data-testid="pb.category.new.form.button.cancel"
                             >{t`Cancel`}</ButtonDefault>
-                            {canSave && (
+                            {canWrite(loadedCategory?.createdBy?.id) && (
                                 <ButtonPrimary
-                                    onClick={form.submit}
+                                    data-testid="pb.category.new.form.button.save"
+                                    onClick={ev => {
+                                        form.submit(ev);
+                                    }}
                                 >{t`Save category`}</ButtonPrimary>
                             )}
                         </ButtonWrapper>

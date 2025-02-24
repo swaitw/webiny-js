@@ -3,16 +3,12 @@ import { useApolloClient } from "@apollo/react-hooks";
 import { useRouter } from "@webiny/react-router";
 import { FormEditorProvider } from "./Context";
 import FormEditor from "./FormEditor";
-import { match } from "react-router";
 
 const FormEditorApp = () => {
-    const router = useRouter();
+    const { params } = useRouter();
     const client = useApolloClient();
 
-    const matched: match<{
-        id?: string;
-    }> = router.match;
-    const { id } = matched.params;
+    const id = params ? params["id"] : undefined;
 
     return (
         <FormEditorProvider

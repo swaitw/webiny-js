@@ -1,9 +1,9 @@
-import * as React from "react";
+import React from "react";
 import { FormComponentProps } from "./../types";
 import { webinyCheckboxTitle } from "./Checkbox.styles";
 import { FormElementMessage } from "../FormElementMessage";
 
-interface ChildrenRenderProp {
+export interface ChildrenRenderProp {
     onChange: (id: string | number) => () => void;
     getValue: (id: string | number) => boolean;
 }
@@ -20,7 +20,7 @@ type Props = FormComponentProps & {
 };
 
 class CheckboxGroup extends React.Component<Props> {
-    render() {
+    public override render() {
         const { description, label, validation = { isValid: null, message: null } } = this.props;
 
         return (
@@ -39,7 +39,9 @@ class CheckboxGroup extends React.Component<Props> {
                 {this.props.children({
                     onChange: value => {
                         return () => {
-                            const values = Array.isArray(this.props.value) ? this.props.value : [];
+                            const values = Array.isArray(this.props.value)
+                                ? [...this.props.value]
+                                : [];
                             const index = values.indexOf(value);
                             if (index > -1) {
                                 values.splice(index, 1);

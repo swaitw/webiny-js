@@ -1,5 +1,6 @@
 import { Db } from "@webiny/db";
+import { Context } from "@webiny/api/types";
 
-export type DbContext = {
-    db: Db;
-};
+export interface DbContext extends Context {
+    db: Db<unknown>;
+}

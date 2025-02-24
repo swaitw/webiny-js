@@ -5,7 +5,7 @@ const GZIP = "gzip";
 const TO_STORAGE_ENCODING = "base64";
 const FROM_STORAGE_ENCODING = "utf8";
 
-const convertToBuffer = value => {
+const convertToBuffer = (value: string | Buffer) => {
     if (typeof value === "string") {
         return Buffer.from(value, TO_STORAGE_ENCODING);
     }
@@ -17,7 +17,7 @@ export interface CompressedData {
     value: string;
 }
 
-interface OriginalData {
+export interface OriginalData {
     [key: string]: any;
 }
 
@@ -34,7 +34,7 @@ class GzipCompression extends CompressionPlugin {
         }
         return true;
     }
-    public async compress(data) {
+    public async compress(data: any) {
         const value = await gzip(JSON.stringify(data));
 
         return {
@@ -66,6 +66,13 @@ class GzipCompression extends CompressionPlugin {
     }
 }
 
-export default () => {
+export const createGzipCompression = () => {
     return new GzipCompression();
+};
+/**
+ * Left due to backward compatibility with older systems.
+ * Remove when upgraded the system to run from @webiny/api-serverless-cms-aws
+ */
+export default () => {
+    return createGzipCompression();
 };

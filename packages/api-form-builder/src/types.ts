@@ -1,23 +1,44 @@
 import { Plugin } from "@webiny/plugins/types";
 import { TenancyContext } from "@webiny/api-tenancy/types";
-import { I18NContentContext } from "@webiny/api-i18n-content/types";
 import { SecurityPermission } from "@webiny/api-security/types";
 import { FileManagerContext } from "@webiny/api-file-manager/types";
 import { I18NContext } from "@webiny/api-i18n/types";
 import { Topic } from "@webiny/pubsub/types";
-import { UpgradePlugin } from "@webiny/api-upgrade/types";
 
 interface FbFormTriggerData {
+    urls?: string[];
     [key: string]: any;
 }
 interface FbSubmissionData {
     [key: string]: any;
 }
+interface FbSubmissionMeta {
+    [key: string]: any;
+}
+
+interface FbFormStep {
+    title: string;
+    layout: string[][];
+}
 
 interface FbFormFieldValidator {
     name: string;
     message: any;
-    settings: Record<string, any>;
+    settings: {
+        /**
+         * In.
+         */
+        values?: string[];
+        /**
+         * gte, lte, max, min
+         */
+        value?: string;
+        /**
+         * Pattern.
+         */
+        preset?: string;
+        [key: string]: any;
+    };
 }
 
 export interface FbFormFieldValidatorPlugin extends Plugin {
@@ -41,6 +62,7 @@ export interface FbFormTriggerHandlerParams {
     addLog: (log: Record<string, any>) => void;
     trigger: FbFormTriggerData;
     data: FbSubmissionData;
+    meta: FbSubmissionMeta;
     form: FbForm;
 }
 
@@ -52,6 +74,31 @@ export interface FbFormTriggerHandlerPlugin extends Plugin {
     type: "form-trigger-handler";
     trigger: string;
     handle: (args: FbFormTriggerHandlerParams) => Promise<void>;
+}
+
+export interface FbFormFieldOption {
+    label?: string;
+    value?: string;
+}
+
+export interface FbFormField {
+    _id: string;
+    fieldId: string;
+    type: string;
+    name: string;
+    label: string;
+    placeholderText?: string;
+    helpText?: string;
+    options: FbFormFieldOption[];
+    validation: FbFormFieldValidator[];
+    settings?: Record<string, any>;
+}
+
+export interface ReCaptchaSettings {
+    reCaptcha: {
+        enabled: boolean | null;
+        errorMessage: string;
+    };
 }
 
 export interface FbForm {
@@ -67,20 +114,20 @@ export interface FbForm {
     version: number;
     locked: boolean;
     published: boolean;
-    publishedOn: string;
+    publishedOn: string | null;
     status: string;
-    fields: Record<string, any>[];
-    layout: string[][];
+    fields: FbFormField[];
+    steps: FbFormStep[];
     stats: Omit<FbFormStats, "conversionRate">;
-    settings: Record<string, any>;
-    triggers: Record<string, any>;
+    settings: ReCaptchaSettings | Record<string, any>;
+    triggers: Record<string, any> | null;
     formId: string;
     webinyVersion: string;
 }
 
 export interface CreatedBy {
     id: string;
-    displayName: string;
+    displayName: string | null;
     type: string;
 }
 
@@ -93,9 +140,9 @@ interface FormCreateInput {
 interface FormUpdateInput {
     name: string;
     fields: Record<string, any>[];
-    layout: string[][];
+    steps: FbFormStep[];
     settings: Record<string, any>;
-    triggers: Record<string, any>;
+    triggers: Record<string, any> | null;
 }
 
 export interface FbFormStats {
@@ -111,7 +158,7 @@ interface FbListSubmissionsOptions {
 }
 
 export interface FbListSubmissionsMeta {
-    cursor: string;
+    cursor: string | null;
     hasMoreItems: boolean;
     totalCount: number;
 }
@@ -122,6 +169,62 @@ export interface FormBuilderGetFormOptions {
 
 export interface FormBuilderGetFormRevisionsOptions {
     auth?: boolean;
+}
+
+/**
+ * Lifecycle Events for Forms CRUD
+ */
+export interface OnFormBeforeCreateTopicParams {
+    form: FbForm;
+}
+export interface OnFormAfterCreateTopicParams {
+    form: FbForm;
+}
+export interface OnFormRevisionBeforeCreateTopicParams {
+    form: FbForm;
+    original: FbForm;
+    latest: FbForm;
+}
+export interface OnFormRevisionAfterCreateTopicParams {
+    form: FbForm;
+    original: FbForm;
+    latest: FbForm;
+}
+export interface OnFormBeforeUpdateTopicParams {
+    form: FbForm;
+    original: FbForm;
+}
+export interface OnFormAfterUpdateTopicParams {
+    form: FbForm;
+    original: FbForm;
+}
+export interface OnFormBeforeDeleteTopicParams {
+    form: FbForm;
+}
+export interface OnFormAfterDeleteTopicParams {
+    form: FbForm;
+}
+export interface OnFormRevisionBeforeDeleteTopicParams {
+    form: FbForm;
+    previous: FbForm | null;
+    revisions: FbForm[];
+}
+export interface OnFormRevisionAfterDeleteTopicParams {
+    form: FbForm;
+    previous: FbForm | null;
+    revisions: FbForm[];
+}
+export interface OnFormBeforePublishTopicParams {
+    form: FbForm;
+}
+export interface OnFormAfterPublishTopicParams {
+    form: FbForm;
+}
+export interface OnFormBeforeUnpublishTopicParams {
+    form: FbForm;
+}
+export interface OnFormAfterUnpublishTopicParams {
+    form: FbForm;
 }
 
 export interface FormsCRUD {
@@ -140,8 +243,63 @@ export interface FormsCRUD {
     getPublishedFormRevisionById(revisionId: string): Promise<FbForm>;
     getLatestPublishedFormRevision(formId: string): Promise<FbForm>;
     deleteFormRevision(id: string): Promise<boolean>;
+    /**
+     * Lifecycle events
+     */
+    onFormBeforeCreate: Topic<OnFormBeforeCreateTopicParams>;
+    onFormAfterCreate: Topic<OnFormAfterCreateTopicParams>;
+    onFormRevisionBeforeCreate: Topic<OnFormRevisionBeforeCreateTopicParams>;
+    onFormRevisionAfterCreate: Topic<OnFormRevisionAfterCreateTopicParams>;
+    onFormBeforeUpdate: Topic<OnFormBeforeUpdateTopicParams>;
+    onFormAfterUpdate: Topic<OnFormAfterUpdateTopicParams>;
+    onFormBeforeDelete: Topic<OnFormBeforeDeleteTopicParams>;
+    onFormAfterDelete: Topic<OnFormAfterDeleteTopicParams>;
+    onFormRevisionBeforeDelete: Topic<OnFormRevisionBeforeDeleteTopicParams>;
+    onFormRevisionAfterDelete: Topic<OnFormRevisionAfterDeleteTopicParams>;
+    onFormBeforePublish: Topic<OnFormBeforePublishTopicParams>;
+    onFormAfterPublish: Topic<OnFormAfterPublishTopicParams>;
+    onFormBeforeUnpublish: Topic<OnFormBeforeUnpublishTopicParams>;
+    onFormAfterUnpublish: Topic<OnFormAfterUnpublishTopicParams>;
 }
 
+/**
+ * Submissions CRUD Lifecycle Events
+ */
+export interface OnFormSubmissionBeforeCreate {
+    form: FbForm;
+    submission: FbSubmission;
+}
+export interface OnFormSubmissionAfterCreate {
+    form: FbForm;
+    submission: FbSubmission;
+}
+export interface OnFormSubmissionBeforeUpdate {
+    form: FbForm;
+    original: FbSubmission;
+    submission: FbSubmission;
+}
+export interface OnFormSubmissionAfterUpdate {
+    form: FbForm;
+    original: FbSubmission;
+    submission: FbSubmission;
+}
+export interface OnFormSubmissionBeforeDelete {
+    form: FbForm;
+    submission: FbSubmission;
+}
+export interface OnFormSubmissionAfterDelete {
+    form: FbForm;
+    submission: FbSubmission;
+}
+export interface OnFormSubmissionsBeforeExport {
+    form: FbForm;
+}
+export interface OnFormSubmissionsAfterExport {
+    result: {
+        key: any;
+        src: string;
+    };
+}
 export interface SubmissionsCRUD {
     getSubmissionsByIds(form: string | FbForm, submissionIds: string[]): Promise<FbSubmission[]>;
     listFormSubmissions(
@@ -156,30 +314,42 @@ export interface SubmissionsCRUD {
     ): Promise<FbSubmission>;
     updateSubmission(formId: string, data: FbSubmission): Promise<boolean>;
     deleteSubmission(formId: string, submissionId: string): Promise<boolean>;
+    /**
+     * Lifecycle events
+     */
+    onFormSubmissionBeforeCreate: Topic<OnFormSubmissionBeforeCreate>;
+    onFormSubmissionAfterCreate: Topic<OnFormSubmissionAfterCreate>;
+    onFormSubmissionBeforeUpdate: Topic<OnFormSubmissionBeforeUpdate>;
+    onFormSubmissionAfterUpdate: Topic<OnFormSubmissionAfterUpdate>;
+    onFormSubmissionBeforeDelete: Topic<OnFormSubmissionBeforeDelete>;
+    onFormSubmissionAfterDelete: Topic<OnFormSubmissionAfterDelete>;
+    onFormSubmissionsBeforeExport: Topic<OnFormSubmissionsBeforeExport>;
+    onFormSubmissionsAfterExport: Topic<OnFormSubmissionsAfterExport>;
 }
 
-export interface BeforeInstallTopic {
+export interface OnSystemBeforeInstallTopic {
     tenant: string;
+    locale: string;
 }
 
-export interface AfterInstallTopic {
+export interface OnSystemAfterInstallTopic {
     tenant: string;
+    locale: string;
 }
 
 export interface SystemCRUD {
     /**
      * @internal
      */
-    getSystem(): Promise<System>;
-    getSystemVersion(): Promise<string>;
+    getSystem(): Promise<System | null>;
+    getSystemVersion(): Promise<string | null>;
     setSystemVersion(version: string): Promise<void>;
     installSystem(args: { domain?: string }): Promise<void>;
-    upgradeSystem(version: string, data?: Record<string, any>): Promise<boolean>;
     /**
      * Events
      */
-    onBeforeInstall: Topic<BeforeInstallTopic>;
-    onAfterInstall: Topic<AfterInstallTopic>;
+    onSystemBeforeInstall: Topic<OnSystemBeforeInstallTopic>;
+    onSystemAfterInstall: Topic<OnSystemAfterInstallTopic>;
 }
 
 export interface FbSubmission {
@@ -195,22 +365,13 @@ export interface FbSubmission {
         version: number;
         fields: Record<string, any>[];
         layout: string[][];
+        steps: FbFormStep[];
     };
     logs: Record<string, any>[];
     createdOn: string;
     savedOn: string;
     webinyVersion: string;
     tenant: string;
-}
-
-export interface SubmissionInput {
-    data: Record<string, any>;
-    meta: Record<string, any>;
-    reCaptchaResponseToken: string;
-}
-
-export interface SubmissionUpdateData {
-    logs: Record<string, any>;
 }
 
 /**
@@ -220,9 +381,9 @@ export interface SubmissionUpdateData {
 export interface Settings {
     domain: string;
     reCaptcha: {
-        enabled: boolean;
-        siteKey: string;
-        secretKey: string;
+        enabled: boolean | null;
+        siteKey: string | null;
+        secretKey: string | null;
     };
     tenant: string;
     locale: string;
@@ -233,11 +394,44 @@ export interface SettingsCRUDGetParams {
     throwOnNotFound?: boolean;
 }
 
+/**
+ * Settings CRUD Lifecycle Events
+ */
+export interface OnSettingsBeforeCreate {
+    settings: Settings;
+}
+export interface OnSettingsAfterCreate {
+    settings: Settings;
+}
+export interface OnSettingsBeforeUpdate {
+    original: Settings;
+    settings: Settings;
+}
+export interface OnSettingsAfterUpdate {
+    original: Settings;
+    settings: Settings;
+}
+export interface OnSettingsBeforeDelete {
+    settings: Settings;
+}
+export interface OnSettingsAfterDelete {
+    settings: Settings;
+}
+
 export interface SettingsCRUD {
-    getSettings(params?: SettingsCRUDGetParams): Promise<Settings>;
+    getSettings(params?: SettingsCRUDGetParams): Promise<Settings | null>;
     createSettings(data: Partial<Settings>): Promise<Settings>;
     updateSettings(data: Partial<Settings>): Promise<Settings>;
     deleteSettings(): Promise<void>;
+    /**
+     * Lifecycle Events
+     */
+    onSettingsBeforeCreate: Topic<OnSettingsBeforeCreate>;
+    onSettingsAfterCreate: Topic<OnSettingsAfterCreate>;
+    onSettingsBeforeUpdate: Topic<OnSettingsBeforeUpdate>;
+    onSettingsAfterUpdate: Topic<OnSettingsAfterUpdate>;
+    onSettingsBeforeDelete: Topic<OnSettingsBeforeDelete>;
+    onSettingsAfterDelete: Topic<OnSettingsAfterDelete>;
 }
 
 export interface FbFormPermission extends SecurityPermission {
@@ -259,11 +453,7 @@ export interface FormBuilder extends SystemCRUD, SettingsCRUD, FormsCRUD, Submis
     storageOperations: FormBuilderStorageOperations;
 }
 
-export interface FormBuilderContext
-    extends TenancyContext,
-        I18NContext,
-        I18NContentContext,
-        FileManagerContext {
+export interface FormBuilderContext extends TenancyContext, I18NContext, FileManagerContext {
     /**
      *
      */
@@ -377,19 +567,25 @@ export interface FormBuilderStorageOperationsListFormsParams {
     limit: number;
     sort: string[];
 }
+
+/**
+ * @category StorageOperations
+ * @category StorageOperationsParams
+ */
+export interface FormBuilderStorageOperationsListFormRevisionsParamsWhere {
+    id?: string;
+    formId?: string;
+    version_not?: number;
+    publishedOn_not?: string | null;
+    tenant: string;
+    locale: string;
+}
 /**
  * @category StorageOperations
  * @category StorageOperationsParams
  */
 export interface FormBuilderStorageOperationsListFormRevisionsParams {
-    where: {
-        id?: string;
-        formId?: string;
-        version_not?: number;
-        publishedOn_not?: string | null;
-        tenant: string;
-        locale: string;
-    };
+    where: FormBuilderStorageOperationsListFormRevisionsParamsWhere;
     sort?: string[];
 }
 
@@ -455,7 +651,7 @@ export interface FormBuilderStorageOperationsDeleteFormRevisionParams {
     /**
      * Previous revision of the current form. Always the first lesser available version.
      */
-    previous: FbForm;
+    previous: FbForm | null;
     form: FbForm;
 }
 
@@ -501,7 +697,7 @@ export interface FormBuilderStorageOperationsListSubmissionsParams {
         locale: string;
         tenant: string;
     };
-    after?: string;
+    after?: string | null;
     limit?: number;
     sort?: string[];
 }
@@ -539,7 +735,7 @@ export interface FormBuilderStorageOperationsDeleteSubmissionParams {
  * @category StorageOperations
  */
 export interface FormBuilderSystemStorageOperations {
-    getSystem(params: FormBuilderStorageOperationsGetSystemParams): Promise<System>;
+    getSystem(params: FormBuilderStorageOperationsGetSystemParams): Promise<System | null>;
     createSystem(params: FormBuilderStorageOperationsCreateSystemParams): Promise<System>;
     updateSystem(params: FormBuilderStorageOperationsUpdateSystemParams): Promise<System>;
 }
@@ -548,7 +744,7 @@ export interface FormBuilderSystemStorageOperations {
  * @category StorageOperations
  */
 export interface FormBuilderSettingsStorageOperations {
-    getSettings(params: FormBuilderStorageOperationsGetSettingsParams): Promise<Settings>;
+    getSettings(params: FormBuilderStorageOperationsGetSettingsParams): Promise<Settings | null>;
     createSettings(params: FormBuilderStorageOperationsCreateSettingsParams): Promise<Settings>;
     updateSettings(params: FormBuilderStorageOperationsUpdateSettingsParams): Promise<Settings>;
     deleteSettings(params: FormBuilderStorageOperationsDeleteSettingsParams): Promise<void>;
@@ -558,7 +754,7 @@ export interface FormBuilderSettingsStorageOperations {
  * @category StorageOperations
  */
 export interface FormBuilderFormStorageOperations {
-    getForm(params: FormBuilderStorageOperationsGetFormParams): Promise<FbForm>;
+    getForm(params: FormBuilderStorageOperationsGetFormParams): Promise<FbForm | null>;
     listForms(
         params: FormBuilderStorageOperationsListFormsParams
     ): Promise<FormBuilderStorageOperationsListFormsResponse>;
@@ -594,7 +790,9 @@ export interface FormBuilderStorageOperationsListSubmissionsResponse {
  * @category StorageOperations
  */
 export interface FormBuilderSubmissionStorageOperations {
-    getSubmission(params: FormBuilderStorageOperationsGetSubmissionParams): Promise<FbSubmission>;
+    getSubmission(
+        params: FormBuilderStorageOperationsGetSubmissionParams
+    ): Promise<FbSubmission | null>;
     listSubmissions(
         params: FormBuilderStorageOperationsListSubmissionsParams
     ): Promise<FormBuilderStorageOperationsListSubmissionsResponse>;
@@ -616,13 +814,6 @@ export interface FormBuilderStorageOperations
         FormBuilderSettingsStorageOperations,
         FormBuilderFormStorageOperations,
         FormBuilderSubmissionStorageOperations {
-    /**
-     * We can initialize what ever we require in this method.
-     * Initially it was intended to attach events like afterInstall, beforeInstall, etc...
-     */
-    init?: (formBuilder: FormBuilder) => Promise<void>;
-    /**
-     * An upgrade to run if necessary.
-     */
-    upgrade?: UpgradePlugin | null;
+    beforeInit?: (context: FormBuilderContext) => Promise<void>;
+    init?: (context: FormBuilderContext) => Promise<void>;
 }

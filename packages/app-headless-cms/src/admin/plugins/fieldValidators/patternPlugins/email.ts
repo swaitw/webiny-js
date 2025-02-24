@@ -1,11 +1,14 @@
-import { CmsEditorFieldValidatorPatternPlugin } from "~/types";
+import { CmsModelFieldRegexValidatorExpressionPlugin } from "~/types";
 
-export default {
-    type: "cms-editor-field-validator-pattern",
-    name: "cms-editor-field-validator-pattern-email",
+const plugin: CmsModelFieldRegexValidatorExpressionPlugin = {
+    type: "cms-model-field-regex-validator-expression",
+    name: "cms-model-field-regex-validator-expression",
     pattern: {
-        message: "Please enter a valid e-mail.",
         name: "email",
-        label: "E-mail"
+        label: "E-mail",
+        message: "Please enter a valid e-mail.",
+        regex: `^\\w[\\+\\w.-]*@([\\w-]+\\.)+[\\w-]+$`,
+        flags: "i"
     }
-} as CmsEditorFieldValidatorPatternPlugin;
+};
+export default plugin;

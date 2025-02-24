@@ -1,4 +1,5 @@
-// @ts-nocheck
+/* We don't need the following rule in this file, as it's not being bundled with Webpack. */
+/* eslint-disable import/dynamic-import-chunkname */
 export default {
     name: "webiny-js",
     cli: {
@@ -16,15 +17,13 @@ export default {
                     import("@webiny/cli-plugin-deploy-pulumi"),
                     import("@webiny/cwp-template-aws/cli"),
                     import("@webiny/cli-plugin-scaffold"),
-                    import("@webiny/cli-plugin-scaffold-full-stack-app"),
-                    import("@webiny/cli-plugin-scaffold-graphql-api"),
+                    import("@webiny/cli-plugin-extensions"),
                     import("@webiny/cli-plugin-scaffold-graphql-service"),
                     import("@webiny/cli-plugin-scaffold-admin-app-module"),
-                    import("@webiny/cli-plugin-scaffold-react-app"),
-                    import("@webiny/cli-plugin-scaffold-react-component"),
+                    import("@webiny/cli-plugin-scaffold-extensions"),
+                    import("@webiny/cli-plugin-scaffold-workspaces"),
                     import("@webiny/cli-plugin-scaffold-ci"),
-                    import("./apps/admin/cli"),
-                    import("./apps/website/cli")
+                    import("@webiny/cli-plugin-dependencies")
                 ]);
 
                 return modules
@@ -32,12 +31,15 @@ export default {
                         // Use only "fulfilled" imports.
                         if (m.status === "fulfilled") {
                             try {
-                                return m.value.default();
+                                return typeof m.value.default === "function"
+                                    ? m.value.default()
+                                    : m.value.default;
                             } catch {
                                 // This one is most likely not built yet.
                                 return null;
                             }
                         }
+                        return null;
                     })
                     .filter(Boolean);
             } catch (e) {
@@ -45,5 +47,18 @@ export default {
                 return [];
             }
         }
+    },
+    appAliases: {
+        core: "apps/core",
+        api: "apps/api",
+        admin: "apps/admin",
+        website: "apps/website"
+    },
+
+    featureFlags: {
+        experimentalAdminOmniSearch: true,
+        experimentalDynamicPages: false,
+        newWatchCommand: true,
+        rspack: true
     }
 };

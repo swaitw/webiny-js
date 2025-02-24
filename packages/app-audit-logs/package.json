@@ -1,0 +1,51 @@
+{
+  "name": "@webiny/app-audit-logs",
+  "version": "0.0.0",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webiny/webiny-js.git"
+  },
+  "description": "",
+  "license": "MIT",
+  "dependencies": {
+    "@apollo/react-hooks": "^3.1.5",
+    "@emotion/react": "11.10.8",
+    "@emotion/styled": "11.10.6",
+    "@webiny/api-audit-logs": "0.0.0",
+    "@webiny/app": "0.0.0",
+    "@webiny/app-aco": "0.0.0",
+    "@webiny/app-admin": "0.0.0",
+    "@webiny/app-security": "0.0.0",
+    "@webiny/form": "0.0.0",
+    "@webiny/plugins": "0.0.0",
+    "@webiny/react-properties": "0.0.0",
+    "@webiny/react-router": "0.0.0",
+    "@webiny/ui": "0.0.0",
+    "date-fns": "^2.22.1",
+    "emotion": "10.0.27",
+    "graphql-tag": "^2.12.6",
+    "lodash": "^4.17.21"
+  },
+  "peerDependencies": {
+    "react": "18.2.0"
+  },
+  "devDependencies": {
+    "@material-design-icons/svg": "^0.14.13",
+    "@material-symbols/svg-400": "^0.4.1",
+    "@types/react": "18.2.79",
+    "@webiny/cli": "0.0.0",
+    "@webiny/project-utils": "0.0.0",
+    "execa": "^5.1.1",
+    "rimraf": "^6.0.1",
+    "typescript": "5.3.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
+  "scripts": {
+    "build": "yarn webiny run build",
+    "watch": "yarn webiny run watch"
+  }
+}

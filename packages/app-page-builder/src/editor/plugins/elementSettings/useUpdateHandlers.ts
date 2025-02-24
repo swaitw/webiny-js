@@ -2,11 +2,9 @@ import { useMemo } from "react";
 import lodashSet from "lodash/set";
 import lodashMerge from "lodash/merge";
 import { useHandler } from "@webiny/app/hooks/useHandler";
-import { useEventActionHandler } from "~/editor/hooks/useEventActionHandler";
-import { UpdateElementActionEvent } from "~/editor/recoil/actions";
-import { UpdateElementActionArgsType } from "~/editor/recoil/actions/updateElement/types";
-import { SaveRevisionActionArgsType } from "~/editor/recoil/actions/saveRevision/types";
 import { PbEditorElement } from "~/types";
+import { useUpdateElement } from "~/editor/hooks/useUpdateElement";
+import { UpdateElementActionArgsType } from "~/editor/recoil/actions";
 
 export type PostModifyElementArgs = {
     name: string;
@@ -14,23 +12,21 @@ export type PostModifyElementArgs = {
     element: PbEditorElement;
     newElement: PbEditorElement;
 };
-type UpdateHandlersPropsType = SaveRevisionActionArgsType & {
+type UpdateHandlersPropsType = Omit<UpdateElementActionArgsType, "history"> & {
+    history?: boolean;
     element: PbEditorElement;
     dataNamespace: string;
     postModifyElement?: (args: PostModifyElementArgs) => void;
 };
-type HandlerUpdateCallableType = (name: string) => (value: any) => void;
 type UseUpdateHandlersType = (props: UpdateHandlersPropsType) => {
-    getUpdateValue: HandlerUpdateCallableType;
-    getUpdatePreview: HandlerUpdateCallableType;
+    getUpdateValue: <T = any>(name: string) => (value: T) => void;
+    getUpdatePreview: <T = any>(name: string) => (value: T) => void;
 };
 const useUpdateHandlers: UseUpdateHandlersType = props => {
-    const handler = useEventActionHandler();
-    const updateElement = (args: UpdateElementActionArgsType) => {
-        handler.trigger(new UpdateElementActionEvent(args));
-    };
+    const updateElement = useUpdateElement();
+
     const updateSettings = useHandler(props, ({ element, dataNamespace, postModifyElement }) => {
-        const historyUpdated = {};
+        const historyUpdated: Record<string, string> = {};
         return (name: string, newValue: any, history = false) => {
             const propName = `${dataNamespace}.${name}`;
 
@@ -41,8 +37,7 @@ const useUpdateHandlers: UseUpdateHandlersType = props => {
             }
 
             if (!history) {
-                updateElement({
-                    element: newElement,
+                updateElement(newElement, {
                     history: false
                 });
                 return;
@@ -50,8 +45,7 @@ const useUpdateHandlers: UseUpdateHandlersType = props => {
 
             if (historyUpdated[propName] !== newValue) {
                 historyUpdated[propName] = newValue;
-                updateElement({
-                    element: newElement,
+                updateElement(newElement, {
                     history: true,
                     debounce: props.debounce,
                     onFinish: props.onFinish
@@ -61,10 +55,10 @@ const useUpdateHandlers: UseUpdateHandlersType = props => {
     });
 
     const getUpdateValue = useMemo(() => {
-        const handlers = {};
+        const handlers: Record<string, any> = {};
         return (name: string) => {
             if (!handlers[name]) {
-                handlers[name] = value => updateSettings(name, value, true);
+                handlers[name] = (value: any) => updateSettings(name, value, true);
             }
 
             return handlers[name];
@@ -72,10 +66,10 @@ const useUpdateHandlers: UseUpdateHandlersType = props => {
     }, [updateSettings]);
 
     const getUpdatePreview = useMemo(() => {
-        const handlers = {};
+        const handlers: Record<string, any> = {};
         return (name: string) => {
             if (!handlers[name]) {
-                handlers[name] = value => updateSettings(name, value, false);
+                handlers[name] = (value: any) => updateSettings(name, value, false);
             }
 
             return handlers[name];

@@ -1,10 +1,12 @@
 import * as React from "react";
 import styled from "@emotion/styled";
-import Droppable from "./../Droppable";
-import { DragObjectWithType } from "react-dnd";
+import { Droppable, OnDropCallable } from "./../Droppable";
 
-// @ts-ignore
-const Container = styled("div")(({ isOver }: { isOver: boolean }) => ({
+interface ContainerProps {
+    isOver: boolean;
+    isDragging: boolean;
+}
+const Container = styled("div")(({ isOver, isDragging }: ContainerProps) => ({
     backgroundColor: "transparent",
     boxSizing: "border-box",
     height: "100%",
@@ -12,14 +14,16 @@ const Container = styled("div")(({ isOver }: { isOver: boolean }) => ({
     position: "relative",
     userSelect: "none",
     width: "100%",
-    border: isOver
-        ? "2px dashed var(--mdc-theme-primary)"
-        : "2px dashed var(--mdc-theme-secondary)",
+    borderWidth: isDragging ? "4px" : "2px",
+    borderStyle: "dashed",
+    borderColor: isOver ? "var(--mdc-theme-primary)" : "var(--mdc-theme-secondary)",
     opacity: 1
 }));
 
-// @ts-ignore
-const Add = styled("div")(({ isOver }: { isOver: boolean }) => ({
+interface AddProps {
+    isOver: boolean;
+}
+const Add = styled("div")(({ isOver }: AddProps) => ({
     position: "absolute",
     top: "50%",
     left: "50%",
@@ -28,28 +32,28 @@ const Add = styled("div")(({ isOver }: { isOver: boolean }) => ({
     color: isOver ? "var(--mdc-theme-primary)" : "var(--mdc-theme-secondary)"
 }));
 
-type Props = {
+export interface CenterProps {
     type?: string;
-    onDrop(item: DragObjectWithType): void;
+    onDrop: OnDropCallable;
     children: React.ReactNode;
     active?: boolean;
     highlight?: boolean;
-};
+}
 
-export default function Center({ onDrop, children }: Props) {
+export const Center = ({ onDrop, children }: CenterProps) => {
     return (
         <Droppable onDrop={onDrop}>
-            {({ isOver, drop }) => (
+            {({ isOver, isDragging, drop }) => (
                 <div
                     ref={drop}
                     style={{ width: "100%", height: "100%" }}
                     data-testid={"fb.editor.dropzone.center"}
                 >
-                    <Container isOver={isOver}>
+                    <Container isOver={isOver} isDragging={isDragging}>
                         <Add isOver={isOver}>{children}</Add>
                     </Container>
                 </div>
             )}
         </Droppable>
     );
-}
+};

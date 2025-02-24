@@ -5,8 +5,9 @@ import {
     PbEditorPageElementPlugin,
     PbEditorPageElementAdvancedSettingsPlugin,
     DisplayMode,
-    PbEditorElementPluginArgs
-} from "../../../../types";
+    PbEditorElementPluginArgs,
+    OnCreateActions
+} from "~/types";
 import { createInitialPerDeviceSettingValue } from "../../elementSettings/elementSettingsUtils";
 import ImagesList from "./ImagesList";
 import ImagesListImagesSettings from "./ImagesListImagesSettings";
@@ -24,7 +25,7 @@ export default (args: PbEditorElementPluginArgs = {}) => {
         }
     });
 
-    const elementType = kebabCase(args.elementType || "images-list");
+    const elementType: string = kebabCase(args.elementType || "images-list");
 
     const defaultToolbar = {
         title: "Image Gallery",
@@ -52,7 +53,7 @@ export default (args: PbEditorElementPluginArgs = {}) => {
                     ? args.settings(defaultSettings)
                     : defaultSettings,
             target: ["cell", "block"],
-            onCreate: "open-settings",
+            onCreate: OnCreateActions.OPEN_SETTINGS,
             create(options = {}) {
                 const defaultValue = {
                     type: this.elementType,
@@ -74,8 +75,8 @@ export default (args: PbEditorElementPluginArgs = {}) => {
 
                 return typeof args.create === "function" ? args.create(defaultValue) : defaultValue;
             },
-            render({ element }) {
-                return <ImagesList data={element.data} />;
+            render(props) {
+                return <ImagesList {...props} />;
             }
         } as PbEditorPageElementPlugin,
         {
@@ -83,7 +84,7 @@ export default (args: PbEditorElementPluginArgs = {}) => {
             type: "pb-editor-page-element-advanced-settings",
             elementType: elementType,
             render(props) {
-                return <ImagesListImagesSettings {...props} filter />;
+                return <ImagesListImagesSettings {...props} />;
             }
         } as PbEditorPageElementAdvancedSettingsPlugin,
         {

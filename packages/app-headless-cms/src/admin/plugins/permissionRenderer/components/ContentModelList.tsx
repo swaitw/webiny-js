@@ -4,6 +4,7 @@ import groupBy from "lodash/groupBy";
 import get from "lodash/get";
 import { Typography } from "@webiny/ui/Typography";
 import { Checkbox } from "@webiny/ui/Checkbox";
+import { GetValueCallable, OnChangeCallable, PermissionSelectorCmsGroup } from "./types";
 
 const groupStyles = css({
     marginLeft: 20
@@ -15,13 +16,24 @@ const labelStyles = css({
     fontWeight: "bold"
 });
 
-const ContentModelList = ({ items, onChange, getValue }) => {
-    const list = Object.entries(
+interface GroupItem extends PermissionSelectorCmsGroup {
+    groupName: string;
+}
+
+interface ContentModelListProps {
+    items: PermissionSelectorCmsGroup[];
+    onChange: OnChangeCallable;
+    getValue: GetValueCallable;
+}
+const ContentModelList = ({ items, onChange, getValue }: ContentModelListProps) => {
+    const list: [string, GroupItem[]][] = Object.entries(
         groupBy(
-            items.map(i => ({
-                ...i,
-                groupName: get(i, "group.label")
-            })),
+            items.map((item): GroupItem => {
+                return {
+                    ...item,
+                    groupName: get(item, "group.label")
+                };
+            }),
             "groupName"
         )
     );
@@ -34,7 +46,7 @@ const ContentModelList = ({ items, onChange, getValue }) => {
                         <Typography use={"caption"} className={labelStyles}>
                             {key}
                         </Typography>
-                        {(value as any[]).map(({ id, label }) => (
+                        {value.map(({ id, label }) => (
                             <div key={id}>
                                 <Checkbox
                                     key={id}

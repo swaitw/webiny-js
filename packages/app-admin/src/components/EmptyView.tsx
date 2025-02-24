@@ -1,7 +1,7 @@
 import React, { ReactElement } from "react";
 import styled from "@emotion/styled";
 import { Typography } from "@webiny/ui/Typography";
-import { ReactComponent as TouchIcon } from "../assets/icons/touch_app.svg";
+import { ReactComponent as TouchIcon } from "@material-design-icons/svg/filled/touch_app.svg";
 
 const EmptyViewWrapper = styled("div")({
     width: "100%",
@@ -34,11 +34,11 @@ const EmptyViewWrapper = styled("div")({
         }
     }
 });
-export type EmptyViewProps = {
+export interface EmptyViewProps {
     icon?: ReactElement;
     title: string;
-    action: ReactElement;
-};
+    action: ReactElement | null;
+}
 const EmptyView = ({ icon = <TouchIcon />, title, action }: EmptyViewProps) => {
     return (
         <EmptyViewWrapper>

@@ -1,6 +1,6 @@
 import { plugins } from "@webiny/plugins";
-import { cloneDeep, get } from "lodash";
-import React, { useEffect, useRef, useMemo } from "react";
+import cloneDeep from "lodash/cloneDeep";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useApolloClient } from "@apollo/react-hooks";
 import { createReCaptchaComponent, createTermsOfServiceComponent } from "./components";
 import {
@@ -15,40 +15,59 @@ import {
     FormRenderPropsType,
     FbFormRenderComponentProps,
     FormSubmitResponseType,
-    FbFormModel,
     FbFormSubmissionData,
     FbFormFieldValidatorPlugin,
-    FbFormLayoutPlugin
-} from "../../types";
-import { PbThemePlugin } from "@webiny/app-page-builder/types";
+    FbFormModelField,
+    FormRenderFbFormModelField,
+    FbFormModel,
+    FbFormLayout
+} from "~/types";
+import { FbFormLayoutPlugin } from "~/plugins";
+import { ReCaptchaComponent } from "./components/createReCaptchaComponent";
 
 declare global {
     // eslint-disable-next-line
     namespace JSX {
         interface IntrinsicElements {
-            // @ts-ignore
             "ps-tag": {
-                class?: string;
-                id?: string;
+                "data-key": string;
+                "data-value": string;
             };
         }
     }
 }
 
-const FormRender = (props: FbFormRenderComponentProps) => {
-    const theme = useMemo(
-        () => Object.assign({}, ...plugins.byType("pb-theme").map((pl: PbThemePlugin) => pl.theme)),
-        []
-    );
+interface FieldValidator {
+    (value: string): Promise<boolean>;
+}
 
+const FormRender = (props: FbFormRenderComponentProps) => {
     const client = useApolloClient();
     const data = props.data || ({} as FbFormModel);
+    const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
 
-    useEffect(() => {
-        if (data.id) {
-            onFormMounted({ ...props, client });
+    const [layoutRenderKey, setLayoutRenderKey] = useState<string>(new Date().getTime().toString());
+    const resetLayoutRenderKey = useCallback(() => {
+        setLayoutRenderKey(new Date().getTime().toString());
+    }, []);
+
+    useEffect((): void => {
+        if (!data.id) {
+            return;
         }
+        onFormMounted({
+            preview: props.preview || false,
+            data: props.data || null,
+            client
+        });
     }, [data.id]);
+
+    // We need this useEffect in case when user has deleted a step and he was on that step on the preview tab,
+    // so it won't trigger an error when we trying to view the step that we have deleted,
+    // we will simpy change currentStep to the first step.
+    useEffect(() => {
+        setCurrentStepIndex(0);
+    }, [data.steps.length]);
 
     const reCaptchaResponseToken = useRef("");
     const termsOfServiceAccepted = useRef(false);
@@ -57,63 +76,89 @@ const FormRender = (props: FbFormRenderComponentProps) => {
         return null;
     }
 
+    const goToNextStep = () => {
+        setCurrentStepIndex(prevStep => (prevStep += 1));
+    };
+
+    const goToPreviousStep = () => {
+        setCurrentStepIndex(prevStep => (prevStep -= 1));
+    };
+
     const formData: FbFormModel = cloneDeep(data);
-    const { layout, fields, settings } = formData;
+    const { fields, settings, steps } = formData;
 
-    const getFieldById = id => {
-        return fields.find(field => field._id === id);
+    // Check if the form is a multi step.
+    const isMultiStepForm = formData.steps.length > 1;
+
+    const isFirstStep = currentStepIndex === 0;
+    const isLastStep = currentStepIndex === steps.length - 1;
+
+    // We need this check in case we deleted last step and at the same time we were previewing it.
+    const currentStep =
+        steps[currentStepIndex] === undefined
+            ? steps[formData.steps.length - 1]
+            : steps[currentStepIndex];
+
+    const getFieldById = (id: string): FbFormModelField | null => {
+        return fields.find(field => field._id === id) || null;
     };
 
-    const getFieldByFieldId = id => {
-        return fields.find(field => field.fieldId === id);
+    const getFieldByFieldId = (id: string): FbFormModelField | null => {
+        return fields.find(field => field.fieldId === id) || null;
     };
 
-    const getFields = () => {
-        const fields: any = cloneDeep(layout);
+    // We need to have "stepIndex" prop in order to get corresponding fields for the current step.
+    const getFields = (stepIndex = 0): FormRenderFbFormModelField[][] => {
+        const stepFields =
+            steps[stepIndex] === undefined ? steps[steps.length - 1] : steps[stepIndex];
+        const fieldLayout = cloneDeep(stepFields.layout.filter(Boolean));
         const validatorPlugins =
             plugins.byType<FbFormFieldValidatorPlugin>("fb-form-field-validator");
 
-        fields.forEach(row => {
-            row.forEach((id, idIndex) => {
-                row[idIndex] = getFieldById(id);
-                row[idIndex].validators = row[idIndex].validation
-                    .map(item => {
-                        const validatorPlugin = validatorPlugins.find(
-                            plugin => plugin.validator.name === item.name
-                        );
+        return fieldLayout.map(row => {
+            return row.map(id => {
+                /**
+                 * We can cast safely because we are adding validators
+                 */
+                const field = getFieldById(id) as FormRenderFbFormModelField;
+                field.validators = (field.validation || []).reduce((collection, item) => {
+                    const validatorPlugin = validatorPlugins.find(
+                        plugin => plugin.validator.name === item.name
+                    );
 
-                        if (
-                            !validatorPlugin ||
-                            typeof validatorPlugin.validator.validate !== "function"
-                        ) {
-                            return;
+                    if (
+                        !validatorPlugin ||
+                        typeof validatorPlugin.validator.validate !== "function"
+                    ) {
+                        return collection;
+                    }
+
+                    const validator: FieldValidator = async (value: string): Promise<boolean> => {
+                        let isInvalid;
+                        try {
+                            const result = await validatorPlugin.validator.validate(value, item);
+                            isInvalid = result === false;
+                        } catch (e) {
+                            isInvalid = true;
                         }
 
-                        return async value => {
-                            let isInvalid;
-                            try {
-                                const result = await validatorPlugin.validator.validate(
-                                    value,
-                                    item
-                                );
-                                isInvalid = result === false;
-                            } catch (e) {
-                                isInvalid = true;
-                            }
-
-                            if (isInvalid) {
-                                throw new Error(item.message || "Invalid value.");
-                            }
-                        };
-                    })
-                    .filter(Boolean);
+                        if (isInvalid) {
+                            throw new Error(item.message || "Invalid value.");
+                        }
+                        return true;
+                    };
+                    collection.push(validator);
+                    return collection;
+                }, [] as FieldValidator[]);
+                return field;
             });
         });
-        return fields;
     };
 
-    const getDefaultValues = (overrides = {}) => {
-        const values = {};
+    const getDefaultValues = (
+        overrides: Record<string, string> = {}
+    ): Record<string, string | string[]> => {
+        const values: Record<string, string | string[]> = {};
         fields.forEach(field => {
             const fieldId = field.fieldId;
 
@@ -123,6 +168,10 @@ const FormRender = (props: FbFormRenderComponentProps) => {
                 typeof field.settings.defaultValue !== "undefined"
             ) {
                 values[fieldId] = field.settings.defaultValue;
+            }
+
+            if (field.settings.otherOption) {
+                values[`${fieldId}Other`] = "";
             }
         });
         return { ...values, ...overrides };
@@ -159,25 +208,23 @@ const FormRender = (props: FbFormRenderComponentProps) => {
         });
 
         await handleFormTriggers({ props, data, formSubmission });
+
+        setTimeout(() => {
+            if (props.preview) {
+                setCurrentStepIndex(0);
+                resetLayoutRenderKey();
+            }
+        }, 2000);
+
         return formSubmission;
     };
 
-    const layouts = React.useMemo(
-        () =>
-            [
-                ...(get(theme, "formBuilder.layouts") || []),
-                ...plugins.byType<FbFormLayoutPlugin>("form-layout").map(pl => pl.layout)
-            ].reduce((acc, item) => {
-                if (!acc.find(l => l.name === item.name)) {
-                    acc.push(item);
-                }
-                return acc;
-            }, []),
-        []
-    );
+    const layouts: Array<FbFormLayout> = React.useMemo(() => {
+        return plugins.byType<FbFormLayoutPlugin>(FbFormLayoutPlugin.type).map(pl => pl.layout);
+    }, []);
 
     // Get form layout, defined in theme.
-    let LayoutRenderComponent = layouts.find(item => item.name === settings.layout.renderer);
+    let LayoutRenderComponent: any = layouts.find(item => item.name === settings.layout.renderer);
 
     if (!LayoutRenderComponent) {
         return <span>Cannot render form, layout missing.</span>;
@@ -189,7 +236,7 @@ const FormRender = (props: FbFormRenderComponentProps) => {
         props,
         formData,
         setResponseToken: value => (reCaptchaResponseToken.current = value)
-    });
+    }) as ReCaptchaComponent;
 
     const TermsOfService = createTermsOfServiceComponent({
         props,
@@ -197,21 +244,30 @@ const FormRender = (props: FbFormRenderComponentProps) => {
         setTermsOfServiceAccepted: value => (termsOfServiceAccepted.current = value)
     });
 
-    const layoutProps: FormRenderPropsType = {
+    const layoutProps: FormRenderPropsType<FbFormSubmissionData> = {
         getFieldById,
         getFieldByFieldId,
         getDefaultValues,
         getFields,
         submit,
+        goToNextStep,
+        goToPreviousStep,
+        isLastStep,
+        isFirstStep,
+        currentStepIndex,
+        currentStep,
+        isMultiStepForm,
         formData,
         ReCaptcha,
-        TermsOfService
+        reCaptchaEnabled: reCaptchaEnabled(formData),
+        TermsOfService,
+        termsOfServiceEnabled: termsOfServiceEnabled(formData)
     };
 
     return (
         <>
-            <ps-tag data-key="fb-form" data-value={data.parent} />
-            <LayoutRenderComponent {...layoutProps} />
+            <ps-tag data-key="fb-form" data-value={data.formId} />
+            <LayoutRenderComponent {...layoutProps} key={layoutRenderKey} />
         </>
     );
 };

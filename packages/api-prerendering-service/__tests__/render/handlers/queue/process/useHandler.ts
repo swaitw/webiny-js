@@ -1,22 +1,24 @@
-import { createHandler } from "@webiny/handler";
-import queueProcessPlugins from "@webiny/api-prerendering-service/queue/process";
-import handlerClient from "@webiny/handler-client";
-import { getStorageOperations } from "../../../../storageOperations";
+import { createHandler } from "@webiny/handler-aws/raw";
+import queueProcessPlugins from "~/queue/process";
+import { getStorageOps } from "@webiny/project-utils/testing/environment";
+import { PrerenderingServiceStorageOperations } from "~/types";
 
-export default (...plugins) => {
-    const storageOperations = getStorageOperations();
+export default (...plugins: any[]) => {
+    const { storageOperations } =
+        getStorageOps<PrerenderingServiceStorageOperations>("prerenderingService");
 
-    const handler = createHandler(
-        ...plugins,
-        handlerClient(),
-        queueProcessPlugins({
-            handlers: {
-                render: "handler-client-handler-render-handler",
-                flush: "handler-client-handler-flush-handler"
-            },
-            storageOperations
-        })
-    );
+    const handler = createHandler({
+        plugins: [
+            ...plugins,
+            queueProcessPlugins({
+                handlers: {
+                    render: "handler-client-handler-render-handler",
+                    flush: "handler-client-handler-flush-handler"
+                },
+                storageOperations
+            })
+        ]
+    });
 
     return { handler, storageOperations };
 };

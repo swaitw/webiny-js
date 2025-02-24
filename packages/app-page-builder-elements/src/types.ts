@@ -1,107 +1,168 @@
-import React from "react";
-import { CSSObject, cx } from "@emotion/css";
+import type { createRenderer } from "~/createRenderer";
 
-export interface Element {
+export * from "@webiny/theme/types";
+
+import React, { HTMLAttributes } from "react";
+import { type CSSObject } from "@emotion/react";
+import { StylesObject, ThemeBreakpoints, Theme } from "@webiny/theme/types";
+import { ElementInputs, ElementInputValues } from "~/inputs/ElementInput";
+import { ILoaderCache } from "~/hooks/useLoader/ILoaderCache";
+
+export interface Page {
     id: string;
-    type: string;
-    data: Record<string, any>;
-    elements: Element[];
-    path?: string[];
-    [key: string]: any;
+    path: string;
+    content: Content;
+    settings: Record<string, any>;
 }
 
 export type Content = Element;
 
-/**
- * Should be a `CSSObject` object or an object with breakpoint names as keys and `CSSObject` objects as values.
- */
-export type StylesObjects = Record<string, any>; // TODO: CSSObject | Record<string, CSSObject>; doesn't work?
+export interface Element<TElementData = Record<string, any>> {
+    id: string;
+    type: string;
+    data: TElementData;
+    elements: Element[];
+    path?: string[];
+}
 
 export interface PageElementsProviderProps {
     theme: Theme;
-    renderers?: Record<string, ElementRenderer>;
+    renderers: Record<string, DecoratableRenderer> | (() => Record<string, DecoratableRenderer>);
     modifiers: {
         styles: Record<string, ElementStylesModifier>;
+        attributes: Record<string, ElementAttributesModifier>;
     };
+    beforeRenderer?: React.ComponentType | null;
+    afterRenderer?: React.ComponentType | null;
+    children?: React.ReactNode;
+    loaderCache: ILoaderCache;
 }
 
-export type GetElementStyles = (element: Element) => Array<CSSObject>;
-export type GetElementClassNames = (element: Element) => Array<string>;
-export type GetThemeStyles = (getStyles: (theme: Theme) => StylesObjects) => Array<CSSObject>;
-export type GetThemeClassNames = (getStyles: (theme: Theme) => StylesObjects) => Array<string>;
-export type GetStyles = (styles: StylesObjects) => Array<CSSObject>;
-export type GetClassNames = (styles: StylesObjects) => Array<string>;
+export type AttributesObject = React.ComponentProps<any>;
 
-type SetAssignStylesCallbackParams = {
-    breakpoints: Record<string, Breakpoint>;
-    styles: StylesObjects;
+export type GetRenderers = () => Record<string, DecoratableRenderer>;
+export type GetElementAttributes = (element: Element) => AttributesObject;
+export type GetElementStyles = (element: Element) => CSSObject;
+export type GetStyles = (styles: StylesObject | ((theme: Theme) => StylesObject)) => CSSObject;
+
+interface SetAssignAttributesCallbackParams {
+    attributes: AttributesObject;
+    assignTo?: AttributesObject;
+}
+
+interface SetAssignStylesCallbackParams {
+    breakpoints: ThemeBreakpoints;
+    styles: StylesObject;
     assignTo?: CSSObject;
-};
+}
 
-type SetElementStylesCallbackParams = PageElementsProviderProps & {
+interface SetElementAttributesCallbackParams extends PageElementsProviderProps {
+    element: Element;
+}
+
+interface SetElementStylesCallbackParams extends PageElementsProviderProps {
     element: Element;
     assignStyles?: AssignStylesCallback;
-};
-type SetThemeStylesCallbackParams = PageElementsProviderProps & {
-    getStyles: (theme: Theme) => StylesObjects;
-    assignStyles?: AssignStylesCallback;
-};
-type SetStylesCallbackParams = PageElementsProviderProps & {
-    styles: StylesObjects;
-    assignStyles?: AssignStylesCallback;
-};
+}
 
+interface SetStylesCallbackParams extends PageElementsProviderProps {
+    styles: StylesObject | ((theme: Theme) => StylesObject);
+    assignStyles?: AssignStylesCallback;
+}
+
+export type AssignAttributesCallback = (
+    params: SetAssignAttributesCallbackParams
+) => AttributesObject;
 export type AssignStylesCallback = (params: SetAssignStylesCallbackParams) => CSSObject;
-export type ElementStylesCallback = (params: SetElementStylesCallbackParams) => Array<CSSObject>;
-export type ThemeStylesCallback = (params: SetThemeStylesCallbackParams) => Array<CSSObject>;
-export type StylesCallback = (params: SetStylesCallbackParams) => Array<CSSObject>;
+export type ElementAttributesCallback = (
+    params: SetElementAttributesCallbackParams
+) => AttributesObject;
+export type ElementStylesCallback = (params: SetElementStylesCallbackParams) => CSSObject;
+export type StylesCallback = (params: SetStylesCallbackParams) => CSSObject;
 
 export type SetAssignStylesCallback = (callback: AssignStylesCallback) => void;
 export type SetElementStylesCallback = (callback: ElementStylesCallback) => void;
-export type SetThemeStylesCallback = (callback: ThemeStylesCallback) => void;
 export type SetStylesCallback = (callback: StylesCallback) => void;
 
 export interface PageElementsContextValue extends PageElementsProviderProps {
+    getRenderers: GetRenderers;
+    getElementAttributes: GetElementAttributes;
     getElementStyles: GetElementStyles;
-    getElementClassNames: GetElementClassNames;
-    getThemeStyles: GetThemeStyles;
-    getThemeClassNames: GetThemeClassNames;
     getStyles: GetStyles;
-    getClassNames: GetClassNames;
-    combineClassNames: typeof cx;
     setAssignStylesCallback: SetAssignStylesCallback;
     setElementStylesCallback: SetElementStylesCallback;
-    setThemeStylesCallback: SetThemeStylesCallback;
     setStylesCallback: SetStylesCallback;
 }
 
-export interface ElementRendererProps {
-    element: Element;
+export type GetElement = <TElementData = Record<string, any>>() => Element<TElementData>;
+export type GetAttributes = () => HTMLAttributes<HTMLElement>;
+
+export interface RendererContextValue extends PageElementsContextValue {
+    getElement: GetElement;
+    getAttributes: GetAttributes;
+    getInputValues: <TInputs extends ElementInputs>() => ElementInputValues<TInputs>;
+    beforeRenderer: React.ComponentType | null;
+    afterRenderer: React.ComponentType | null;
+    meta: RendererProviderMeta;
 }
 
-export type ElementRenderer<T extends ElementRendererProps = ElementRendererProps> =
-    React.ComponentType<T>;
+export type RendererProviderMeta = {
+    calculatedStyles: CSSObject[];
+} & Record<string, any>;
+
+export interface RendererProviderProps {
+    element: Element;
+    attributes: HTMLAttributes<HTMLElement>;
+    meta: RendererProviderMeta;
+    children: React.ReactNode;
+}
+
+export type RendererMeta = Record<string, any>;
+
+export type RendererProps<TElement = Record<string, any>> = {
+    element: Element<TElement>;
+    meta?: RendererMeta;
+};
+
+export interface PageProviderProps {
+    page: Page;
+    layout?: React.ComponentType<{ children: React.ReactNode }>;
+    layoutProps?: Record<string, any>;
+    children: React.ReactNode;
+}
+
+export type Renderer<
+    T = Record<string, any>,
+    TElementData = Record<string, any>
+> = React.FunctionComponent<RendererProps<TElementData> & T> & { inputs?: ElementInputs };
+
+// TODO: maybe call this `Renderer` but rename the base one to `BaseRenderer` ?
+export type DecoratableRenderer = ReturnType<typeof createRenderer>;
+
+export type ElementAttributesModifier = (args: {
+    element: Element;
+    theme: Theme;
+    renderers?: PageElementsProviderProps["renderers"];
+    modifiers?: PageElementsProviderProps["modifiers"];
+}) => AttributesObject | null;
 
 export type ElementStylesModifier = (args: {
     element: Element;
     theme: Theme;
     renderers?: PageElementsProviderProps["renderers"];
     modifiers?: PageElementsProviderProps["modifiers"];
-}) => StylesObjects;
+}) => StylesObject | null;
 
-export interface Breakpoint {
-    mediaQuery: string;
-}
+export type LinkComponent = React.ComponentType<React.HTMLProps<HTMLAnchorElement>>;
 
-export type ThemeBreakpoints = Record<string, Breakpoint>;
-
-export interface ThemeStyles {
-    colors?: Record<string, any>;
-    typography?: Record<string, StylesObjects>;
-    [key: string]: any;
-}
-
-export interface Theme {
-    breakpoints?: ThemeBreakpoints;
-    styles?: ThemeStyles;
+declare global {
+    // eslint-disable-next-line
+    namespace JSX {
+        interface IntrinsicElements {
+            "ps-tag": {
+                "data-key": string;
+                "data-value": string;
+            };
+        }
+    }
 }

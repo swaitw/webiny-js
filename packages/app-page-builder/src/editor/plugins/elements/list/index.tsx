@@ -1,30 +1,27 @@
 import React from "react";
 import kebabCase from "lodash/kebabCase";
-import { DisplayMode, PbEditorPageElementPlugin, PbEditorTextElementPluginsArgs } from "~/types";
-import List, { className } from "./List";
+import {
+    DisplayMode,
+    PbEditorElement,
+    PbEditorPageElementPlugin,
+    PbEditorPageElementPluginSettings,
+    PbEditorTextElementPluginsArgs,
+    PbElement
+} from "~/types";
+import List from "./List";
 import { createInitialTextValue } from "../utils/textUtils";
 import { createInitialPerDeviceSettingValue } from "../../elementSettings/elementSettingsUtils";
 
+/*
+ * @TODO: Remove the list component
+ * List component will be deprecated in the next version and will not be available in the sidebar.
+ * Now component exist to support legacy content for the list, in the future Lexical editor will be used.
+ * For more check @webiny/lexical-editor and @webiny/lexical-editor-pb packages.
+ */
 export default (args: PbEditorTextElementPluginsArgs = {}): PbEditorPageElementPlugin => {
     const elementType = kebabCase(args.elementType || "list");
 
-    const defaultToolbar = {
-        title: "List",
-        group: "pb-editor-element-group-basic",
-        preview() {
-            return (
-                <div className={className}>
-                    <ul>
-                        <li>List item 1</li>
-                        <li>List item 2</li>
-                        <li>List item 3</li>
-                    </ul>
-                </div>
-            );
-        }
-    };
-
-    const defaultSettings = [
+    const defaultSettings: PbEditorPageElementPluginSettings = [
         "pb-editor-page-element-style-settings-text",
         "pb-editor-page-element-style-settings-background",
         "pb-editor-page-element-style-settings-border",
@@ -39,11 +36,10 @@ export default (args: PbEditorTextElementPluginsArgs = {}): PbEditorPageElementP
         name: `pb-editor-page-element-${elementType}`,
         type: "pb-editor-page-element",
         elementType: elementType,
-        toolbar: typeof args.toolbar === "function" ? args.toolbar(defaultToolbar) : defaultToolbar,
         settings:
             typeof args.settings === "function" ? args.settings(defaultSettings) : defaultSettings,
         target: ["cell", "block"],
-        create({ content = {}, ...options }) {
+        create({ content = {}, ...options }: Partial<PbElement> & { content?: any }) {
             const previewText =
                 content.text ||
                 `<ul>
@@ -52,7 +48,7 @@ export default (args: PbEditorTextElementPluginsArgs = {}): PbEditorPageElementP
                     <li>List item 3</li>
                 </ul>`;
 
-            const defaultValue = {
+            const defaultValue: Partial<PbEditorElement> = {
                 type: this.elementType,
                 elements: [],
                 data: {
@@ -83,8 +79,8 @@ export default (args: PbEditorTextElementPluginsArgs = {}): PbEditorPageElementP
 
             return typeof args.create === "function" ? args.create(defaultValue) : defaultValue;
         },
-        render({ element }) {
-            return <List elementId={element.id} mediumEditorOptions={args.mediumEditorOptions} />;
+        render(props) {
+            return <List {...props} mediumEditorOptions={args.mediumEditorOptions} />;
         }
     };
 };

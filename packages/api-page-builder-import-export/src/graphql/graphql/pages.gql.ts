@@ -1,23 +1,67 @@
 import { GraphQLSchemaPlugin } from "@webiny/handler-graphql/types";
-import { ExportPagesParams, ImportPagesParams } from "~/types";
-import { PbPageImportExportContext } from "../types";
-import resolve from "./utils/resolve";
+import {
+    ExportPagesParams,
+    ImportPagesParams,
+    PbExportPagesResponse,
+    PbImportExportContext
+} from "../types";
+import { resolve } from "./utils/resolve";
+import { ErrorResponse, Response } from "@webiny/handler-graphql";
 
-const plugin: GraphQLSchemaPlugin<PbPageImportExportContext> = {
+const plugin: GraphQLSchemaPlugin<PbImportExportContext> = {
     type: "graphql-schema",
     schema: {
         typeDefs: /* GraphQL */ `
-            type PbExportPageData {
-                task: PbPageImportExportTask
+            enum PbImportExportPagesTaskStatus {
+                pending
+                running
+                failed
+                success
+                aborted
             }
 
-            type PbExportPageResponse {
-                data: PbExportPageData
+            type PbImportExportPagesTaskStats {
+                completed: Int
+                failed: Int
+                total: Int
+            }
+
+            type PbExportPagesTaskData {
+                url: String
                 error: PbError
             }
 
+            type PbExportPagesTask {
+                id: ID!
+                createdOn: DateTime!
+                createdBy: PbIdentity!
+                status: PbImportExportPagesTaskStatus!
+                data: PbExportPagesTaskData!
+                stats: PbImportExportPagesTaskStats!
+            }
+            type PbExportPagesData {
+                task: PbExportPagesTask!
+            }
+
+            type PbExportPageResponse {
+                data: PbExportPagesData
+                error: PbError
+            }
+
+            type PbImportExportPagesTaskData {
+                error: PbError
+            }
+            type PbImportPagesTask {
+                id: ID!
+                createdOn: DateTime!
+                createdBy: PbIdentity!
+                status: PbImportExportPagesTaskStatus!
+                stats: PbImportExportPagesTaskStats!
+                data: PbImportExportPagesTaskData!
+            }
+
             type PbImportPageData {
-                task: PbPageImportExportTask
+                task: PbImportPagesTask!
             }
 
             type PbImportPageResponse {
@@ -30,32 +74,82 @@ const plugin: GraphQLSchemaPlugin<PbPageImportExportContext> = {
                 latest
             }
 
+            type PbExportPagesTaskResponse {
+                data: PbExportPagesTask
+                error: PbError
+            }
+
+            type PbImportPagesTaskResponse {
+                data: PbImportPagesTask
+                error: PbError
+            }
+
+            type PbListImportedPagesData {
+                id: ID!
+                title: String!
+                version: Int!
+            }
+            type PbListImportedPagesResponse {
+                data: [PbListImportedPagesData!]
+                error: PbError
+            }
+
+            extend type PbQuery {
+                getExportPagesTask(id: ID!): PbExportPagesTaskResponse!
+                getImportPagesTask(id: ID!): PbImportPagesTaskResponse!
+                listImportedPages(taskId: ID!): PbListImportedPagesResponse!
+            }
+
             extend type PbMutation {
                 # Export pages
                 exportPages(
-                    ids: [ID!]
-                    revisionType: PbExportPageRevisionType!
                     where: PbListPagesWhereInput
                     sort: [PbListPagesSort!]
                     search: PbListPagesSearchInput
-                ): PbExportPageResponse
+                    revisionType: PbExportPageRevisionType!
+                ): PbExportPageResponse!
 
                 # Import pages
                 importPages(
                     category: String!
-                    zipFileKey: String
-                    zipFileUrl: String
-                ): PbImportPageResponse
+                    zipFileUrl: String!
+                    meta: JSON
+                ): PbImportPageResponse!
             }
         `,
         resolvers: {
+            PbQuery: {
+                async getExportPagesTask(_, args, context) {
+                    return resolve(() => {
+                        return context.pageBuilder.pages.getExportPagesTask(args.id);
+                    });
+                },
+                async getImportPagesTask(_, args, context) {
+                    return resolve(() => {
+                        return context.pageBuilder.pages.getImportPagesTask(args.id);
+                    });
+                },
+                async listImportedPages(_, args, context) {
+                    return resolve(() => {
+                        return context.pageBuilder.pages.listImportedPages(args.taskId);
+                    });
+                }
+            },
             PbMutation: {
-                exportPages: async (_, args: ExportPagesParams, context) => {
-                    return resolve(() => context.pageBuilder.pages.exportPages(args));
+                exportPages: async (
+                    _,
+                    args,
+                    context
+                ): Promise<Response<PbExportPagesResponse> | ErrorResponse> => {
+                    return resolve(() => {
+                        return context.pageBuilder.pages.exportPages(args as ExportPagesParams);
+                    });
                 },
 
-                importPages: async (_, args: ImportPagesParams, context) => {
-                    return resolve(() => context.pageBuilder.pages.importPages(args));
+                importPages: async (_, args, context) => {
+                    return resolve(() => {
+                        return context.pageBuilder.pages.importPages(args as ImportPagesParams);
+                    });
                 }
             }
         }

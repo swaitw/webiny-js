@@ -1,4 +1,12 @@
 import gql from "graphql-tag";
+import {
+    FbErrorResponse,
+    FbFormModel,
+    FbFormSubmissionData,
+    FbMetaResponse,
+    FbRevisionModel,
+    FormBuilderImportExportSubTask
+} from "~/types";
 
 const ERROR_FIELDS = `
     code
@@ -6,7 +14,7 @@ const ERROR_FIELDS = `
     data
 `;
 
-const BASE_FORM_FIELDS = `  
+const BASE_FORM_FIELDS = `
     id
     name
     version
@@ -19,11 +27,32 @@ const BASE_FORM_FIELDS = `
     }
 `;
 
+const STATS = `
+stats {
+    total
+    processing
+    pending
+    completed
+    failed
+}
+`;
+/**
+ * ####################
+ * List Forms Query
+ */
+export interface ListFormsQueryResponse {
+    formBuilder: {
+        listForms: {
+            data: FbFormModel[] | null;
+            error: FbErrorResponse | null;
+        };
+    };
+}
 export const LIST_FORMS = gql`
     query FbListForms {
         formBuilder {
             listForms {
-                data {  
+                data {
                     ${BASE_FORM_FIELDS}
                 }
                 error {
@@ -34,7 +63,23 @@ export const LIST_FORMS = gql`
         }
     }
 `;
-
+/**
+ * ####################
+ * Create Form Mutation
+ */
+export interface CreateFormMutationResponse {
+    formBuilder: {
+        form: {
+            data: FbRevisionModel | null;
+            error: FbErrorResponse | null;
+        };
+    };
+}
+export interface CreateFormMutationVariables {
+    data: {
+        name: string;
+    };
+}
 export const CREATE_FORM = gql`
     mutation FormsCreateForm($name: String!) {
         formBuilder {
@@ -50,6 +95,21 @@ export const CREATE_FORM = gql`
     }
 `;
 
+/**
+ * ########################
+ * Get Form Revision Query
+ */
+export interface GetFormRevisionQueryResponse {
+    formBuilder: {
+        form: {
+            data: FbRevisionModel | null;
+            error: FbErrorResponse | null;
+        };
+    };
+}
+export interface GetFormRevisionQueryVariables {
+    revision: string;
+}
 export const GET_FORM = gql`
     query FbGetForm($revision: ID!) {
         formBuilder {
@@ -70,6 +130,21 @@ export const GET_FORM = gql`
     }
 `;
 
+/**
+ * ####################
+ * Get Forms Revisions Query
+ */
+export interface GetFormRevisionsQueryResponse {
+    formBuilder: {
+        revisions: {
+            data: FbRevisionModel[] | null;
+            error: FbErrorResponse | null;
+        };
+    };
+}
+export interface GetFormRevisionsQueryVariables {
+    id: string;
+}
 export const GET_FORM_REVISIONS = gql`
     query FbGetFormRevisions($id: ID!) {
         formBuilder {
@@ -85,6 +160,25 @@ export const GET_FORM_REVISIONS = gql`
     }
 `;
 
+/**
+ * ############################
+ * List Form Submissions Query Response
+ */
+export interface ListFormSubmissionsQueryResponse {
+    formBuilder: {
+        listFormSubmissions: {
+            data: FbFormSubmissionData[];
+            error: FbErrorResponse | null;
+            meta: FbMetaResponse;
+        };
+    };
+}
+export interface ListFormSubmissionsQueryVariables {
+    form: string;
+    sort: string[];
+    limit?: number | null;
+    after?: string | null;
+}
 export const LIST_FORM_SUBMISSIONS = gql`
     query FbListFormSubmissions(
         $form: ID!
@@ -100,12 +194,15 @@ export const LIST_FORM_SUBMISSIONS = gql`
                     meta {
                         ip
                         submittedOn
+                        url {
+                            location
+                            query
+                        }
                     }
                     form {
                         id
                         name
                         version
-                        layout
                         fields {
                             _id
                             fieldId
@@ -115,6 +212,10 @@ export const LIST_FORM_SUBMISSIONS = gql`
                                 label
                                 value
                             }
+                        }
+                        steps {
+                            title
+                            layout
                         }
                     }
                 }
@@ -131,7 +232,23 @@ export const LIST_FORM_SUBMISSIONS = gql`
         }
     }
 `;
-
+/**
+ * ####################
+ * Export Form Submissions Mutation
+ */
+export interface ExportFormSubmissionsMutationResponse {
+    formBuilder: {
+        exportFormSubmissions: {
+            data: {
+                src: string;
+            };
+            error: FbErrorResponse | null;
+        };
+    };
+}
+export interface ExportFormSubmissionsMutationVariables {
+    form: string;
+}
 export const EXPORT_FORM_SUBMISSIONS = gql`
     mutation FormsExportFormSubmissions($form: ID!) {
         formBuilder {
@@ -146,7 +263,21 @@ export const EXPORT_FORM_SUBMISSIONS = gql`
         }
     }
 `;
-
+/**
+ * ####################
+ * Create Revision From Mutation
+ */
+export interface CreateRevisionFromMutationResponse {
+    formBuilder: {
+        revision: {
+            data: FbRevisionModel;
+            error: FbErrorResponse | null;
+        };
+    };
+}
+export interface CreateRevisionFromMutationVariables {
+    revision: string;
+}
 export const CREATE_REVISION_FROM = gql`
     mutation FormsCreateRevisionFrom($revision: ID!) {
         formBuilder {
@@ -161,7 +292,21 @@ export const CREATE_REVISION_FROM = gql`
         }
     }
 `;
-
+/**
+ * ##############################
+ * Publish Revision Mutation Response
+ */
+export interface PublishRevisionMutationResponse {
+    formBuilder: {
+        publishRevision: {
+            data: FbRevisionModel;
+            error: FbErrorResponse | null;
+        };
+    };
+}
+export interface PublishRevisionMutationVariables {
+    revision: string;
+}
 export const PUBLISH_REVISION = gql`
     mutation FormsPublishRevision($revision: ID!) {
         formBuilder {
@@ -177,6 +322,21 @@ export const PUBLISH_REVISION = gql`
     }
 `;
 
+/**
+ * ##############################
+ * Unpublish Revision Mutation Response
+ */
+export interface UnpublishRevisionMutationResponse {
+    formBuilder: {
+        unpublishRevision: {
+            data: FbRevisionModel;
+            error: FbErrorResponse | null;
+        };
+    };
+}
+export interface UnpublishRevisionMutationVariable {
+    revision: string;
+}
 export const UNPUBLISH_REVISION = gql`
     mutation FormsUnpublishRevision($revision: ID!) {
         formBuilder {
@@ -210,6 +370,104 @@ export const DELETE_FORM = gql`
         formBuilder {
             deleteForm(id: $id) {
                 data
+                error {
+                    ${ERROR_FIELDS}
+                }
+            }
+        }
+    }
+`;
+
+export const IMPORT_FORMS = gql`
+    mutation FbImportForm(
+        $zipFileUrl: String
+    ) {
+        formBuilder {
+            importForms(
+                zipFileUrl: $zipFileUrl
+            ) {
+                data {
+                    task {
+                        id
+                        status
+                        data
+                        ${STATS}
+                    }
+                }
+                error {
+                    ${ERROR_FIELDS}
+                }
+            }
+        }
+    }
+`;
+
+export const EXPORT_FORMS = gql`
+    mutation FbExportForms(
+        $ids: [ID!],
+        $revisionType: FbExportFormRevisionType!,
+    ) {
+        formBuilder {
+            exportForms(
+                ids: $ids,
+                revisionType: $revisionType
+            ) {
+                data {
+                    task {
+                        id
+                        status
+                        data
+                        ${STATS}
+                    }
+                }
+                error {
+                    ${ERROR_FIELDS}
+                }
+            }
+        }
+    }
+`;
+
+export const GET_FORM_IMPORT_EXPORT_TASK = gql`
+    query FbGetFormImportExportTask($id: ID!) {
+        pageBuilder {
+            getImportExportTask(id: $id) {
+                data {
+                    status
+                    data
+                    error
+                    ${STATS}
+                }
+                error {
+                    ${ERROR_FIELDS}
+                }
+            }
+        }
+    }
+`;
+
+export interface ListFormImportExportSubTasksResponse {
+    pageBuilder: {
+        listImportExportSubTask: {
+            data: FormBuilderImportExportSubTask[];
+            error?: {
+                message: string;
+                code: string;
+                data: Record<string, any>;
+            };
+        };
+    };
+}
+
+export const LIST_FORM_IMPORT_EXPORT_SUB_TASKS = gql`
+    query FbFormListFormImportExportSubTask($id: ID!, $status: PbImportExportTaskStatus, $limit: Int) {
+        pageBuilder {
+            listImportExportSubTask(id: $id, status: $status, limit: $limit) {
+                data {
+                    id
+                    status
+                    data
+                }
                 error {
                     ${ERROR_FIELDS}
                 }

@@ -1,25 +1,15 @@
 import useGqlHandler from "./useGqlHandler";
-import { identityB } from "./mocks";
 import { Page } from "~/types";
-import { waitPage } from "./utils/waitPage";
 
 jest.setTimeout(100000);
 
 describe("listing latest pages", () => {
     const handler = useGqlHandler();
 
-    const {
-        createCategory,
-        createPage,
-        publishPage,
-        unpublishPage,
-        requestReview,
-        listPages,
-        updatePage,
-        until
-    } = handler;
+    const { createPage, publishPage, unpublishPage, listPages, updatePage, until } = handler;
 
     const createInitialCategory = async () => {
+        const { createCategory } = useGqlHandler();
         const [createCategoryResponse] = await createCategory({
             data: {
                 slug: `category`,
@@ -49,7 +39,6 @@ describe("listing latest pages", () => {
                 throw new Error(response.data.pageBuilder.createPage.error.message);
             }
 
-            await waitPage(handler, page);
             const title = `page-${letter}`;
             const [updateResponse] = await updatePage({
                 id: page.id,
@@ -69,7 +58,7 @@ describe("listing latest pages", () => {
         // List should show all pages - all updated.
         await until(
             () => listPages({ sort: ["createdOn_ASC"] }),
-            ([res]) => {
+            ([res]: any) => {
                 const data = res.data.pageBuilder.listPages.data;
                 return (
                     data.length === pages.length &&
@@ -98,7 +87,7 @@ describe("listing latest pages", () => {
                 listPages({
                     sort: "createdOn_ASC"
                 }),
-            ([res]) => res.data.pageBuilder.listPages.data[4].title === "page-c",
+            ([res]: any) => res.data.pageBuilder.listPages.data[4].title === "page-c",
             {
                 name: "list pages createdOn ASC"
             }
@@ -167,7 +156,6 @@ describe("listing latest pages", () => {
                 throw new Error(res.data.pageBuilder.createPage.error.message);
             }
             const page = res.data.pageBuilder.createPage.data;
-            await waitPage(handler, page);
             await updatePage({
                 id: page.id,
                 data: {
@@ -179,7 +167,7 @@ describe("listing latest pages", () => {
         // List should show all five pages.
         const [listTitleAscResponse] = await until(
             () => listPages({ sort: ["title_ASC", "createdOn_ASC"] }),
-            ([res]) => {
+            ([res]: any) => {
                 const { data } = res.data.pageBuilder.listPages;
                 return data[0].title === "page-a" && data[9].title === "page-Z";
             },
@@ -213,6 +201,7 @@ describe("listing latest pages", () => {
     });
 
     test("filtering by category", async () => {
+        const { createCategory } = useGqlHandler();
         await createInitialData();
         await createCategory({
             data: {
@@ -231,17 +220,12 @@ describe("listing latest pages", () => {
 
             const page = response.data.pageBuilder.createPage.data;
 
-            await waitPage(handler, page);
             const title = `page-${letter}`;
             await updatePage({
                 id: page.id,
                 data: {
                     title
                 }
-            });
-            await waitPage(handler, {
-                ...page,
-                title
             });
         }
 
@@ -251,7 +235,7 @@ describe("listing latest pages", () => {
                 listPages({
                     sort: ["createdOn_ASC"]
                 }),
-            ([res]) => {
+            ([res]: any) => {
                 return res.data.pageBuilder.listPages.data.length === 10;
             },
             {
@@ -282,7 +266,7 @@ describe("listing latest pages", () => {
         // 1. Check if `category: custom` were returned and sorted `createdOn: desc`.
         const [listPagesWhereCustomCategory] = await until(
             () => listPages({ where: { category: "custom" }, sort: ["createdOn_ASC"] }),
-            ([res]) => res.data.pageBuilder.listPages.data.length === 5
+            ([res]: any) => res.data.pageBuilder.listPages.data.length === 5
         );
 
         expect(listPagesWhereCustomCategory).toMatchObject({
@@ -304,7 +288,7 @@ describe("listing latest pages", () => {
         // 2. Check if `category: custom` were returned and sorted `title: desc`.
         const [listPagesWhereCustomCategoryTitleDescResponse] = await until(
             () => listPages({ where: { category: "custom" }, sort: ["title_DESC"] }),
-            ([res]) => res.data.pageBuilder.listPages.data.length === 5
+            ([res]: any) => res.data.pageBuilder.listPages.data.length === 5
         );
         expect(listPagesWhereCustomCategoryTitleDescResponse).toMatchObject({
             data: {
@@ -326,14 +310,41 @@ describe("listing latest pages", () => {
     test("filtering by status", async () => {
         const initialData = await createInitialData();
         // Let's publish first two pages and then only filter by `status: published`
-        await publishPage({ id: initialData.pages[0].id });
-        await publishPage({ id: initialData.pages[1].id });
+        const [page1PublishResponse] = await publishPage({ id: initialData.pages[0].id });
+
+        expect(page1PublishResponse).toMatchObject({
+            data: {
+                pageBuilder: {
+                    publishPage: {
+                        data: {
+                            id: initialData.pages[0].id
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
+
+        const [page2PublishResponse] = await publishPage({ id: initialData.pages[1].id });
+
+        expect(page2PublishResponse).toMatchObject({
+            data: {
+                pageBuilder: {
+                    publishPage: {
+                        data: {
+                            id: initialData.pages[1].id
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
 
         // We should still get all results when no filters are applied.
         // 1. Check if all were returned and sorted `createdOn: desc`.
         const [listPagesCreatedOnDesc] = await until(
             () => listPages({ sort: ["createdOn_DESC"] }),
-            ([res]) => res.data.pageBuilder.listPages.data.length,
+            ([res]: any) => res.data.pageBuilder.listPages.data.length,
             {
                 name: "list pages createdOn desc"
             }
@@ -357,7 +368,9 @@ describe("listing latest pages", () => {
         // 2. We should only get two results here because we published two pages.
         const [listPagesPublishedCreatedOnDesc] = await until(
             () => listPages({ where: { status: "published" }, sort: ["createdOn_DESC"] }),
-            ([res]) => res.data.pageBuilder.listPages.data.length === 2,
+            ([res]: any) => {
+                return res.data.pageBuilder.listPages.data.length === 2;
+            },
             {
                 name: "list published pages createdOn desc"
             }
@@ -379,7 +392,7 @@ describe("listing latest pages", () => {
                     sort: ["title_ASC"],
                     where: { status: "published" }
                 }),
-            ([res]) => res.data.pageBuilder.listPages.data[0].title === "page-a",
+            ([res]: any) => res.data.pageBuilder.listPages.data[0].title === "page-a",
             {
                 name: "list published pages title asc"
             }
@@ -404,7 +417,7 @@ describe("listing latest pages", () => {
                     sort: ["title_ASC"],
                     where: { status: "published" }
                 }),
-            ([res]) => res.data.pageBuilder.listPages.data.length === 0
+            ([res]: any) => res.data.pageBuilder.listPages.data.length === 0
         );
         expect(listPagesPublishedTitleAscAfterUnpublish).toMatchObject({
             data: {
@@ -415,84 +428,13 @@ describe("listing latest pages", () => {
                 }
             }
         });
-
-        // 5. Let's test filtering by `reviewRequested` and `changesNeeded` statuses.
-        await requestReview({ id: initialData.pages[2].id });
-        await requestReview({ id: initialData.pages[3].id });
-
-        const [listPagesReviewRequestedCreatedOnDesc] = await until(
-            () =>
-                listPages({
-                    where: { status: "reviewRequested" },
-                    sort: ["createdOn_DESC"]
-                }),
-            ([res]) => res.data.pageBuilder.listPages.data.length === 2,
-            {
-                name: "list pages review requested createdOn desc"
-            }
-        );
-        expect(listPagesReviewRequestedCreatedOnDesc).toMatchObject({
-            data: {
-                pageBuilder: {
-                    listPages: {
-                        data: [
-                            { title: "page-x", status: "reviewRequested" },
-                            { title: "page-b", status: "reviewRequested" }
-                        ]
-                    }
-                }
-            }
-        });
-
-        const { requestChanges } = useGqlHandler({
-            identity: identityB
-        });
-
-        await requestChanges({ id: initialData.pages[2].id });
-        await requestChanges({ id: initialData.pages[3].id });
-
-        await until(
-            () =>
-                listPages({
-                    where: { status: "reviewRequested" }
-                }),
-            ([res]) => res.data.pageBuilder.listPages.data.length === 0,
-            {
-                name: "list pages review requested after request changes"
-            }
-        );
-
-        const [listPagesChangesRequestedCreatedOnDesc] = await until(
-            () =>
-                listPages({
-                    where: { status: "changesRequested" },
-                    sort: ["createdOn_DESC"]
-                }),
-            ([res]) => res.data.pageBuilder.listPages.data.length === 2,
-            {
-                name: "list pages changes requested createdOn desc"
-            }
-        );
-
-        expect(listPagesChangesRequestedCreatedOnDesc).toMatchObject({
-            data: {
-                pageBuilder: {
-                    listPages: {
-                        data: [
-                            { title: "page-x", status: "changesRequested" },
-                            { title: "page-b", status: "changesRequested" }
-                        ]
-                    }
-                }
-            }
-        });
     });
 
     test("pagination", async () => {
         await createInitialData();
         await until(
             () => listPages({ sort: ["createdOn_DESC"] }),
-            ([res]) => res.data.pageBuilder.listPages.data.length === 5
+            ([res]: any) => res.data.pageBuilder.listPages.data.length === 5
         );
 
         /**
@@ -729,7 +671,7 @@ describe("listing latest pages", () => {
                 listPages({
                     sort: ["createdOn_DESC"]
                 }),
-            ([res]) => {
+            ([res]: any) => {
                 return res.data.pageBuilder.listPages.data.length === initialData.pages.length;
             },
             {
@@ -767,7 +709,7 @@ describe("listing latest pages", () => {
                     },
                     sort: ["createdOn_ASC"]
                 }),
-            ([res]) => res.data.pageBuilder.listPages.data.length === 4,
+            ([res]: any) => res.data.pageBuilder.listPages.data.length === 4,
             {
                 name: "list pages where tag is new"
             }
@@ -799,7 +741,7 @@ describe("listing latest pages", () => {
                     },
                     sort: ["createdOn_ASC"]
                 }),
-            ([res]) => res.data.pageBuilder.listPages.data.length === 2,
+            ([res]: any) => res.data.pageBuilder.listPages.data.length === 2,
             {
                 name: "list tags world, news"
             }
@@ -820,7 +762,7 @@ describe("listing latest pages", () => {
                     },
                     sort: ["createdOn_ASC"]
                 }),
-            ([res]) => res.data.pageBuilder.listPages.data.length === 2,
+            ([res]: any) => res.data.pageBuilder.listPages.data.length === 2,
             {
                 name: "list tags local, news"
             }
@@ -833,6 +775,7 @@ describe("listing latest pages", () => {
     });
 
     test("searching by text", async () => {
+        const { createCategory } = useGqlHandler();
         await createInitialCategory();
         await createCategory({
             data: {
@@ -870,14 +813,10 @@ describe("listing latest pages", () => {
             });
 
             const page = createPageResponse.data.pageBuilder.createPage.data;
-            await waitPage(handler, page);
+
             await updatePage({
                 id: page.id,
                 data
-            });
-            await waitPage(handler, {
-                ...page,
-                title: data.title
             });
         }
 
@@ -885,12 +824,13 @@ describe("listing latest pages", () => {
             () =>
                 listPages({
                     search: {
-                        query: "title for seo"
+                        query: "page title for seo"
                     }
                 }),
-            ([res]) => res.data.pageBuilder.listPages.data[0].title === TITLE_SEO,
+            ([res]: any) => res.data.pageBuilder.listPages.data[0].title === TITLE_SEO,
             {
-                name: "list pages title for seo search"
+                name: "list pages title for seo search",
+                debounce: 1000
             }
         );
 
@@ -901,7 +841,7 @@ describe("listing latest pages", () => {
                         query: "healthy recipes"
                     }
                 }),
-            ([res]) => res.data.pageBuilder.listPages.data[0].title === TITLE_HEALTHY_RECIPES,
+            ([res]: any) => res.data.pageBuilder.listPages.data[0].title === TITLE_HEALTHY_RECIPES,
             {
                 name: "list pages title healthy recipes"
             }
@@ -915,7 +855,7 @@ describe("listing latest pages", () => {
                     },
                     sort: ["createdOn_ASC"]
                 }),
-            ([res]) => res.data.pageBuilder.listPages.data.length === 3,
+            ([res]: any) => res.data.pageBuilder.listPages.data.length === 3,
             {
                 name: "list pages why go serverless"
             }
@@ -927,19 +867,12 @@ describe("listing latest pages", () => {
             { title: "Serverless Side Rendering — The Ultimate Guide" }
         ]);
 
-        const [listPagesSearchServerlessWorthIt] = await until(
-            () =>
-                listPages({
-                    search: {
-                        query: "serverless worth it"
-                    },
-                    sort: ["createdOn_ASC"]
-                }),
-            ([res]) => res.data.pageBuilder.listPages.data.length === 3,
-            {
-                name: "list pages serverless worth it"
-            }
-        );
+        const [listPagesSearchServerlessWorthIt] = await listPages({
+            search: {
+                query: "serverless worth it"
+            },
+            sort: ["createdOn_ASC"]
+        });
 
         expect(listPagesSearchServerlessWorthIt.data.pageBuilder.listPages.data).toMatchObject([
             { title: "What is Serverless and is it worth it?" },
@@ -959,7 +892,7 @@ describe("listing latest pages", () => {
                     },
                     sort: ["createdOn_ASC"]
                 }),
-            ([res]) => res.data.pageBuilder.listPages.data.length === 2
+            ([res]: any) => res.data.pageBuilder.listPages.data.length === 2
         );
 
         expect(

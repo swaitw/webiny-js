@@ -1,44 +1,25 @@
-import uniqueId from "uniqid";
-import sanitizeFilename from "sanitize-filename";
-import S3 from "aws-sdk/clients/s3";
+import { S3Client, createPresignedPost, PresignedPostOptions } from "@webiny/aws-sdk/client-s3";
 import { validation } from "@webiny/validation";
+import { FileManagerSettings } from "@webiny/api-file-manager/types";
+import { FileData, PresignedPostPayloadDataResponse } from "~/types";
 
 const S3_BUCKET = process.env.S3_BUCKET;
-const UPLOAD_MAX_FILE_SIZE_DEFAULT = 26214400; // 25MB
+const UPLOAD_MAX_FILE_SIZE_DEFAULT = 1099511627776; // 1TB
 
-const sanitizeFileSizeValue = (value, defaultValue) => {
+const sanitizeFileSizeValue = (value: number, defaultValue: number): number => {
     try {
         validation.validateSync(value, "required,numeric,gte:0");
         return value;
     } catch (e) {
+        // TODO @ts-refactor No need to log the error?
         return defaultValue;
     }
 };
 
-export default async (data, settings) => {
-    // If type is missing, let's use the default "application/octet-stream" type,
-    // which is also the default type that the Amazon S3 would use.
-    if (!data.type) {
-        data.type = "application/octet-stream";
-    }
-
-    const contentType = data.type;
-    if (!contentType) {
-        throw Error(`File's content type could not be resolved.`);
-    }
-
-    let key = sanitizeFilename(data.name);
-    if (key) {
-        key = uniqueId() + "-" + key;
-    }
-
-    if (data.keyPrefix) {
-        key = `${sanitizeFilename(data.keyPrefix)}-${key}`;
-    }
-
-    // Replace all whitespace.
-    key = key.replace(/\s/g, "");
-
+export const getPresignedPostPayload = async (
+    file: FileData,
+    settings: FileManagerSettings
+): Promise<PresignedPostPayloadDataResponse> => {
     const uploadMinFileSize = sanitizeFileSizeValue(settings.uploadMinFileSize, 0);
     const uploadMaxFileSize = sanitizeFileSizeValue(
         settings.uploadMaxFileSize,
@@ -46,29 +27,26 @@ export default async (data, settings) => {
     );
 
     const params = {
+        Key: file.key,
         Expires: 60,
-        Bucket: S3_BUCKET,
-        Conditions: [["content-length-range", uploadMinFileSize, uploadMaxFileSize]], // 0 Bytes - 25MB
+        Bucket: S3_BUCKET as string,
+        Conditions: [
+            ["content-length-range", uploadMinFileSize, uploadMaxFileSize]
+        ] as PresignedPostOptions["Conditions"],
         Fields: {
-            "Content-Type": contentType,
-            key
+            "Content-Type": file.type
         }
     };
 
-    if (params.Fields.key.startsWith("/")) {
-        params.Fields.key = params.Fields.key.substr(1);
+    if (params.Key.startsWith("/")) {
+        params.Key = params.Key.slice(1);
     }
 
-    const s3 = new S3();
-    const payload = s3.createPresignedPost(params);
+    const s3 = new S3Client();
+    const payload = await createPresignedPost(s3, params);
 
     return {
         data: payload,
-        file: {
-            name: key,
-            key,
-            type: contentType,
-            size: data.size
-        }
+        file
     };
 };

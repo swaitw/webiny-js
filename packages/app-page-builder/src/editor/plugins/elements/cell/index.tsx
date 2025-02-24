@@ -1,24 +1,19 @@
 import React from "react";
 import kebabCase from "lodash/kebabCase";
-import CellContainer from "./CellContainer";
-import { executeAction } from "../../../recoil/eventActions";
-import { UpdateElementActionArgsType } from "../../../recoil/actions/updateElement/types";
-import {
-    CreateElementActionEvent,
-    DeleteElementActionEvent,
-    updateElementAction
-} from "../../../recoil/actions";
-import { addElementToParent, createDroppedElement, createElement } from "../../../helpers";
+import set from "lodash/set";
+import Cell from "./Cell";
 import {
     DisplayMode,
     PbEditorPageElementPlugin,
     PbEditorPageElementSaveActionPlugin,
     PbEditorElement,
     PbEditorElementPluginArgs
-} from "../../../../types";
+} from "~/types";
 import { Plugin } from "@webiny/plugins/types";
-import { AfterDropElementActionEvent } from "../../../recoil/actions/afterDropElement";
-import { createInitialPerDeviceSettingValue } from "../../elementSettings/elementSettingsUtils";
+import { createInitialPerDeviceSettingValue } from "~/editor/plugins/elementSettings/elementSettingsUtils";
+import { createElement } from "~/editor/helpers";
+
+import lodashGet from "lodash/get";
 
 const cellPlugin = (args: PbEditorElementPluginArgs = {}): PbEditorPageElementPlugin => {
     const defaultSettings = [
@@ -27,12 +22,18 @@ const cellPlugin = (args: PbEditorElementPluginArgs = {}): PbEditorPageElementPl
         "pb-editor-page-element-style-settings-border",
         "pb-editor-page-element-style-settings-shadow",
         "pb-editor-page-element-style-settings-padding",
-        "pb-editor-page-element-style-settings-margin"
+        "pb-editor-page-element-style-settings-margin",
+        "pb-editor-page-element-settings-mirror-cell"
     ];
+
+    defaultSettings.push(
+        "pb-editor-page-element-style-settings-horizontal-align-flex",
+        "pb-editor-page-element-style-settings-cell-vertical-align"
+    );
 
     const elementType = kebabCase(args.elementType || "cell");
 
-    return {
+    const plugin: PbEditorPageElementPlugin = {
         type: "pb-editor-page-element",
         name: `pb-editor-page-element-${elementType}`,
         elementType,
@@ -41,8 +42,8 @@ const cellPlugin = (args: PbEditorElementPluginArgs = {}): PbEditorPageElementPl
         canDelete: () => {
             return false;
         },
-        create: (options = {}) => {
-            const defaultValue = {
+        create: options => {
+            const defaultValue: Partial<PbEditorElement> = {
                 type: elementType,
                 elements: [],
                 data: {
@@ -64,53 +65,27 @@ const cellPlugin = (args: PbEditorElementPluginArgs = {}): PbEditorPageElementPl
                             DisplayMode.DESKTOP
                         ),
                         grid: {
-                            size: options.data?.settings?.grid?.size || 1
+                            size: lodashGet(options, "data.settings.grid.size", 1)
                         }
                     }
                 }
             };
+
+            set(
+                defaultValue,
+                "data.settings.horizontalAlignFlex",
+                createInitialPerDeviceSettingValue("flex-start", DisplayMode.DESKTOP)
+            );
+
             return typeof args.create === "function" ? args.create(defaultValue) : defaultValue;
         },
-        onReceived({ source, position, target, state, meta }) {
-            const element = createDroppedElement(source as any, target);
-            const parent = addElementToParent(element, target, position);
-
-            const result = executeAction<UpdateElementActionArgsType>(
-                state,
-                meta,
-                updateElementAction,
-                {
-                    element: parent,
-                    history: true
-                }
-            );
-
-            result.actions.push(new AfterDropElementActionEvent({ element }));
-
-            if (source.id) {
-                // Delete source element
-                result.actions.push(
-                    new DeleteElementActionEvent({
-                        element: source as PbEditorElement
-                    })
-                );
-
-                return result;
-            }
-
-            result.actions.push(
-                new CreateElementActionEvent({
-                    element,
-                    source: source as PbEditorElement
-                })
-            );
-
-            return result;
-        },
+        canReceiveChildren: true,
         render(props) {
-            return <CellContainer {...props} elementId={props.element.id} />;
+            return <Cell {...props} />;
         }
     };
+
+    return plugin;
 };
 // this is required because when saving cell element it cannot be without grid element
 const saveActionPlugin = {

@@ -1,8 +1,8 @@
-import { Entity, Table } from "dynamodb-toolbox";
+import { Entity, Table } from "@webiny/db-dynamodb/toolbox";
 import { Attributes } from "~/types";
 
-export interface Params {
-    table: Table;
+interface Params {
+    table: Table<string, string, string>;
     entityName: string;
     attributes: Attributes;
 }
@@ -28,7 +28,6 @@ export const createElasticsearchEntity = (params: Params) => {
             TYPE: {
                 type: "string"
             },
-
             ...(attributes || {})
         }
     });

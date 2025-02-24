@@ -7,15 +7,15 @@ import {
     CmsGroupStorageOperationsListParams,
     CmsGroupStorageOperationsUpdateParams
 } from "@webiny/api-headless-cms/types";
-import { Entity } from "dynamodb-toolbox";
+import { Entity } from "@webiny/db-dynamodb/toolbox";
 import WebinyError from "@webiny/error";
-import { get as getRecord } from "@webiny/db-dynamodb/utils/get";
-import { cleanupItem } from "@webiny/db-dynamodb/utils/cleanup";
+import { getClean } from "@webiny/db-dynamodb/utils/get";
 import { queryAll, QueryAllParams } from "@webiny/db-dynamodb/utils/query";
 import { filterItems } from "@webiny/db-dynamodb/utils/filter";
 import { PluginsContainer } from "@webiny/plugins";
 import { ValueFilterPlugin } from "@webiny/db-dynamodb/plugins/definitions/ValueFilterPlugin";
 import { sortItems } from "@webiny/db-dynamodb/utils/sort";
+import { deleteItem, put } from "@webiny/db-dynamodb";
 
 interface PartitionKeyParams {
     tenant: string;
@@ -49,11 +49,13 @@ const createType = (): string => {
     return "cms.group";
 };
 
-export interface Params {
+interface CreateGroupsStorageOperationsParams {
     entity: Entity<any>;
     plugins: PluginsContainer;
 }
-export const createGroupsStorageOperations = (params: Params): CmsGroupStorageOperations => {
+export const createGroupsStorageOperations = (
+    params: CreateGroupsStorageOperationsParams
+): CmsGroupStorageOperations => {
     const { entity, plugins } = params;
 
     const filteringPlugins = plugins.byType<ValueFilterPlugin>(ValueFilterPlugin.type);
@@ -68,10 +70,13 @@ export const createGroupsStorageOperations = (params: Params): CmsGroupStorageOp
         const { group } = params;
         const keys = createKeys(group);
         try {
-            await entity.put({
-                ...group,
-                TYPE: createType(),
-                ...keys
+            await put({
+                entity,
+                item: {
+                    ...group,
+                    TYPE: createType(),
+                    ...keys
+                }
             });
             return group;
         } catch (ex) {
@@ -87,13 +92,16 @@ export const createGroupsStorageOperations = (params: Params): CmsGroupStorageOp
         }
     };
     const update = async (params: CmsGroupStorageOperationsUpdateParams) => {
-        const { group, original } = params;
+        const { group } = params;
         const keys = createKeys(group);
         try {
-            await entity.put({
-                ...group,
-                TYPE: createType(),
-                ...keys
+            await put({
+                entity,
+                item: {
+                    ...group,
+                    TYPE: createType(),
+                    ...keys
+                }
             });
             return group;
         } catch (ex) {
@@ -103,7 +111,6 @@ export const createGroupsStorageOperations = (params: Params): CmsGroupStorageOp
                 {
                     error: ex,
                     group,
-                    original,
                     keys
                 }
             );
@@ -111,11 +118,12 @@ export const createGroupsStorageOperations = (params: Params): CmsGroupStorageOp
     };
     const deleteGroup = async (params: CmsGroupStorageOperationsDeleteParams) => {
         const { group } = params;
-        // TODO make sure that group has locale and tenant on it - add it in the crud just in case
         const keys = createKeys(group);
-
         try {
-            await entity.delete(keys);
+            await deleteItem({
+                entity,
+                keys
+            });
             return group;
         } catch (ex) {
             throw new WebinyError(
@@ -133,12 +141,10 @@ export const createGroupsStorageOperations = (params: Params): CmsGroupStorageOp
         const keys = createKeys(params);
 
         try {
-            const group = await getRecord<CmsGroup>({
+            return await getClean<CmsGroup>({
                 entity,
                 keys
             });
-
-            return cleanupItem(entity, group);
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not get group.",

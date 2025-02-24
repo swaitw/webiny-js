@@ -7,7 +7,7 @@ import { Icon } from "@webiny/ui/Icon";
 import { Accordion, AccordionItem } from "@webiny/ui/Accordion";
 import { ReactComponent as HandleIcon } from "./icons/round-drag_indicator-24px.svg";
 import Draggable from "./Draggable";
-import { FbBuilderFieldPlugin, FbEditorFieldGroup } from "../../../types";
+import { FbBuilderFieldPlugin, FbEditorFieldGroup, FbFormModelField } from "~/types";
 
 const FieldContainer = styled("div")({
     padding: "10px 15px",
@@ -39,10 +39,6 @@ const FieldHandle = styled("div")({
     color: "var(--mdc-theme-on-surface)"
 });
 
-const FormAccordionContent = styled("div")({
-    marginLeft: -40
-});
-
 const accordionItem = css({
     "&.webiny-ui-accordion-item": {
         ".webiny-ui-accordion-item__list-item": {
@@ -66,7 +62,11 @@ const accordionItem = css({
     }
 });
 
-const Field = ({ onFieldDragStart, fieldType: { name, label } }) => {
+interface FieldProps {
+    onFieldDragStart: () => void;
+    fieldType: Pick<FbFormModelField, "name" | "label">;
+}
+const Field = ({ onFieldDragStart, fieldType: { name, label } }: FieldProps) => {
     return (
         <Draggable beginDrag={{ ui: "field", name }}>
             {({ drag }) => (
@@ -88,7 +88,10 @@ const Field = ({ onFieldDragStart, fieldType: { name, label } }) => {
     );
 };
 
-export const Fields = ({ onFieldDragStart }) => {
+interface FieldsProps {
+    onFieldDragStart: () => void;
+}
+export const Fields = ({ onFieldDragStart }: FieldsProps) => {
     const { getField } = useFormEditor();
 
     function getGroups() {
@@ -121,11 +124,10 @@ export const Fields = ({ onFieldDragStart }) => {
                     <AccordionItem
                         key={group.name}
                         title={group.title}
-                        icon={null}
                         className={accordionItem}
                         data-testid={group.name}
                     >
-                        <FormAccordionContent>
+                        <>
                             {!group.fields.length && (
                                 <span>No fields are available at the moment!</span>
                             )}
@@ -138,7 +140,7 @@ export const Fields = ({ onFieldDragStart }) => {
                                     />
                                 );
                             })}
-                        </FormAccordionContent>
+                        </>
                     </AccordionItem>
                 ))}
             </Accordion>

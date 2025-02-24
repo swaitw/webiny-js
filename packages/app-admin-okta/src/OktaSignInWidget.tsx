@@ -26,22 +26,36 @@ export const LoginContent = styled("div")({
 
 const OktaSignInWidget = ({ oktaSignIn }: OktaSignInWidgetProps) => {
     const { oktaAuth } = useOktaAuth();
-    const widgetRef = useRef();
+    const widgetRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (!widgetRef.current) {
-            return;
+            return undefined;
         }
 
-        oktaSignIn.renderEl(
-            { el: widgetRef.current },
-            res => {
-                oktaAuth.handleLoginRedirect(res.tokens);
-            },
-            err => {
-                throw err;
-            }
-        );
+        const query = new URLSearchParams(location.search);
+        const initiateAuthFlow = Boolean(query.get("iss"));
+        if (initiateAuthFlow) {
+            oktaAuth.token.getWithRedirect({
+                responseType: "id_token"
+            });
+        } else {
+            oktaSignIn.renderEl(
+                {
+                    /**
+                     * TODO @ts-refactor figure out correct widgetRef type @pavel
+                     */
+                    // @ts-expect-error
+                    el: widgetRef.current
+                },
+                res => {
+                    oktaAuth.handleLoginRedirect(res.tokens);
+                },
+                err => {
+                    throw err;
+                }
+            );
+        }
 
         return () => oktaSignIn.remove();
     }, [oktaAuth]);

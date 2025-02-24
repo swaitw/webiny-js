@@ -8,8 +8,13 @@ import { Typography } from "@webiny/ui/Typography";
 import { ReactComponent as DownButton } from "./icons/round-arrow_drop_down-24px.svg";
 import { i18n } from "@webiny/app/i18n";
 import { useQuery } from "@apollo/react-hooks";
-import { GET_FORM_REVISIONS } from "../../../graphql";
-import { useFormEditor } from "../../../components/FormEditor";
+import {
+    GET_FORM_REVISIONS,
+    GetFormRevisionsQueryResponse,
+    GetFormRevisionsQueryVariables
+} from "~/admin/graphql";
+import { useFormEditor } from "~/admin/components/FormEditor";
+
 const t = i18n.namespace("FormEditor.RevisionsMenu");
 
 const buttonStyle = css({
@@ -19,7 +24,7 @@ const buttonStyle = css({
 });
 
 const menuList = css({
-    ".mdc-list-item": {
+    ".mdc-deprecated-list-item": {
         flexDirection: "column",
         justifyContent: "center",
         alignItems: "baseline",
@@ -34,20 +39,26 @@ const Revisions = () => {
 
     const { history } = useRouter();
 
-    const getRevisions = useQuery(GET_FORM_REVISIONS, {
-        variables: {
-            id: data.id.split("#")[0]
+    const getRevisions = useQuery<GetFormRevisionsQueryResponse, GetFormRevisionsQueryVariables>(
+        GET_FORM_REVISIONS,
+        {
+            variables: {
+                id: data.id.split("#")[0]
+            }
         }
-    });
+    );
 
-    const revisions = getRevisions.loading ? [] : getRevisions.data.formBuilder.revisions.data;
+    const revisions =
+        getRevisions.loading || !getRevisions.data?.formBuilder?.revisions?.data
+            ? []
+            : getRevisions.data.formBuilder.revisions.data;
 
     return (
         <Menu
             className={menuList}
             onSelect={evt => {
                 history.push(
-                    `/form-builder/forms/${encodeURIComponent(revisions[evt.detail.index].id)}`
+                    `/form-builder/forms/${encodeURIComponent(revisions[evt.detail.index]?.id)}`
                 );
             }}
             handle={

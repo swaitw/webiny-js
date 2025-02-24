@@ -1,5 +1,3 @@
-// TODO remove
-// @ts-nocheck
 import { css } from "emotion";
 import styled from "@emotion/styled";
 
@@ -60,9 +58,9 @@ export const searchBarDropdown = css({
     zIndex: 2,
     color: "var(--mdc-theme-on-surface)",
     borderRadius: "0 0 5px 5px",
-    ".mdc-list": {
+    ".mdc-deprecated-list": {
         padding: 0,
-        ".mdc-list-item": {
+        ".mdc-deprecated-list-item": {
             "&.selected": {
                 fontWeight: "bold"
             },
@@ -104,6 +102,7 @@ export const searchWrapper = css({
         input: {
             color: "var(--mdc-theme-on-surface)"
         },
+        // @ts-expect-error
         [SearchShortcut]: {
             display: "none"
         }

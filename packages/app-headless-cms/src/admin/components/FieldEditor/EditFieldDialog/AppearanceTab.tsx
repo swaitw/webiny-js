@@ -1,53 +1,44 @@
 import React, { useEffect } from "react";
-import { plugins } from "@webiny/plugins";
 import { Grid, Cell } from "@webiny/ui/Grid";
-import { CmsEditorFieldRendererPlugin } from "~/types";
 import { i18n } from "@webiny/app/i18n";
 import { Radio, RadioGroup } from "@webiny/ui/Radio";
-import { Typography } from "@webiny/ui/Typography";
 import { css } from "emotion";
 import { validation } from "@webiny/validation";
+import { useBind } from "@webiny/form";
+import { allowCmsLegacyRichTextInput } from "~/utils/allowCmsLegacyRichTextInput";
+import { Typography } from "@webiny/ui/Typography";
+import { RendererOptions } from "./AppearanceTab/RendererOptions";
+import { LegacyRichTextInput } from "./AppearanceTab/LegacyRichTextInput";
+import { useRendererPlugins } from "./useRendererPlugins";
+import { useModelField } from "~/admin/components/ModelFieldProvider";
 
-const t = i18n.ns(
-    "app-headless-cms/admin/views/components/editor/tabs/edit-field-dialog/appearance-tab"
-);
+const t = i18n.ns("app-headless-cms/admin/content-model-editor/tabs/appearance-tab");
 
 const style = {
-    topLabel: css({
-        marginBottom: 25
-    }),
     noComponentsMessage: css({
         textAlign: "center",
         padding: 25
     }),
     radioContainer: css({
-        marginBottom: 10
+        marginBottom: 10,
+        display: "flex"
     })
 };
 
-const AppearanceTab = props => {
-    const { field, form } = props;
+const AppearanceTab = () => {
+    const renderers = useRendererPlugins();
+    const { field } = useModelField();
 
-    const renderPlugins = plugins
-        .byType<CmsEditorFieldRendererPlugin>("cms-editor-field-renderer")
-        .filter(item => item.renderer.canUse({ field }));
-
-    useEffect(() => {
-        // If the currently selected render plugin is no longer available, select the first available one.
-        const currentlySelectedRenderAvailable = renderPlugins.find(
-            item => item.renderer.rendererName === field.renderer.name
-        );
-
-        if (!currentlySelectedRenderAvailable) {
-            if (renderPlugins[0]) {
-                form.setValue("renderer.name", renderPlugins[0].renderer.rendererName);
-            } else {
-                console.log(`No renderers for field ${field.fieldId} found.`, field);
-            }
-        }
+    const rendererName = useBind({
+        name: "renderer.name",
+        validate: validation.create("required")
     });
 
-    if (renderPlugins.length === 0) {
+    const selectedPlugin = rendererName.value
+        ? renderers.find(pl => pl.renderer.rendererName === rendererName.value)
+        : undefined;
+
+    if (renderers.length === 0) {
         return (
             <Grid>
                 <Cell
@@ -58,42 +49,58 @@ const AppearanceTab = props => {
         );
     }
 
-    const { Bind } = form;
+    useEffect(() => {
+        // If the currently selected render plugin is no longer available, select the first available one.
+        if (selectedPlugin) {
+            return;
+        }
+
+        if (renderers[0]) {
+            rendererName.onChange(renderers[0].renderer.rendererName);
+            return;
+        }
+
+        console.info(`No renderers for field ${field.fieldId} found.`, field);
+    }, [field.id, field.multipleValues, field.predefinedValues?.enabled, selectedPlugin]);
 
     return (
-        <Grid>
-            <Cell span={12}>
-                <div
-                    className={style.topLabel}
-                >{t`Choose a component that will render the field:`}</div>
-                <Bind name={"renderer.name"} validate={validation.create("required")}>
-                    <RadioGroup>
-                        {({ onChange, getValue }) => (
-                            <React.Fragment>
-                                {renderPlugins.map(item => (
+        <>
+            <Grid>
+                {allowCmsLegacyRichTextInput && (
+                    <Cell span={6}>
+                        <LegacyRichTextInput />
+                    </Cell>
+                )}
+                <Cell span={12}>Choose a component that will render the field:</Cell>
+                <Cell span={12}>
+                    <RadioGroup {...rendererName}>
+                        {({ onChange, getValue }) =>
+                            renderers.map(item => {
+                                const setValue = onChange(item.renderer.rendererName);
+                                return (
                                     <div key={item.name} className={style.radioContainer}>
                                         <Radio
                                             value={getValue(item.renderer.rendererName)}
-                                            onChange={onChange(item.renderer.rendererName)}
-                                            label={
-                                                <>
-                                                    <div>{item.renderer.name}</div>
-                                                    <div>
-                                                        <Typography use={"caption"}>
-                                                            {item.renderer.description}
-                                                        </Typography>
-                                                    </div>
-                                                </>
-                                            }
+                                            onChange={setValue}
                                         />
+
+                                        <div onClick={setValue}>
+                                            <div>{item.renderer.name}</div>
+                                            <div>
+                                                <Typography use={"caption"}>
+                                                    {item.renderer.description}
+                                                </Typography>
+                                            </div>
+                                        </div>
                                     </div>
-                                ))}
-                            </React.Fragment>
-                        )}
+                                );
+                            })
+                        }
                     </RadioGroup>
-                </Bind>
-            </Cell>
-        </Grid>
+                </Cell>
+            </Grid>
+            <RendererOptions plugin={selectedPlugin} />
+        </>
     );
 };
 

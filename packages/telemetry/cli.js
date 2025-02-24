@@ -1,18 +1,44 @@
-const baseSendEvent = require("./sendEvent");
 const { globalConfig } = require("@webiny/global-config");
+const { isCI } = require("ci-info");
+const { WTS } = require("wts-client/node");
+const baseSendEvent = require("./sendEvent");
 
-const sendEvent = ({ event, user, version, properties, extraPayload }) => {
-    if (!isEnabled()) {
+const sendEvent = async ({ event, user, version, properties }) => {
+    const shouldSend = isEnabled();
+    if (!shouldSend) {
         return;
+    }
+
+    const wts = new WTS();
+
+    const wcpProperties = {};
+    const [wcpOrgId, wcpProjectId] = getWcpOrgProjectId();
+    if (wcpOrgId && wcpProjectId) {
+        wcpProperties.wcpOrgId = wcpOrgId;
+        wcpProperties.wcpProjectId = wcpProjectId;
     }
 
     return baseSendEvent({
         event,
         user: user || globalConfig.get("id"),
-        version: version || require("./package.json").version,
-        properties,
-        extraPayload
+        properties: {
+            ...properties,
+            ...wcpProperties,
+            version: version || require("./package.json").version,
+            ci: isCI,
+            newUser: Boolean(globalConfig.get("newUser"))
+        },
+        wts
     });
+};
+
+const getWcpOrgProjectId = () => {
+    // In CLI, WCP project ID is stored in the `WCP_PROJECT_ID` environment variable.
+    const id = process.env.WCP_PROJECT_ID;
+    if (typeof id === "string") {
+        return id.split("/");
+    }
+    return [];
 };
 
 const enable = () => {
@@ -30,6 +56,7 @@ const isEnabled = () => {
         return false;
     }
 
+    // `tracking` is left here for backwards compatibility with previous versions of Webiny.
     return config.tracking !== false;
 };
 

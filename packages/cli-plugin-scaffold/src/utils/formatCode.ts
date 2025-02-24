@@ -12,7 +12,7 @@ const globDefaultOptions = {
 export default async (
     globPattern: Parameters<typeof glob.sync>[0],
     options: Parameters<typeof glob.sync>[1]
-) => {
+): Promise<void> => {
     const globOptions = {
         ...globDefaultOptions,
         ...options
@@ -25,7 +25,7 @@ export default async (
 
         const options = await prettier.resolveConfig(filePath);
         const fileContentRaw = fs.readFileSync(filePath).toString("utf8");
-        const fileContentFormatted = prettier.format(fileContentRaw, {
+        const fileContentFormatted = await prettier.format(fileContentRaw, {
             ...options,
             filepath: filePath
         });

@@ -1,5 +1,5 @@
 import { SecurityContext, SecurityIdentity, SecurityPermission } from "~/types";
-import { ContextPlugin } from "@webiny/handler/plugins/ContextPlugin";
+import { ContextPlugin } from "@webiny/api";
 
 export interface Config {
     identityType?: string;
@@ -14,15 +14,17 @@ export default (config: Config) => {
         security.addAuthorizer(async () => {
             const identityType = config.identityType || "api-key";
 
-            const identity = security.getIdentity();
+            const identity = security.getIdentity<APIKeyIdentity>();
 
             if (!identity || identity.type !== identityType) {
-                return;
+                return null;
             }
-
             // We can expect `permissions` to exist on the identity, because api-key authentication
             // plugin sets them on the identity instance to avoid loading them from DB here.
-            return Array.isArray(identity.permissions) ? identity.permissions : [];
+            if (Array.isArray(identity.permissions) === false) {
+                return [];
+            }
+            return identity.permissions as SecurityPermission[];
         });
     });
 };

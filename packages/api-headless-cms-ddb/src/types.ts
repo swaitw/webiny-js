@@ -1,22 +1,21 @@
 import { Plugin } from "@webiny/plugins/types";
 import {
+    CmsEntryStorageOperations as BaseCmsEntryStorageOperations,
+    CmsModel,
     CmsModelField,
-    CmsModelFieldToGraphQLPlugin,
     HeadlessCmsStorageOperations as BaseHeadlessCmsStorageOperations
 } from "@webiny/api-headless-cms/types";
-import { DynamoDBTypes, TableConstructor } from "dynamodb-toolbox/dist/classes/Table";
-import {
-    EntityAttributeConfig,
-    EntityCompositeAttributes
-} from "dynamodb-toolbox/dist/classes/Entity";
-import { DocumentClient } from "aws-sdk/clients/dynamodb";
-import { Entity, Table } from "dynamodb-toolbox";
+import { TableConstructor } from "@webiny/db-dynamodb/toolbox";
+import { AttributeDefinition } from "@webiny/db-dynamodb/toolbox";
+import { DynamoDBDocument } from "@webiny/aws-sdk/client-dynamodb";
+import { Entity, Table } from "@webiny/db-dynamodb/toolbox";
 
 interface CmsFieldFilterValueTransformParams {
     /**
      * A field which value we are transforming.
      */
-    field: CmsModelField;
+    field: Partial<CmsModelField> &
+        Pick<CmsModelField, "id" | "storageId" | "fieldId" | "settings">;
     value: any;
 }
 
@@ -35,66 +34,42 @@ export interface CmsFieldFilterValueTransformPlugin extends Plugin {
     transform: (params: CmsFieldFilterValueTransformParams) => any;
 }
 
-interface CmsFieldFilterPathParams {
-    /**
-     * A field for which we are creating the value path.
-     */
-    field: CmsModelField;
-    /**
-     * If value is an array we will need index position.
-     * It is up to the developer to add.
-     */
-    index?: number | string;
-}
-export interface CmsFieldFilterPathPlugin extends Plugin {
-    /**
-     * A plugin type.
-     */
-    type: "cms-field-filter-path";
-    /**
-     * A field type this plugin is for.
-     */
-    fieldType: string;
-    /**
-     * A field id this plugin is for.
-     * It is meant for targeting only specific fields in a certain type.
-     */
-    fieldId?: string[];
-    /**
-     * Get a path for given field.
-     */
-    createPath: (params: CmsFieldFilterPathParams) => string;
-}
-
-export type AttributeDefinition = DynamoDBTypes | EntityAttributeConfig | EntityCompositeAttributes;
-
 export type Attributes = Record<string, AttributeDefinition>;
 
 export enum ENTITIES {
     SYSTEM = "CmsSystem",
-    SETTINGS = "CmsSettings",
     GROUPS = "CmsGroups",
     MODELS = "CmsModels",
     ENTRIES = "CmsEntries"
 }
 
 export interface TableModifier {
-    (table: TableConstructor): TableConstructor;
+    (table: TableConstructor<string, string, string>): TableConstructor<string, string, string>;
 }
 
 export interface StorageOperationsFactoryParams {
-    documentClient: DocumentClient;
+    documentClient: DynamoDBDocument;
     table?: TableModifier;
-    modelFieldToGraphQLPlugins: CmsModelFieldToGraphQLPlugin[];
     attributes?: Record<ENTITIES, Attributes>;
     plugins?: Plugin[] | Plugin[][];
 }
 
 export interface HeadlessCmsStorageOperations extends BaseHeadlessCmsStorageOperations {
-    getTable: () => Table;
-    getEntities: () => Record<"system" | "settings" | "groups" | "models" | "entries", Entity<any>>;
+    getTable: () => Table<string, string, string>;
+    getEntities: () => Record<"system" | "groups" | "models" | "entries", Entity<any>>;
 }
 
 export interface StorageOperationsFactory {
     (params: StorageOperationsFactoryParams): HeadlessCmsStorageOperations;
+}
+
+export interface CmsEntryStorageOperations extends BaseCmsEntryStorageOperations {
+    dataLoaders: DataLoadersHandlerInterface;
+}
+
+export interface DataLoadersHandlerInterfaceClearAllParams {
+    model: Pick<CmsModel, "tenant" | "locale">;
+}
+export interface DataLoadersHandlerInterface {
+    clearAll: (params?: DataLoadersHandlerInterfaceClearAllParams) => void;
 }

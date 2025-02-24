@@ -1,66 +1,41 @@
-import { useEventActionHandler } from "../../../hooks/useEventActionHandler";
-import { TogglePluginActionEvent } from "../../../recoil/actions";
 import React, { useEffect, useCallback, ReactElement } from "react";
-import { isPluginActiveSelector, activePluginsByTypeTotalSelector } from "../../../recoil/modules";
-import { css } from "emotion";
 import { IconButton } from "@webiny/ui/Button";
-import { useKeyHandler } from "../../../hooks/useKeyHandler";
 import { Tooltip } from "@webiny/ui/Tooltip";
-import { useRecoilValue } from "recoil";
+import { useKeyHandler } from "~/editor/hooks/useKeyHandler";
 
-const editorPageElementSettingsPluginType = "pb-editor-page-element-settings";
-
-const activeStyle = css({
-    "&.mdc-icon-button": {
-        color: "var(--mdc-theme-primary)"
-    }
-});
-
-type ActionProps = {
-    plugin?: string;
+interface ActionProps {
+    disabled?: boolean;
     icon?: ReactElement;
     tooltip?: string;
     onClick?: () => void;
     shortcut?: string[];
     // For testing purposes.
     "data-testid"?: string;
-};
+}
 
-const Action: React.FunctionComponent<ActionProps> = ({
-    plugin,
+const Action = ({
     icon,
     tooltip,
     onClick,
     shortcut = [],
+    disabled = false,
     ...props
-}) => {
-    const eventActionHandler = useEventActionHandler();
-    const isPluginActive = useRecoilValue(isPluginActiveSelector(plugin));
-    const settingsActive =
-        useRecoilValue(activePluginsByTypeTotalSelector(editorPageElementSettingsPluginType)) > 0;
-
+}: ActionProps) => {
     const { addKeyHandler, removeKeyHandler } = useKeyHandler();
 
-    const clickHandler = useCallback(() => {
+    const clickHandler = useCallback((): void => {
         if (typeof onClick === "function") {
             return onClick();
         }
-        eventActionHandler.trigger(
-            new TogglePluginActionEvent({
-                name: plugin,
-                closeOtherInGroup: true
-            })
-        );
-    }, [plugin, onClick]);
+    }, [onClick]);
 
-    useEffect(() => {
+    useEffect((): (() => void) => {
         shortcut.map(short => {
             addKeyHandler(short, e => {
-                if (settingsActive) {
+                e.preventDefault();
+                if (!onClick) {
                     return;
                 }
-
-                e.preventDefault();
                 onClick();
             });
         });
@@ -73,15 +48,11 @@ const Action: React.FunctionComponent<ActionProps> = ({
     }, [onClick]);
 
     return (
-        <Tooltip
-            placement={"bottom"}
-            content={<span>{tooltip}</span>}
-            {...(isPluginActive ? { visible: false } : {})}
-        >
+        <Tooltip placement={"bottom"} content={<span>{tooltip}</span>}>
             <IconButton
+                disabled={disabled}
                 icon={icon}
                 onClick={clickHandler}
-                className={isPluginActive && activeStyle}
                 data-testid={props["data-testid"]}
             />
         </Tooltip>

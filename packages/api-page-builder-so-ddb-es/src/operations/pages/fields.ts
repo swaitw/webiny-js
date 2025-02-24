@@ -1,6 +1,7 @@
 import { PageElasticsearchFieldPlugin } from "~/plugins/definitions/PageElasticsearchFieldPlugin";
+import { PageDynamoDbElasticsearchFieldPlugin } from "~/plugins/definitions/PageDynamoDbElasticsearchFieldPlugin";
 
-export default () => [
+export const createPagesElasticsearchFields = (): PageElasticsearchFieldPlugin[] => [
     new PageElasticsearchFieldPlugin({
         field: "createdOn",
         unmappedType: "date",
@@ -31,6 +32,12 @@ export default () => [
         keyword: true,
         searchable: true
     }),
+    new PageElasticsearchFieldPlugin({
+        field: "path",
+        unmappedType: "text",
+        keyword: true,
+        searchable: true
+    }),
     /**
      * Defines all fields that are not strictly defined.
      */
@@ -38,3 +45,13 @@ export default () => [
         field: "*"
     })
 ];
+
+export const createPagesDynamoDbFields = (): PageDynamoDbElasticsearchFieldPlugin[] => {
+    return [
+        new PageDynamoDbElasticsearchFieldPlugin({
+            field: "version",
+            type: "number",
+            sortable: true
+        })
+    ];
+};

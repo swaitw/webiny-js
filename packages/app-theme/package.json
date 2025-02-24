@@ -1,0 +1,44 @@
+{
+  "name": "@webiny/app-theme",
+  "version": "0.0.0",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webiny/webiny-js.git"
+  },
+  "description": "A small package that provides Webiny Page Builder theme-related types and utilities.",
+  "author": "Adrian Smijulj",
+  "license": "MIT",
+  "dependencies": {
+    "@webiny/plugins": "0.0.0",
+    "@webiny/theme": "0.0.0"
+  },
+  "peerDependencies": {
+    "react": "18.2.0"
+  },
+  "devDependencies": {
+    "@emotion/babel-plugin": "^11.11.0",
+    "@types/react": "18.2.79",
+    "@webiny/cli": "0.0.0",
+    "@webiny/project-utils": "0.0.0",
+    "execa": "^5.1.1",
+    "rimraf": "^6.0.1",
+    "typescript": "5.3.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
+  "scripts": {
+    "build": "yarn webiny run build",
+    "watch": "yarn webiny run watch"
+  },
+  "gitHead": "8476da73b653c89cc1474d968baf55c1b0ae0e5f",
+  "adio": {
+    "ignore": {
+      "dependencies": [
+        "@types/medium-editor"
+      ]
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import { GraphQLSchemaPlugin } from "@webiny/handler-graphql/plugins";
 import { SecurityContext } from "~/types";
+import { GenericRecord } from "@webiny/api/types";
 
 export const defaultIdentity = () => {
     return new GraphQLSchemaPlugin<SecurityContext>({
@@ -14,7 +15,7 @@ export const defaultIdentity = () => {
         `,
         resolvers: {
             Admin: {
-                __isTypeOf(obj) {
+                __isTypeOf(obj: GenericRecord) {
                     return obj.type === "admin";
                 }
             }

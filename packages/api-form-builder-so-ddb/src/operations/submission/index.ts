@@ -7,30 +7,30 @@ import {
     FormBuilderStorageOperationsListSubmissionsResponse,
     FormBuilderStorageOperationsUpdateSubmissionParams
 } from "@webiny/api-form-builder/types";
-import { Entity, Table } from "dynamodb-toolbox";
+import { Entity, Table } from "@webiny/db-dynamodb/toolbox";
 import WebinyError from "@webiny/error";
 import { PluginsContainer } from "@webiny/plugins";
 import {
     FormBuilderSubmissionStorageOperations,
     FormBuilderSubmissionStorageOperationsCreatePartitionKeyParams
 } from "~/types";
-import { cleanupItem } from "@webiny/db-dynamodb/utils/cleanup";
 import { parseIdentifier } from "@webiny/utils";
 import { queryAll, QueryAllParams } from "@webiny/db-dynamodb/utils/query";
 import { decodeCursor, encodeCursor } from "@webiny/db-dynamodb/utils/cursor";
 import { sortItems } from "@webiny/db-dynamodb/utils/sort";
 import { filterItems } from "@webiny/db-dynamodb/utils/filter";
 import { FormSubmissionDynamoDbFieldPlugin } from "~/plugins/FormSubmissionDynamoDbFieldPlugin";
-import { get } from "@webiny/db-dynamodb/utils/get";
+import { getClean } from "@webiny/db-dynamodb/utils/get";
+import { deleteItem, put } from "@webiny/db-dynamodb";
 
-export interface Params {
+export interface CreateSubmissionStorageOperationsParams {
     entity: Entity<any>;
-    table: Table;
+    table: Table<string, string, string>;
     plugins: PluginsContainer;
 }
 
 export const createSubmissionStorageOperations = (
-    params: Params
+    params: CreateSubmissionStorageOperationsParams
 ): FormBuilderSubmissionStorageOperations => {
     const { entity, plugins } = params;
 
@@ -61,10 +61,13 @@ export const createSubmissionStorageOperations = (
         };
 
         try {
-            await entity.put({
-                ...submission,
-                ...keys,
-                TYPE: createSubmissionType()
+            await put({
+                entity,
+                item: {
+                    ...submission,
+                    ...keys,
+                    TYPE: createSubmissionType()
+                }
             });
         } catch (ex) {
             throw new WebinyError(
@@ -91,10 +94,13 @@ export const createSubmissionStorageOperations = (
         };
 
         try {
-            await entity.put({
-                ...submission,
-                ...keys,
-                TYPE: createSubmissionType()
+            await put({
+                entity,
+                item: {
+                    ...submission,
+                    ...keys,
+                    TYPE: createSubmissionType()
+                }
             });
             return submission;
         } catch (ex) {
@@ -122,7 +128,10 @@ export const createSubmissionStorageOperations = (
         };
 
         try {
-            await entity.delete(keys);
+            await deleteItem({
+                entity,
+                keys
+            });
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not delete form submission from DynamoDB.",
@@ -143,10 +152,11 @@ export const createSubmissionStorageOperations = (
     ): Promise<FormBuilderStorageOperationsListSubmissionsResponse> => {
         const { where: initialWhere, sort, limit = 100000, after } = params;
 
-        const where = {
+        const { tenant, locale, formId } = initialWhere;
+
+        const where: Partial<FormBuilderStorageOperationsListSubmissionsParams["where"]> = {
             ...initialWhere
         };
-        const { tenant, locale, formId } = where;
         /**
          * We need to remove conditions so we do not filter by them again.
          */
@@ -199,7 +209,7 @@ export const createSubmissionStorageOperations = (
         });
 
         const totalCount = sortedSubmissions.length;
-        const start = decodeCursor(after) || 0;
+        const start = parseInt(decodeCursor(after) || "0") || 0;
         const hasMoreItems = totalCount > start + limit;
         const end = limit > totalCount + start + limit ? undefined : start + limit;
         const items = sortedSubmissions.slice(start, end);
@@ -223,7 +233,7 @@ export const createSubmissionStorageOperations = (
 
     const getSubmission = async (
         params: FormBuilderStorageOperationsGetSubmissionParams
-    ): Promise<FbSubmission> => {
+    ): Promise<FbSubmission | null> => {
         const { where } = params;
 
         const keys = {
@@ -232,8 +242,7 @@ export const createSubmissionStorageOperations = (
         };
 
         try {
-            const item = await get<FbSubmission>({ entity, keys });
-            return cleanupItem(entity, item);
+            return await getClean<FbSubmission>({ entity, keys });
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not oad submission.",

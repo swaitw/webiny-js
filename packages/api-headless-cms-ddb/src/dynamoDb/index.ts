@@ -1,15 +1,13 @@
-import richTextStorage from "./storage/richText";
-import longTextStorage from "./storage/longText";
-import dateStorage from "./storage/date";
-import plainObjectPath from "./path/plainObject";
-import refPath from "./path/ref";
-import datetimeTransformValue from "./transformValue/datetime";
+import { createRichTextStorageTransformPlugin } from "./storage/richText";
+import { createLongTextStorageTransformPlugin } from "./storage/longText";
+import { createPlainObjectPathPlugin } from "./path/plainObject";
+import { createDatetimeTransformValuePlugin } from "./transformValue/datetime";
+import { createLocationFolderIdPathPlugin } from "~/dynamoDb/path/locationFolderId";
 
 export default () => [
-    richTextStorage(),
-    longTextStorage(),
-    dateStorage(),
-    plainObjectPath(),
-    refPath(),
-    datetimeTransformValue()
+    createRichTextStorageTransformPlugin(),
+    createLongTextStorageTransformPlugin(),
+    createPlainObjectPathPlugin(),
+    createLocationFolderIdPathPlugin(),
+    createDatetimeTransformValuePlugin()
 ];

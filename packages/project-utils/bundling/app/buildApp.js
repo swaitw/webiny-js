@@ -57,7 +57,7 @@ module.exports = async options => {
     // Generate configuration
     let config = configFactory("production", { paths, options });
 
-    if (typeof options.webpack === "function") {
+    if (typeof overrides.webpack === "function") {
         config = overrides.webpack(config);
     }
 
@@ -117,11 +117,11 @@ module.exports = async options => {
             );
             printBuildError(err);
         } else {
-            log(err);
             log(chalk.red("Failed to compile.\n"));
             printBuildError(err);
-            process.exit(1);
         }
+
+        throw err;
     }
 };
 

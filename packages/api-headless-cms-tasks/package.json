@@ -1,0 +1,48 @@
+{
+  "name": "@webiny/api-headless-cms-tasks",
+  "version": "0.0.0",
+  "main": "index.js",
+  "description": "Background tasks for Webiny Headless CMS",
+  "keywords": [
+    "api-headless-cms-tasks:base"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webiny/webiny-js.git",
+    "directory": "packages/api-headless-cms-tasks"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@webiny/api": "0.0.0",
+    "@webiny/api-aco": "0.0.0",
+    "@webiny/api-headless-cms": "0.0.0",
+    "@webiny/api-headless-cms-bulk-actions": "0.0.0",
+    "@webiny/api-headless-cms-import-export": "0.0.0",
+    "@webiny/db": "0.0.0",
+    "@webiny/error": "0.0.0",
+    "@webiny/handler-graphql": "0.0.0",
+    "@webiny/tasks": "0.0.0",
+    "@webiny/utils": "0.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@webiny/api-i18n": "0.0.0",
+    "@webiny/api-security": "0.0.0",
+    "@webiny/api-tenancy": "0.0.0",
+    "@webiny/api-wcp": "0.0.0",
+    "@webiny/cli": "0.0.0",
+    "@webiny/handler": "0.0.0",
+    "@webiny/handler-aws": "0.0.0",
+    "@webiny/plugins": "0.0.0",
+    "@webiny/project-utils": "0.0.0",
+    "typescript": "5.3.3"
+  },
+  "scripts": {
+    "build": "yarn webiny run build",
+    "watch": "yarn webiny run watch"
+  },
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  }
+}

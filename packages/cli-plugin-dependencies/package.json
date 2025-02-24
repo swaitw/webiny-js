@@ -1,0 +1,43 @@
+{
+  "name": "@webiny/cli-plugin-dependencies",
+  "private": true,
+  "version": "0.0.0",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webiny/webiny-js.git",
+    "directory": "packages/cli-plugin-dependencies"
+  },
+  "author": "Webiny Ltd.",
+  "contributors": [
+    "Bruno Zorić <bruno@webiny.com>"
+  ],
+  "description": "A tool to generate and verify dependency sync files for Webiny.",
+  "dependencies": {
+    "@babel/runtime": "7.26.7",
+    "@webiny/cli": "0.0.0",
+    "chalk": "^4.1.2",
+    "get-yarn-workspaces": "^1.0.2",
+    "glob": "^7.2.3",
+    "load-json-file": "^6.2.0",
+    "semver": "^7.6.3",
+    "write-json-file": "^4.3.0"
+  },
+  "devDependencies": {
+    "@webiny/project-utils": "0.0.0",
+    "execa": "^5.1.1",
+    "prettier": "^2.8.8",
+    "rimraf": "^6.0.1",
+    "type-fest": "4.14.0",
+    "typescript": "5.3.3"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
+  "scripts": {
+    "build": "yarn webiny run build",
+    "watch": "yarn webiny run watch"
+  }
+}

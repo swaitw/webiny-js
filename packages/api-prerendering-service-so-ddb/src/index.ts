@@ -2,10 +2,14 @@ import WebinyError from "@webiny/error";
 import { ENTITIES, PrerenderingServiceFactory, PrerenderingServiceFactoryParams } from "~/types";
 import { createTable } from "~/definitions/table";
 import { createRenderEntity } from "~/definitions/render";
+import { createSettingsEntity } from "~/definitions/settings";
 import { createQueueJobEntity } from "~/definitions/queueJob";
 import { createRenderStorageOperations } from "~/operations/render";
+import { createTenantStorageOperations } from "~/operations/tenant";
+import { createSettingsStorageOperations } from "~/operations/settings";
 import { createQueueJobStorageOperations } from "~/operations/queueJob";
-import { createTagUrlLinkEntity } from "~/definitions/tagUrlLink";
+import { createTagPathLinkEntity } from "~/definitions/tagPathLink";
+import { createTenantEntity } from "~/definitions/tenantEntity";
 
 const reservedFields = ["PK", "SK", "index", "data", "TYPE", "__type", "GSI1_PK", "GSI1_SK"];
 
@@ -21,7 +25,7 @@ const isReserved = (name: string): void => {
 export const createPrerenderingServiceStorageOperations: PrerenderingServiceFactory = (
     params: PrerenderingServiceFactoryParams
 ) => {
-    const { attributes = {}, table, documentClient } = params;
+    const { attributes, table, documentClient } = params;
 
     if (attributes) {
         Object.values(attributes).forEach(attrs => {
@@ -35,17 +39,26 @@ export const createPrerenderingServiceStorageOperations: PrerenderingServiceFact
         render: createRenderEntity({
             entityName: ENTITIES.RENDER,
             table: tableInstance,
-            attributes: attributes[ENTITIES.RENDER]
+            attributes: attributes ? attributes[ENTITIES.RENDER] : {}
+        }),
+        settings: createSettingsEntity({
+            entityName: ENTITIES.SETTINGS,
+            table: tableInstance,
+            attributes: attributes ? attributes[ENTITIES.SETTINGS] : {}
         }),
         queueJob: createQueueJobEntity({
             entityName: ENTITIES.QUEUE_JOB,
             table: tableInstance,
-            attributes: attributes[ENTITIES.QUEUE_JOB]
+            attributes: attributes ? attributes[ENTITIES.QUEUE_JOB] : {}
         }),
-        tagUrlLink: createTagUrlLinkEntity({
-            entityName: ENTITIES.TAG_URL_LINK,
+        tagPathLink: createTagPathLinkEntity({
+            entityName: ENTITIES.TAG_PATH_LINK,
             table: tableInstance,
-            attributes: attributes[ENTITIES.TAG_URL_LINK]
+            attributes: attributes ? attributes[ENTITIES.TAG_PATH_LINK] : {}
+        }),
+        tenant: createTenantEntity({
+            entityName: ENTITIES.TENANT,
+            table: tableInstance
         })
     };
 
@@ -54,10 +67,16 @@ export const createPrerenderingServiceStorageOperations: PrerenderingServiceFact
         getEntities: () => entities,
         ...createRenderStorageOperations({
             entity: entities.render,
-            tagUrlLinkEntity: entities.tagUrlLink
+            tagPathLinkEntity: entities.tagPathLink
         }),
         ...createQueueJobStorageOperations({
             entity: entities.queueJob
+        }),
+        ...createSettingsStorageOperations({
+            entity: entities.settings
+        }),
+        ...createTenantStorageOperations({
+            entity: entities.tenant
         })
     };
 };

@@ -1,7 +1,7 @@
-import { useContentGqlHandler } from "../utils/useContentGqlHandler";
-import { GraphQLSchemaPlugin } from "@webiny/handler-graphql/plugins";
+import { useGraphQLHandler } from "../testHelpers/useGraphQLHandler";
+import { createCmsGraphQLSchemaPlugin } from "~/plugins";
 
-const graphqlSchemaPlugin = new GraphQLSchemaPlugin({
+const graphqlSchemaPlugin = createCmsGraphQLSchemaPlugin({
     typeDefs: /* GraphQL */ `
         extend type Query {
             getOne: Int
@@ -26,7 +26,7 @@ const graphqlSchemaPlugin = new GraphQLSchemaPlugin({
 
 describe("content model test no field plugin", () => {
     test("prevent content model update if a backend plugin for a field does not exist", async () => {
-        const { invoke } = useContentGqlHandler({
+        const { invoke } = useGraphQLHandler({
             path: "manage/en-US",
             plugins: [graphqlSchemaPlugin]
         });

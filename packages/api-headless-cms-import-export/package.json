@@ -1,0 +1,59 @@
+{
+  "name": "@webiny/api-headless-cms-import-export",
+  "version": "0.0.0",
+  "main": "index.js",
+  "description": "Import / Export for Webiny Headless CMS",
+  "keywords": [
+    "api-headless-cms-import-export:base"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webiny/webiny-js.git",
+    "directory": "packages/api-headless-cms-import-export"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@smithy/node-http-handler": "^2.1.6",
+    "@webiny/api-file-manager": "0.0.0",
+    "@webiny/api-headless-cms": "0.0.0",
+    "@webiny/aws-sdk": "0.0.0",
+    "@webiny/error": "0.0.0",
+    "@webiny/handler-graphql": "0.0.0",
+    "@webiny/plugins": "0.0.0",
+    "@webiny/tasks": "0.0.0",
+    "@webiny/utils": "0.0.0",
+    "archiver": "^7.0.1",
+    "bytes": "^3.1.2",
+    "uniqid": "^5.4.0",
+    "unzipper": "^0.12.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.5",
+    "@types/unzipper": "^0.10.10",
+    "@webiny/api": "0.0.0",
+    "@webiny/api-admin-users": "0.0.0",
+    "@webiny/api-i18n": "0.0.0",
+    "@webiny/api-security": "0.0.0",
+    "@webiny/api-tenancy": "0.0.0",
+    "@webiny/api-wcp": "0.0.0",
+    "@webiny/cli": "0.0.0",
+    "@webiny/handler": "0.0.0",
+    "@webiny/handler-aws": "0.0.0",
+    "@webiny/plugins": "0.0.0",
+    "@webiny/project-utils": "0.0.0",
+    "@webiny/wcp": "0.0.0",
+    "adm-zip": "^0.5.14",
+    "aws-sdk-client-mock": "^4.1.0",
+    "graphql": "^15.9.0",
+    "typescript": "5.3.3"
+  },
+  "scripts": {
+    "build": "yarn webiny run build",
+    "watch": "yarn webiny run watch"
+  },
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  }
+}

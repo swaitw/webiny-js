@@ -1,34 +1,82 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { useQuery } from "@apollo/react-hooks";
 import { QueryResult } from "@apollo/react-common";
-import { useSecurity } from "@webiny/app-security";
-import { LIST_FORMS } from "../../graphql";
+import { LIST_FORMS, ListFormsQueryResponse } from "../../graphql";
+import { NetworkStatus } from "apollo-client";
+import { usePermission } from "~/hooks/usePermission";
 
 export interface FormsContextValue {
-    canCreate: boolean;
-    listQuery: QueryResult<any, any>;
+    canCreate: () => boolean;
+    listQuery: QueryResult<ListFormsQueryResponse>;
 }
 
-export const FormsContext = React.createContext<FormsContextValue>(null);
-
-export const FormsProvider = ({ children }) => {
-    const { identity } = useSecurity();
-    const listQuery = useQuery(LIST_FORMS);
-
-    const canCreate = useMemo(() => {
-        const permission = identity.getPermission("fb.form");
-        if (!permission) {
-            return false;
+export const FormsContext = React.createContext<FormsContextValue>({
+    canCreate: () => false,
+    listQuery: {
+        loading: false,
+        variables: {},
+        called: false,
+        /**
+         * Not set on initializing of the context.
+         */
+        // @ts-expect-error
+        client: null,
+        data: {
+            formBuilder: {
+                listForms: {
+                    data: [],
+                    error: null
+                }
+            }
+        },
+        error: undefined,
+        /**
+         * Not set on initializing of the context.
+         */
+        // @ts-expect-error
+        fetchMore: async () => {
+            return {};
+        },
+        networkStatus: NetworkStatus.ready,
+        /**
+         * Not set on initializing of the context.
+         */
+        // @ts-expect-error
+        refetch: async () => {
+            return {};
+        },
+        startPolling: () => {
+            return void 0;
+        },
+        updateQuery: () => {
+            return void 0;
+        },
+        stopPolling: () => {
+            return void 0;
+        },
+        subscribeToMore: () => {
+            return () => {
+                return void 0;
+            };
         }
+    }
+});
 
-        if (typeof permission.rwd !== "string") {
-            return true;
-        }
+export interface FormContextProvider {
+    canCreate: () => boolean;
+    listQuery: QueryResult<ListFormsQueryResponse>;
+}
 
-        return permission.rwd.includes("w");
-    }, []);
+interface FormsProviderProps {
+    children: React.ReactNode;
+}
 
-    const value = {
+export const FormsProvider = ({ children }: FormsProviderProps) => {
+    const listQuery = useQuery<ListFormsQueryResponse>(LIST_FORMS);
+
+    const { canCreate } = usePermission();
+
+    const value: FormContextProvider = {
         canCreate,
         listQuery
     };

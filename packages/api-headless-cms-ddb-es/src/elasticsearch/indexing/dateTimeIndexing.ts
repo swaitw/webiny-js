@@ -32,7 +32,7 @@ const convertValueFromIndex = (
     value: string | number,
     field: CmsModelDateTimeField
 ): string | null => {
-    const type = field.settings.type;
+    const type = field.settings?.type;
     if (type === "time") {
         return convertNumberToTime(value as number);
     } else if (!value) {
@@ -41,7 +41,7 @@ const convertValueFromIndex = (
         return value as string;
     } else if (type === "date") {
         const dateValue = new Date(value);
-        return dateValue.toISOString().substr(0, 10);
+        return dateValue.toISOString().slice(0, 10);
     }
     return new Date(value).toISOString();
 };
@@ -49,7 +49,7 @@ const convertValueFromIndex = (
 const convertValueToIndex = (value: string, field: CmsModelDateTimeField) => {
     if (!value) {
         return null;
-    } else if (field.settings.type === "time") {
+    } else if (field.settings?.type === "time") {
         return convertTimeToNumber(value);
     }
     return value;
@@ -63,12 +63,24 @@ export default (): CmsModelFieldToElasticsearchPlugin => ({
         return "date";
     },
     toIndex({ field, value }) {
+        if (Array.isArray(value) === true) {
+            return {
+                value: value.map((v: string) => {
+                    return convertValueToIndex(v, field as CmsModelDateTimeField);
+                })
+            };
+        }
         const dateValue = convertValueToIndex(value, field as CmsModelDateTimeField);
         return {
             value: dateValue
         };
     },
     fromIndex({ field, value }) {
+        if (Array.isArray(value)) {
+            return value.map((v: string) => {
+                return convertValueFromIndex(v, field as CmsModelDateTimeField);
+            });
+        }
         return convertValueFromIndex(value, field as CmsModelDateTimeField);
     }
 });

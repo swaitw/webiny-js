@@ -8,7 +8,7 @@ import { replaceInPath } from "replace-in-path";
 import loadJsonFile from "load-json-file";
 import writeJsonFile from "write-json-file";
 import chalk from "chalk";
-import { CliCommandScaffoldTemplate } from "@webiny/cli-plugin-scaffold/types";
+import { CliCommandScaffoldTemplate, PackageJson } from "@webiny/cli-plugin-scaffold/types";
 import findUp from "find-up";
 import execa from "execa";
 import link from "terminal-link";
@@ -19,14 +19,21 @@ import {
     LAST_USED_GQL_API_PLUGINS_PATH
 } from "@webiny/cli-plugin-scaffold/utils";
 import getContextMeta from "./getContextMeta";
+import { projectHasCodeFolders } from "./utils";
 
 const ncp = util.promisify(ncpBase.ncp);
 
-interface Input {
+export interface Input {
     pluginsFolderPath: string;
     dataModelName: string;
     showConfirmation?: boolean;
 }
+
+type DependenciesUpdates = [
+    "devDependencies" | "dependencies" | "peerDependencies",
+    string,
+    string
+];
 
 const SCAFFOLD_DOCS_LINK =
     "https://www.webiny.com/docs/how-to-guides/scaffolding/extend-graphql-api";
@@ -40,17 +47,24 @@ export default (): CliCommandScaffoldTemplate<Input> => ({
             "Extends your GraphQL API with new CRUD query and mutation operations." +
             (link.isSupported ? "\n  " + link("Learn more.", SCAFFOLD_DOCS_LINK) : ""),
         questions: ({ context }) => {
+            const projectWithCodeFolders = projectHasCodeFolders(context.project.root);
+
             return [
                 {
                     name: "pluginsFolderPath",
                     message: "Enter plugins folder path:",
                     default: () => {
+                        let suffixPath = "/graphql/src/plugins";
+                        if (projectWithCodeFolders) {
+                            suffixPath = "/code" + suffixPath;
+                        }
+
                         return (
                             context.localStorage.get(LAST_USED_GQL_API_PLUGINS_PATH) ||
-                            `api/code/graphql/src/plugins`
+                            `apps/api${suffixPath}`
                         );
                     },
-                    validate: pluginsFolderPath => {
+                    validate: (pluginsFolderPath: string) => {
                         if (pluginsFolderPath.length < 2) {
                             return `Please enter GraphQL API ${chalk.cyan("plugins")} folder path.`;
                         }
@@ -62,7 +76,7 @@ export default (): CliCommandScaffoldTemplate<Input> => ({
                     name: "dataModelName",
                     message: "Enter initial entity name:",
                     default: "Todo",
-                    validate: (dataModelName, answers) => {
+                    validate: (dataModelName: string, answers: Input) => {
                         if (!dataModelName.match(/^([a-zA-Z]+)$/)) {
                             return "A valid name must consist of letters only.";
                         }
@@ -105,13 +119,13 @@ export default (): CliCommandScaffoldTemplate<Input> => ({
             const newCodePath = path.join(scaffoldsPath, Case.camel(dataModelName.plural));
             const packageJsonPath = path.relative(
                 context.project.root,
-                findUp.sync("package.json", { cwd: input.pluginsFolderPath })
+                findUp.sync("package.json", { cwd: input.pluginsFolderPath }) as string
             );
             const templateFolderPath = path.join(__dirname, "template");
 
             // Get needed dependencies updates.
-            const dependenciesUpdates = [];
-            const packageJson = await loadJsonFile<Record<string, any>>(packageJsonPath);
+            const dependenciesUpdates: DependenciesUpdates[] = [];
+            const packageJson = await loadJsonFile<PackageJson>(packageJsonPath);
             if (!packageJson?.devDependencies?.["graphql-request"]) {
                 dependenciesUpdates.push(["devDependencies", "graphql-request", "^3.4.0"]);
             }
@@ -327,7 +341,7 @@ export default (): CliCommandScaffoldTemplate<Input> => ({
             await formatCode("**/*.ts", { cwd: newCodePath });
             await formatCode("package.json", { cwd: path.dirname(packageJsonPath) });
         },
-        onSuccess: async () => {
+        onSuccess: async ({ context }) => {
             console.log();
             console.log(
                 `${chalk.green("✔")} New GraphQL API plugins created and imported successfully.`
@@ -335,9 +349,15 @@ export default (): CliCommandScaffoldTemplate<Input> => ({
             console.log();
             console.log(chalk.bold("Next Steps"));
 
+            const projectWithCodeFolders = projectHasCodeFolders(context.project.root);
+            let suffixPath = "/graphql";
+            if (projectWithCodeFolders) {
+                suffixPath = "/code" + suffixPath;
+            }
+
             console.log(
                 `‣ deploy the extended GraphQL API and continue developing by running the ${chalk.green(
-                    "yarn webiny watch api/code/graphql --env dev"
+                    `yarn webiny watch apps/api/${suffixPath} --env dev`
                 )} command`
             );
 

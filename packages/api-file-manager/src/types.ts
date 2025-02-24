@@ -1,20 +1,30 @@
-import { BaseI18NContentContext } from "@webiny/api-i18n-content/types";
-import { FileStorage } from "./plugins/storage/FileStorage";
+import { I18NContext } from "@webiny/api-i18n/types";
+import { FileStorage } from "./storage/FileStorage";
 import { TenancyContext } from "@webiny/api-tenancy/types";
 import { SecurityContext, SecurityPermission } from "@webiny/api-security/types";
-import { ContextInterface } from "@webiny/handler/types";
+import { Context } from "@webiny/api/types";
+import { FileLifecycleEvents } from "./types/file.lifecycle";
+import { CreatedBy, File } from "./types/file";
+import { Topic } from "@webiny/pubsub/types";
+import { CmsContext, CmsEntryListSort } from "@webiny/api-headless-cms/types";
+import { Context as TasksContext } from "@webiny/tasks/types";
+
+export * from "./types/file.lifecycle";
+export * from "./types/file";
+export * from "./types/file";
+
+export interface FileManagerContextObject extends FilesCRUD, SettingsCRUD, SystemCRUD {
+    storage: FileStorage;
+}
 
 export interface FileManagerContext
-    extends ContextInterface,
+    extends Context,
         SecurityContext,
         TenancyContext,
-        BaseI18NContentContext {
-    fileManager: {
-        files: FilesCRUD;
-        settings: SettingsCRUD;
-        storage: FileStorage;
-        system: SystemCRUD;
-    };
+        I18NContext,
+        CmsContext,
+        TasksContext {
+    fileManager: FileManagerContextObject;
 }
 
 export interface FilePermission extends SecurityPermission {
@@ -23,73 +33,56 @@ export interface FilePermission extends SecurityPermission {
     own?: boolean;
 }
 
-export interface File {
-    id: string;
-    key: string;
-    size: number;
-    type: string;
-    name: string;
-    meta: Record<string, any>;
-    tags: string[];
-    createdOn: string;
-    createdBy: CreatedBy;
-    /**
-     * Added with new storage operations refactoring.
-     */
-    tenant: string;
-    locale: string;
-    webinyVersion: string;
-    /**
-     * User can add new fields to the File object so we must allow it in the types.
-     */
-    [key: string]: any;
-}
-
-export interface CreatedBy {
-    id: string;
-    displayName: string;
-    type: string;
-}
-
 export interface FileInput {
+    id: string;
+
+    // In the background, we're actually mapping these to entry-level fields.
+    // This is fine since we don't use revisions for files.
+    createdOn?: string | Date | null;
+    modifiedOn?: string | Date | null;
+    savedOn?: string | Date | null;
+    createdBy?: CreatedBy | null;
+    modifiedBy?: CreatedBy | null;
+    savedBy?: CreatedBy | null;
+
     key: string;
     name: string;
     size: number;
     type: string;
     meta: Record<string, any>;
-    tags: [string];
+    location?: {
+        folderId: string;
+    };
+    tags: string[];
+    aliases: string[];
+    extensions?: Record<string, any>;
 }
 
 export interface FileListWhereParams {
-    search?: string;
-    type?: string;
-    type_in?: string[];
-    tag?: string;
-    tag_in?: string[];
-    tag_and_in?: string[];
-    id_in?: string[];
-    id?: string;
+    AND?: FileListWhereParams[];
+    OR?: FileListWhereParams[];
+    [key: string]: any;
 }
 export interface FilesListOpts {
     search?: string;
-    types?: string[];
-    tags?: string[];
-    ids?: string[];
     limit?: number;
     after?: string;
     where?: FileListWhereParams;
-    sort?: string[];
+    sort?: CmsEntryListSort;
 }
 
 export interface FileListMeta {
-    cursor: string;
+    cursor: string | null;
     totalCount: number;
+    hasMoreItems: boolean;
 }
 
 interface FilesCrudListTagsWhere {
     tag?: string;
     tag_contains?: string;
     tag_in?: string[];
+    tag_not_startsWith?: string;
+    tag_startsWith?: string;
 }
 interface FilesCrudListTagsParams {
     where?: FilesCrudListTagsWhere;
@@ -97,25 +90,30 @@ interface FilesCrudListTagsParams {
     after?: string;
 }
 
-export interface FilesCRUD {
+export interface ListTagsResponse {
+    tag: string;
+    count: number;
+}
+export interface FilesCRUD extends FileLifecycleEvents {
     getFile(id: string): Promise<File>;
     listFiles(opts?: FilesListOpts): Promise<[File[], FileListMeta]>;
-    listTags(params: FilesCrudListTagsParams): Promise<string[]>;
-    createFile(data: FileInput): Promise<File>;
+    listTags(params: FilesCrudListTagsParams): Promise<ListTagsResponse[]>;
+    createFile(data: FileInput, meta?: Record<string, any>): Promise<File>;
     updateFile(id: string, data: Partial<FileInput>): Promise<File>;
     deleteFile(id: string): Promise<boolean>;
-    createFilesInBatch(data: FileInput[]): Promise<File[]>;
+    createFilesInBatch(data: FileInput[], meta?: Record<string, any>): Promise<File[]>;
 }
 
 export interface SystemCRUD {
-    getVersion(): Promise<string>;
+    onSystemBeforeInstall: Topic;
+    onSystemAfterInstall: Topic;
+    getVersion(): Promise<string | null>;
     setVersion(version: string): Promise<void>;
     install(args: { srcPrefix: string }): Promise<boolean>;
-    upgrade(version: string, data?: Record<string, any>): Promise<boolean>;
 }
 
 export interface FileManagerSettings {
-    key: string;
+    tenant: string;
     uploadMinFileSize: number;
     uploadMaxFileSize: number;
     srcPrefix: string;
@@ -123,13 +121,29 @@ export interface FileManagerSettings {
 
 export interface FileManagerSystem {
     version: string;
+    tenant: string;
+}
+
+export interface OnSettingsBeforeUpdateTopicParams {
+    input: Partial<FileManagerSettings>;
+    original: FileManagerSettings;
+    settings: FileManagerSettings;
+}
+
+export interface OnSettingsAfterUpdateTopicParams {
+    input: Partial<FileManagerSettings>;
+    original: FileManagerSettings;
+    settings: FileManagerSettings;
 }
 
 export type SettingsCRUD = {
-    getSettings(): Promise<FileManagerSettings>;
+    getSettings(): Promise<FileManagerSettings | null>;
     createSettings(data?: Partial<FileManagerSettings>): Promise<FileManagerSettings>;
     updateSettings(data: Partial<FileManagerSettings>): Promise<FileManagerSettings>;
     deleteSettings(): Promise<boolean>;
+
+    onSettingsBeforeUpdate: Topic<OnSettingsBeforeUpdateTopicParams>;
+    onSettingsAfterUpdate: Topic<OnSettingsAfterUpdateTopicParams>;
 };
 /********
  * Storage operations
@@ -162,6 +176,10 @@ export interface FileManagerSystemStorageOperationsCreateParams {
     data: FileManagerSystem;
 }
 
+export interface FileManagerSystemStorageOperationsGetParams {
+    tenant: string;
+}
+
 /**
  * @category StorageOperations
  * @category SystemStorageOperations
@@ -170,7 +188,7 @@ export interface FileManagerSystemStorageOperations {
     /**
      * Get the FileManager system data.
      */
-    get: () => Promise<FileManagerSystem | null>;
+    get: (params: FileManagerSystemStorageOperationsGetParams) => Promise<FileManagerSystem | null>;
     /**
      * Update the FileManager system data..
      */
@@ -208,6 +226,14 @@ export interface FileManagerSettingsStorageOperationsCreateParams {
     data: FileManagerSettings;
 }
 
+export interface FileManagerStorageOperationsGetSettingsParams {
+    tenant: string;
+}
+
+export interface FileManagerStorageOperationsDeleteSettings {
+    tenant: string;
+}
+
 /**
  * @category StorageOperations
  * @category SettingsStorageOperations
@@ -216,7 +242,9 @@ export interface FileManagerSettingsStorageOperations {
     /**
      * Get the FileManager system data.
      */
-    get: () => Promise<FileManagerSettings | null>;
+    get: (
+        params: FileManagerStorageOperationsGetSettingsParams
+    ) => Promise<FileManagerSettings | null>;
     /**
      * Create the FileManagerSettingsData
      */
@@ -232,7 +260,7 @@ export interface FileManagerSettingsStorageOperations {
     /**
      * Delete the existing settings.
      */
-    delete: () => Promise<void>;
+    delete: (params: FileManagerStorageOperationsDeleteSettings) => Promise<void>;
 }
 
 /**
@@ -287,20 +315,7 @@ export interface FileManagerFilesStorageOperationsCreateBatchParams {
  * @category FilesStorageOperationsParams
  */
 export interface FileManagerFilesStorageOperationsListParamsWhere {
-    id?: string;
-    id_in?: string[];
-    name?: string;
-    name_contains?: string;
-    tag?: string;
-    tag_contains?: string;
-    tag_in?: string[];
-    createdBy?: string;
-    locale: string;
-    tenant: string;
-    private?: boolean;
-    type?: string;
-    type_in?: string[];
-    search?: string;
+    [key: string]: any;
 }
 /**
  * @category StorageOperations
@@ -309,9 +324,10 @@ export interface FileManagerFilesStorageOperationsListParamsWhere {
  */
 export interface FileManagerFilesStorageOperationsListParams {
     where: FileManagerFilesStorageOperationsListParamsWhere;
-    sort: string[];
+    sort: CmsEntryListSort;
     limit: number;
     after: string | null;
+    search?: string;
 }
 
 /**
@@ -319,20 +335,20 @@ export interface FileManagerFilesStorageOperationsListParams {
  * @category FilesStorageOperations
  * @category FilesStorageOperationsParams
  */
-interface FileManagerFilesStorageOperationsListResponseMeta {
+export interface FileManagerFilesStorageOperationsListResponseMeta {
     hasMoreItems: boolean;
     totalCount: number;
-    cursor: string;
+    cursor: string | null;
 }
 export type FileManagerFilesStorageOperationsListResponse = [
     File[],
     FileManagerFilesStorageOperationsListResponseMeta
 ];
 
-export type FileManagerFilesStorageOperationsTagsResponse = [
-    string[],
-    FileManagerFilesStorageOperationsListResponseMeta
-];
+export interface FileManagerFilesStorageOperationsTagsResponse {
+    tag: string;
+    count: number;
+}
 
 export interface FileManagerFilesStorageOperationsTagsParamsWhere extends FilesCrudListTagsWhere {
     locale: string;
@@ -360,11 +376,11 @@ export interface FileManagerFilesStorageOperations {
     /**
      * Insert the file data into the database.
      */
-    create: (params: FileManagerFilesStorageOperationsCreateParams) => Promise<File | null>;
+    create: (params: FileManagerFilesStorageOperationsCreateParams) => Promise<File>;
     /**
      * Update the file data in the database.
      */
-    update: (params: FileManagerFilesStorageOperationsUpdateParams) => Promise<File | null>;
+    update: (params: FileManagerFilesStorageOperationsUpdateParams) => Promise<File>;
     /**
      * Delete the file from the database.
      */
@@ -384,5 +400,18 @@ export interface FileManagerFilesStorageOperations {
      */
     tags: (
         params: FileManagerFilesStorageOperationsTagsParams
-    ) => Promise<FileManagerFilesStorageOperationsTagsResponse>;
+    ) => Promise<FileManagerFilesStorageOperationsTagsResponse[]>;
+}
+
+export interface FileManagerAliasesStorageOperations {
+    storeAliases(file: File): Promise<void>;
+    deleteAliases(file: File): Promise<void>;
+}
+
+export interface FileManagerStorageOperations<TContext = FileManagerContext> {
+    beforeInit?: (context: TContext) => Promise<void>;
+    files: FileManagerFilesStorageOperations;
+    aliases: FileManagerAliasesStorageOperations;
+    settings: FileManagerSettingsStorageOperations;
+    system: FileManagerSystemStorageOperations;
 }

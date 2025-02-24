@@ -2,7 +2,7 @@ import { ElasticsearchQueryBuilderOperatorPlugin } from "~/plugins/definition/El
 import { ElasticsearchBoolQueryConfig, ElasticsearchQueryBuilderArgsPlugin } from "~/types";
 
 export class ElasticsearchQueryBuilderOperatorLesserThanOrEqualToPlugin extends ElasticsearchQueryBuilderOperatorPlugin {
-    public name = "elasticsearch.queryBuilder.operator.lesserThanOrEqualTo.default";
+    public override name = "elasticsearch.queryBuilder.operator.lesserThanOrEqualTo.default";
 
     public getOperator(): string {
         return "lte";
@@ -13,7 +13,7 @@ export class ElasticsearchQueryBuilderOperatorLesserThanOrEqualToPlugin extends 
         params: ElasticsearchQueryBuilderArgsPlugin
     ): void {
         const { value, basePath } = params;
-        query.must.push({
+        query.filter.push({
             range: {
                 [basePath]: {
                     lte: value

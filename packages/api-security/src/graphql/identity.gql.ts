@@ -7,13 +7,6 @@ type Context = SecurityContext & TenancyContext;
 
 export default new GraphQLSchemaPlugin<Context>({
     typeDefs: /* GraphQL */ `
-        interface SecurityIdentity {
-            id: ID!
-            type: String!
-            displayName: String!
-            permissions: [JSON!]!
-        }
-
         type SecurityIdentityLoginResponse {
             data: SecurityIdentity
             error: SecurityError
@@ -27,7 +20,7 @@ export default new GraphQLSchemaPlugin<Context>({
     resolvers: {
         SecurityIdentity: {
             permissions(_, __, context) {
-                return context.security.getPermissions();
+                return context.security.listPermissions();
             }
         },
         SecurityMutation: {
@@ -39,7 +32,7 @@ export default new GraphQLSchemaPlugin<Context>({
                         await context.security.onLogin.publish({ identity });
                         await context.security.onAfterLogin.publish({ identity });
                     } catch (err) {
-                        return new ErrorResponse({ code: err.code, message: err.message });
+                        return new ErrorResponse(err);
                     }
                 }
                 return new Response(identity);

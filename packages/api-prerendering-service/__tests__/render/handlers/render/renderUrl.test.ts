@@ -1,18 +1,23 @@
 import render from "~/render/renderUrl";
 import prettier from "prettier";
+import { Context } from "~/render/types";
 
 const BASE_HTML = `<html lang="en"><head><meta charset="utf-8" /></head><body><div id="root">A sample page.</div></body></html>`;
 
 describe(`"renderUrl" Function Test`, () => {
     it("should insert basic meta data into the received HTML", async () => {
         const [[html], meta] = await render("https://some-url.com", {
-            context: {} as any,
+            context: {} as Context,
+            // @ts-expect-error
             args: {},
             configuration: {},
-            renderUrlFunction: () => {
+            // @ts-expect-error
+            renderUrlFunction: async () => {
                 return {
                     content: BASE_HTML,
-                    meta: {}
+                    meta: {
+                        interceptedRequests: []
+                    }
                 };
             }
         });
@@ -45,20 +50,19 @@ describe(`"renderUrl" Function Test`, () => {
 
     it("should insert tenant and locale data into the received HTML", async () => {
         const [[html], meta] = await render("https://some-url.com", {
-            context: {} as any,
-            configuration: {},
+            context: {} as Context,
             args: {
-                configuration: {
-                    meta: {
-                        tenant: "root",
-                        locale: "en-US"
-                    }
-                }
+                path: "/",
+                tenant: "root",
+                locale: "en-US"
             },
-            renderUrlFunction: () => {
+            // @ts-expect-error
+            renderUrlFunction: async () => {
                 return {
                     content: BASE_HTML,
-                    meta: {}
+                    meta: {
+                        interceptedRequests: []
+                    }
                 };
             }
         });

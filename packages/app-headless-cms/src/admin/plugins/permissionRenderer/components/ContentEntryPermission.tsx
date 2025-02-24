@@ -7,17 +7,36 @@ import { i18n } from "@webiny/app/i18n";
 import { Elevation } from "@webiny/ui/Elevation";
 import { Checkbox, CheckboxGroup } from "@webiny/ui/Checkbox";
 import { Note } from "./StyledComponents";
+import { BindComponent } from "@webiny/form/types";
+import { CmsSecurityPermission } from "~/types";
 
 const t = i18n.ns("app-headless-cms/admin/plugins/permissionRenderer");
 
-const pwOptions = [
+interface PermissionOption {
+    id: string;
+    name: string;
+}
+const pwOptions: PermissionOption[] = [
     { id: "p", name: t`Publish` },
-    { id: "u", name: t`Unpublish` },
-    { id: "r", name: t`Request review` },
-    { id: "c", name: t`Request changes` }
+    { id: "u", name: t`Unpublish` }
 ];
 
-export const ContentEntryPermission = ({ Bind, data, entity, setValue, title }) => {
+interface ContentEntryPermissionProps {
+    Bind: BindComponent;
+    data: CmsSecurityPermission;
+    entity: string;
+    setValue: (name: string, value: string) => void;
+    title: string;
+    disabled?: boolean;
+}
+export const ContentEntryPermission = ({
+    Bind,
+    data,
+    entity,
+    setValue,
+    title,
+    disabled
+}: ContentEntryPermissionProps) => {
     // Set "cms.contentEntry" access scope to "own" if "cms.contentModel" === "own".
     useEffect(() => {
         if (
@@ -28,9 +47,11 @@ export const ContentEntryPermission = ({ Bind, data, entity, setValue, title }) 
         }
     }, [data]);
 
+    const endpoints = data.endpoints || [];
+
     const disabledPrimaryActions =
         [undefined, "own", "no"].includes(data[`${entity}AccessScope`]) ||
-        !data.endpoints.includes("manage");
+        !endpoints.includes("manage");
 
     return (
         <Elevation z={1} style={{ marginTop: 10 }}>
@@ -53,14 +74,14 @@ export const ContentEntryPermission = ({ Bind, data, entity, setValue, title }) 
                             >
                                 <Select
                                     label={t`Access Scope`}
-                                    disabled={data[`contentModelAccessScope`] === "own"}
+                                    disabled={disabled || data[`contentModelAccessScope`] === "own"}
                                 >
                                     <option value={"full"}>{t`All entries`}</option>
-                                    {data.endpoints.includes("manage") && (
+                                    {(endpoints.includes("manage") && (
                                         <option
                                             value={"own"}
                                         >{t`Only entries created by the user`}</option>
-                                    )}
+                                    )) || <></>}
                                 </Select>
                             </Bind>
                             {data[`contentModelAccessScope`] === "own" && (
@@ -78,19 +99,23 @@ export const ContentEntryPermission = ({ Bind, data, entity, setValue, title }) 
                             <Bind name={`${entity}RWD`}>
                                 <Select
                                     label={t`Primary Actions`}
-                                    disabled={disabledPrimaryActions}
+                                    disabled={disabled || disabledPrimaryActions}
                                 >
                                     <option value={"r"}>{t`Read`}</option>
-                                    {data.endpoints.includes("manage") ? (
+                                    {endpoints.includes("manage") ? (
                                         <option value={"rw"}>{t`Read, write`}</option>
-                                    ) : null}
-                                    {data.endpoints.includes("manage") ? (
+                                    ) : (
+                                        <></>
+                                    )}
+                                    {endpoints.includes("manage") ? (
                                         <option value={"rwd"}>{t`Read, write, delete`}</option>
-                                    ) : null}
+                                    ) : (
+                                        <></>
+                                    )}
                                 </Select>
                             </Bind>
                         </Cell>
-                        {data.endpoints.includes("manage") ? (
+                        {endpoints.includes("manage") ? (
                             <Cell span={12}>
                                 <Bind name={`${entity}PW`}>
                                     <CheckboxGroup
@@ -100,9 +125,12 @@ export const ContentEntryPermission = ({ Bind, data, entity, setValue, title }) 
                                         {({ getValue, onChange }) =>
                                             pwOptions.map(({ id, name }) => (
                                                 <Checkbox
-                                                    disabled={[undefined, "no"].includes(
-                                                        data[`${entity}AccessScope`]
-                                                    )}
+                                                    disabled={
+                                                        disabled ||
+                                                        [undefined, "no"].includes(
+                                                            data[`${entity}AccessScope`]
+                                                        )
+                                                    }
                                                     key={id}
                                                     label={name}
                                                     value={getValue(id)}

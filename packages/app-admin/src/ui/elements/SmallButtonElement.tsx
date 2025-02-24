@@ -1,6 +1,7 @@
 import React from "react";
 import { ButtonDefault, ButtonPrimary, ButtonSecondary } from "@webiny/ui/Button";
 import { ButtonElement, ButtonElementConfig } from "~/ui/elements/ButtonElement";
+import { UiElementRenderProps } from "@webiny/ui-composer/UIElement";
 
 const BUTTONS = {
     default: ButtonDefault,
@@ -8,14 +9,16 @@ const BUTTONS = {
     secondary: ButtonSecondary
 };
 
-export class SmallButtonElement<TRenderProps = any> extends ButtonElement<TRenderProps> {
-    constructor(id: string, config: ButtonElementConfig<TRenderProps>) {
+export class SmallButtonElement<
+    TRenderProps extends UiElementRenderProps = UiElementRenderProps
+> extends ButtonElement<TRenderProps> {
+    public constructor(id: string, config: ButtonElementConfig<TRenderProps>) {
         super(id, config);
 
         this.applyPlugins(SmallButtonElement);
     }
 
-    render(props): React.ReactElement {
+    public override render(props: TRenderProps): React.ReactElement {
         const Component = BUTTONS[this.getType()];
         const onClick = this.getOnClick();
 

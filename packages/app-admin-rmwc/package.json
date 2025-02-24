@@ -1,0 +1,57 @@
+{
+  "name": "@webiny/app-admin-rmwc",
+  "version": "0.0.0",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webiny/webiny-js.git"
+  },
+  "author": "Webiny Ltd.",
+  "license": "MIT",
+  "dependencies": {
+    "@emotion/styled": "11.10.6",
+    "@material-design-icons/svg": "^0.14.13",
+    "@rmwc/base": "14.3.5",
+    "@rmwc/provider": "14.3.5",
+    "@types/react": "18.2.79",
+    "@webiny/app": "0.0.0",
+    "@webiny/app-admin": "0.0.0",
+    "@webiny/app-plugin-admin-welcome-screen": "0.0.0",
+    "@webiny/app-security": "0.0.0",
+    "@webiny/feature-flags": "0.0.0",
+    "@webiny/plugins": "0.0.0",
+    "@webiny/react-router": "0.0.0",
+    "@webiny/ui": "0.0.0",
+    "classnames": "^2.5.1",
+    "emotion": "10.0.27",
+    "lodash": "^4.17.21",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-helmet": "^6.1.0",
+    "react-hotkeyz": "^1.0.4",
+    "react-transition-group": "^4.4.5",
+    "store": "^2.0.12"
+  },
+  "devDependencies": {
+    "@emotion/babel-plugin": "^11.11.0",
+    "@types/react-helmet": "^6.1.11",
+    "@webiny/cli": "0.0.0",
+    "@webiny/project-utils": "0.0.0",
+    "babel-plugin-named-asset-import": "^1.0.0-next.3e165448",
+    "rimraf": "^6.0.1",
+    "typescript": "5.3.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
+  "scripts": {
+    "build": "yarn webiny run build",
+    "watch": "yarn webiny run watch"
+  },
+  "svgo": {
+    "plugins": {
+      "removeViewBox": false
+    }
+  }
+}

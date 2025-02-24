@@ -1,57 +1,57 @@
-import * as React from "react";
+import React from "react";
 import ReactDOM from "react-dom";
 import {
     Dialog as RmwcDialog,
-    DialogProps as RmwcDialogProps,
-    DialogOnCloseEventT,
-    DialogContent as RmwcDialogContent,
-    DialogContentProps as RmwcDialogContentProps,
-    DialogTitle as RmwcDialogTitle,
-    DialogTitleProps as RmwcDialogTitleProps,
     DialogActions as RmwcDialogActions,
     DialogActionsProps as RmwcDialogActionsProps,
     DialogButton as RmwcDialogButton,
-    DialogButtonProps as RmwcDialogButtonProps
+    DialogButtonProps as RmwcDialogButtonProps,
+    DialogContent as RmwcDialogContent,
+    DialogContentProps as RmwcDialogContentProps,
+    DialogOnCloseEventT,
+    DialogProps as RmwcDialogProps,
+    DialogTitle as RmwcDialogTitle,
+    DialogTitleProps as RmwcDialogTitleProps
 } from "@rmwc/dialog";
-import { getClasses } from "../Helpers";
+import { css } from "emotion";
+import { getClasses } from "~/Helpers";
 
 export type DialogOnClose = (event: DialogOnCloseEventT) => void;
 
-export type DialogProps = RmwcDialogProps & {
-    children: any;
-
+export interface DialogProps extends RmwcDialogProps {
     className?: string;
 
     // Component's custom in-line styles.
     style?: React.CSSProperties;
 
-    // If true, dialog will be permanently fixed inside of a view (works for temporary and persistent modes).
-    open?: boolean;
-
     onClose?: (evt: DialogOnCloseEventT) => void;
 
     preventOutsideDismiss?: boolean;
-};
+
+    children?: React.ReactNode;
+}
 
 export class Dialog extends React.Component<DialogProps> {
-    container?: Element;
+    container: HTMLElement;
 
-    constructor(props) {
+    constructor(props: DialogProps) {
         super(props);
-
-        this.container = document.getElementById("dialog-container");
+        /**
+         * We can safely cast
+         */
+        this.container = document.getElementById("dialog-container") as HTMLElement;
 
         if (!this.container) {
             this.container = document.createElement("div");
             this.container.setAttribute("id", "dialog-container");
-            const container: Element = this.container;
+            const container = this.container;
             document.body && document.body.appendChild(container);
         }
     }
 
-    render() {
+    public override render() {
         const { children, ...props } = this.props;
-        const container: Element = this.container;
+        const container = this.container;
 
         // Let's pass "permanent" / "persistent" / "temporary" flags as "mode" prop instead.
         return ReactDOM.createPortal(
@@ -61,18 +61,21 @@ export class Dialog extends React.Component<DialogProps> {
     }
 }
 
-export type DialogTitleProps = RmwcDialogTitleProps & {
+export interface DialogTitleProps extends RmwcDialogTitleProps {
     /**
      * Title text.
      */
     children: React.ReactNode[] | React.ReactNode;
-};
+}
 
 /**
  * Dialog's header, which can accept DialogHeaderTitle component or any other set of components.
  */
 export const DialogTitle = (props: DialogTitleProps) => (
-    <RmwcDialogTitle {...getClasses(props, "webiny-ui-dialog__title")} />
+    <RmwcDialogTitle
+        {...getClasses(props, "webiny-ui-dialog__title")}
+        style={{ marginBottom: "0" }}
+    />
 );
 
 export type DialogContentProps = RmwcDialogContentProps & {
@@ -91,7 +94,7 @@ export const DialogContent = (props: DialogContentProps) => (
     <RmwcDialogContent {...getClasses(props, "webiny-ui-dialog__content")} />
 );
 
-export type DialogActionsProps = RmwcDialogActionsProps & {
+export interface DialogActionsProps extends RmwcDialogActionsProps {
     /**
      * Action buttons.
      */
@@ -99,23 +102,29 @@ export type DialogActionsProps = RmwcDialogActionsProps & {
 
     // Dialog component's custom in-line styles.
     style?: React.CSSProperties;
-};
+}
+
+const addMargin = css`
+    button:last-of-type {
+        margin-left: 8px;
+    }
+`;
 
 /**
  * Can be used to show accept and cancel buttons.
  */
 export const DialogActions = (props: DialogActionsProps) => (
-    <RmwcDialogActions {...getClasses(props, "webiny-ui-dialog__actions")} />
+    <RmwcDialogActions {...getClasses(props, [addMargin, "webiny-ui-dialog__actions"])} />
 );
 
-type DialogButtonProps = RmwcDialogButtonProps & {
+interface DialogButtonProps extends RmwcDialogButtonProps {
     /**
      * Callback to execute then button is clicked.
      */
     onClick?: (e: React.MouseEvent) => void;
 
     className?: string;
-};
+}
 
 /**
  * Use this to show a simple button.
@@ -124,17 +133,12 @@ export const DialogButton = (props: DialogButtonProps) => (
     <RmwcDialogButton {...getClasses(props, "webiny-ui-dialog__button")} />
 );
 
-type DialogCancelProps = RmwcDialogButtonProps & {
-    /**
-     * Children elements.
-     */
-    children: React.ReactNode;
-
+interface DialogCancelProps extends RmwcDialogButtonProps {
     /**
      * Callback to execute then button is clicked.
      */
     onClick?: (e: React.MouseEvent) => void;
-};
+}
 
 /**
  * Use this to close the dialog without taking any additional action.
@@ -144,23 +148,19 @@ export const DialogCancel = (props: DialogCancelProps) => {
         <DialogButton
             {...getClasses(props, "webiny-ui-dialog__button webiny-ui-dialog__button--cancel")}
             action="close"
+            data-testid="dialog-cancel"
         >
             {props.children}
         </DialogButton>
     );
 };
 
-type DialogAcceptProps = RmwcDialogButtonProps & {
-    /**
-     * Children elements.
-     */
-    children: React.ReactNode;
-
+interface DialogAcceptProps extends RmwcDialogButtonProps {
     /**
      * Callback to execute then button is clicked.
      */
     onClick?: (e: React.MouseEvent) => void;
-};
+}
 
 /**
  * Use this to close the dialog without taking any additional action.
@@ -170,6 +170,7 @@ export const DialogAccept = (props: DialogAcceptProps) => {
         <DialogButton
             {...getClasses(props, "webiny-ui-dialog__button webiny-ui-dialog__button--accept")}
             action="accept"
+            data-testid="dialog-accept"
         >
             {props.children}
         </DialogButton>

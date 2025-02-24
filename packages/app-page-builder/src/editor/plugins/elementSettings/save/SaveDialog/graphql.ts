@@ -11,7 +11,11 @@ const FILE_FIELDS = /* GraphQL */ `
         type
         tags
         createdOn
-        meta
+        meta {
+            private
+            width
+            height
+        }
     }
 `;
 
@@ -24,11 +28,22 @@ const ERROR_FIELDS = /* GraphQL */ `
 `;
 
 export const CREATE_FILE = gql`
-    mutation CreateFile($data: FileInput!) {
+    mutation CreateFile($data: FmFileCreateInput!) {
         fileManager {
             createFile(data: $data) {
                 error ${ERROR_FIELDS}
                 data ${FILE_FIELDS}
+            }
+        }
+    }
+`;
+// TODO: for Webiny core team: export these queries from the app-file-manager package, to make them reusable
+export const DELETE_FILE = gql`
+    mutation deleteFile($id: ID!) {
+        fileManager {
+            deleteFile(id: $id) {
+                data
+                error ${ERROR_FIELDS}
             }
         }
     }

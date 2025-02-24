@@ -1,9 +1,9 @@
-import ValidationError from "./../validationError";
+import ValidationError from "~/validationError";
 
 const regex = {
     base: new RegExp(
         // eslint-disable-next-line
-        /^(https?:\/\/)((([a-z\d]([a-z\d-]*[a-z\d])*)\.)+[a-z]{2,}|((\d{1,3}\.){3}\d{1,3}))(\:\d+)?(\/[-a-z\d%_.~+]*)*(\?[;&a-z\d%_.~+=-]*)?(\#[-a-z\d_]*)?$/i
+        /^(https?:\/\/)((([a-z\d]([a-z\d-]*[a-z\d])*)\.)+[a-z]{2,}|((\d{1,3}\.){3}\d{1,3}))(\:\d+)?(\/[-a-z\d%_.~+]*)*(\?[;&a-z\d%_.~+=!-]*)?(\#[-a-z\d_]*)?$/i
     ),
     ip: new RegExp(
         // eslint-disable-next-line
@@ -19,8 +19,8 @@ const regex = {
     )
 };
 
-export default (value: any, params: Array<string>) => {
-    if (!value) {
+export default (value: any, params?: string[]) => {
+    if (!value || !params) {
         return;
     }
     value = value + "";

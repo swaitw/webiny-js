@@ -1,26 +1,22 @@
 import React from "react";
 import { Input } from "@webiny/ui/Input";
-import { trim } from "lodash";
+import trim from "lodash/trim";
 import { BindComponentRenderPropValidation, Form } from "@webiny/form";
-import { Hotkeys } from "react-hotkeyz";
+import { FieldOption } from "~/admin/plugins/editor/formFields/components/types";
 
-type AddOptionInputProps = {
+interface AddOptionInputProps {
     onAdd: (value: string) => void;
-    options: any;
+    options: FieldOption[];
     validation: BindComponentRenderPropValidation;
-};
+}
 
-export default function AddOptionInput({
-    options,
-    onAdd,
-    validation: optionsValidation
-}: AddOptionInputProps) {
+const AddOptionInput = ({ options, onAdd, validation: optionsValidation }: AddOptionInputProps) => {
     return (
         <Form>
             {({ Bind }) => (
                 <Bind
                     name={"newOption"}
-                    validators={value => {
+                    validators={(value: string) => {
                         if (!Array.isArray(options)) {
                             return true;
                         }
@@ -28,6 +24,7 @@ export default function AddOptionInput({
                         if (options.find(item => item.value === value)) {
                             throw new Error(`Option with value "${value}" already exists.`);
                         }
+                        return true;
                     }}
                 >
                     {({ value, onChange, validate, validation: inputValidation }) => {
@@ -36,31 +33,27 @@ export default function AddOptionInput({
                                 ? inputValidation
                                 : optionsValidation;
                         return (
-                            <Hotkeys
-                                zIndex={110}
-                                keys={{
-                                    async enter() {
-                                        if (value) {
-                                            const result = await validate();
-                                            if (result !== false) {
-                                                onChange("");
-                                                onAdd(trim(value));
-                                            }
+                            <Input
+                                validation={validation}
+                                value={value}
+                                onChange={onChange}
+                                onEnter={async () => {
+                                    if (value) {
+                                        const result = await validate();
+                                        if (result !== false) {
+                                            onChange("");
+                                            onAdd(trim(value));
                                         }
                                     }
                                 }}
-                            >
-                                <Input
-                                    validation={validation}
-                                    value={value}
-                                    onChange={onChange}
-                                    placeholder={"Enter an option and press enter"}
-                                />
-                            </Hotkeys>
+                                placeholder={"Enter an option and press enter"}
+                            />
                         );
                     }}
                 </Bind>
             )}
         </Form>
     );
-}
+};
+
+export default AddOptionInput;

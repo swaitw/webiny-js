@@ -11,7 +11,7 @@ import { DynamicFieldsetElement } from "@webiny/app-admin/ui/elements/form/Dynam
 import { ButtonGroupElement } from "@webiny/app-admin/ui/elements/ButtonGroupElement";
 
 export class SocialSettingsView extends PageSettingsFormView {
-    constructor() {
+    public constructor() {
         super("SocialSettingsView");
 
         this.setTitle("Social Media");
@@ -36,8 +36,7 @@ export class SocialSettingsView extends PageSettingsFormView {
             new FileManagerElement("image", {
                 name: "settings.social.image",
                 label: "Social Image",
-                description: `Linked via "og:image" tag. Recommended resolution 1596x545.`,
-                onChangePickAttributes: ["id", "src"]
+                description: `Linked via "og:image" tag. Recommended resolution 1596x545.`
             })
         );
 

@@ -5,7 +5,7 @@
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 
-A plugin that enables [Amazon Cognito](https://aws.amazon.com/cognito/) based authentication in [`@webiny/handler`](../handler) handlers.
+A plugin that enables [Amazon Cognito](https://aws.amazon.com/cognito/) based authentication in [`@webiny/handler`](../handler) routes.
 
 ## Install
 
@@ -47,7 +47,7 @@ export const handler = createHandler({
     graphqlPlugins({ debug }),
     scaffoldsPlugins()
   ],
-  http: { debug }
+  debug
 });
 ```
 

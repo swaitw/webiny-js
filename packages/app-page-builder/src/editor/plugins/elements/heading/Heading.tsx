@@ -1,16 +1,28 @@
 import React from "react";
+import { CompositionScope } from "@webiny/app-admin";
+import { Element } from "@webiny/app-page-builder-elements/types";
+import { HeadingRenderer } from "@webiny/app-page-builder-elements/renderers/heading";
 import { MediumEditorOptions, PbEditorElement } from "~/types";
-import { usePageElements } from "@webiny/app-page-builder-elements/hooks/usePageElements";
-import PeHeading from "./PeHeading";
-import PbHeading from "./PbHeading";
+import { useActiveElementId } from "~/editor";
+import { ActiveHeadingRenderer } from "./ActiveHeadingRenderer";
 
-const Heading: React.FC<{ element: PbEditorElement; mediumEditorOptions?: MediumEditorOptions }> =
-    props => {
-        const pageElements = usePageElements();
-        if (pageElements) {
-            return <PeHeading {...props} />;
-        }
-        return <PbHeading {...props} elementId={props.element.id} />;
-    };
+interface HeadingProps {
+    element: PbEditorElement;
+    mediumEditorOptions?: MediumEditorOptions;
+}
 
-export default React.memo(Heading);
+export const Heading = (props: HeadingProps) => {
+    const { element, ...rest } = props;
+    const [activeElementId] = useActiveElementId();
+    const isActive = activeElementId === element.id;
+
+    if (isActive) {
+        return (
+            <CompositionScope name={"pb.heading"}>
+                <ActiveHeadingRenderer element={element as Element} {...rest} />
+            </CompositionScope>
+        );
+    }
+
+    return <HeadingRenderer element={element as Element} {...rest} />;
+};

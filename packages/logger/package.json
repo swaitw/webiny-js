@@ -1,0 +1,30 @@
+{
+  "name": "@webiny/logger",
+  "version": "0.0.0",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webiny/webiny-js.git"
+  },
+  "description": "Core package for all of our API packages.",
+  "contributors": [
+    "Bruno Zorić <bruno@webiny.com>"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@webiny/cli": "0.0.0",
+    "@webiny/project-utils": "0.0.0",
+    "pino": "^8.21.0",
+    "rimraf": "^6.0.1",
+    "typescript": "5.3.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
+  "scripts": {
+    "build": "yarn webiny run build",
+    "watch": "yarn webiny run watch"
+  },
+  "gitHead": "8476da73b653c89cc1474d968baf55c1b0ae0e5f"
+}

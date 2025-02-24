@@ -1,35 +1,39 @@
 import { interceptConsole } from "./interceptConsole";
-import { GraphQLAfterQueryPlugin, GraphQLBeforeQueryPlugin } from "./types";
-import { ContextInterface, ContextPlugin } from "@webiny/handler/types";
+import { GraphQLAfterQueryPlugin } from "./types";
+import { Context } from "@webiny/api/types";
+import { ContextPlugin } from "@webiny/api";
 
-interface DebugContext extends ContextInterface {
+interface Log {
+    method: string;
+    args: any;
+}
+interface DebugContext extends Context {
     debug: {
-        logs?: { method: string; args: any }[];
+        logs?: Log[];
     };
 }
 
 export default () => [
-    {
-        type: "context",
-        apply(context) {
-            context.debug = context.debug || {};
-            context.debug.logs = [];
-            interceptConsole((method, args) => {
-                context.debug.logs.push({ method, args });
-            });
+    new ContextPlugin<DebugContext>(async context => {
+        if (!context.debug) {
+            context.debug = {};
         }
-    } as ContextPlugin<DebugContext>,
-    {
-        type: "graphql-before-query",
-        apply({ context }) {
-            // Empty logs
+
+        if (!context.debug.logs) {
             context.debug.logs = [];
         }
-    } as GraphQLBeforeQueryPlugin<DebugContext>,
+
+        interceptConsole((method, args) => {
+            (context.debug.logs as Log[]).push({ method, args });
+        });
+    }),
     {
         type: "graphql-after-query",
         apply({ result, context }) {
-            result["extensions"] = { console: context.debug.logs || [] };
+            result["extensions"] = { console: [...(context.debug.logs || [])] };
+            if (context.debug.logs) {
+                context.debug.logs.length = 0;
+            }
         }
     } as GraphQLAfterQueryPlugin<DebugContext>
 ];

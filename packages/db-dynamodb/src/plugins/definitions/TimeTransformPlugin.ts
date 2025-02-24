@@ -1,16 +1,29 @@
-import { ValueTransformPlugin, Params, TransformParams } from "./ValueTransformPlugin";
+import {
+    ValueTransformPlugin,
+    ValueTransformPluginParams,
+    ValueTransformPluginParamsTransformParams
+} from "./ValueTransformPlugin";
 import WebinyError from "@webiny/error";
-import isNumber from "is-number";
 
-const transformTime = (params: TransformParams): number => {
+const transformTime = (params: ValueTransformPluginParamsTransformParams): number => {
     const { value } = params;
-    const typeOf = typeof value;
-    /**
-     * Due to some internal JS stuff, we must check for a number like this.
-     */
-    if (typeOf === "number" || isNumber(value) === true) {
+    if (value === undefined || value === null) {
+        throw new WebinyError(`Time value is null or undefined.`, "TIME_PARSE_ERROR", {
+            value
+        });
+    } else if (typeof value === "boolean" || value === "" || Array.isArray(value)) {
+        throw new WebinyError(
+            "Field value must be a string because field is defined as time.",
+            "TIME_PARSE_ERROR",
+            {
+                value
+            }
+        );
+    }
+    const converted = Number(`${value}`);
+    if (typeof value === "number" || isNaN(converted) === false) {
         return Number(value);
-    } else if (typeOf !== "string") {
+    } else if (typeof value !== "string") {
         throw new WebinyError(
             "Field value must be a string because field is defined as time.",
             "TIME_PARSE_ERROR",
@@ -22,7 +35,7 @@ const transformTime = (params: TransformParams): number => {
     /**
      * This is for the time format, eg. 12:36:25 or 12:36:25.881
      */
-    const [time, milliseconds = 0] = (value as any).split(".");
+    const [time, milliseconds = 0] = value.split(".");
     const values = time.split(":").map(Number);
     if (values.length < 2) {
         throw new WebinyError("Time must contain at least hours and minutes.", "TIME_PARSE_ERROR", {
@@ -34,7 +47,7 @@ const transformTime = (params: TransformParams): number => {
 };
 
 export class TimeTransformPlugin extends ValueTransformPlugin {
-    public constructor(params: Omit<Params, "transform">) {
+    public constructor(params: Omit<ValueTransformPluginParams, "transform">) {
         super({
             transform: transformTime,
             ...params

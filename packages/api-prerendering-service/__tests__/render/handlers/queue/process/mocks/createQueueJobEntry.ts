@@ -1,18 +1,8 @@
-import mdbid from "mdbid";
-import { QueueJob } from "~/types";
+import { mdbid } from "@webiny/utils";
+import { QueueJob, RenderJob } from "~/types";
 
 interface Args {
-    render?: {
-        configuration?: {
-            db?: {
-                namespace?: string;
-            };
-        };
-        tag?: {
-            value: string;
-            key: string;
-        };
-    };
+    render?: RenderJob;
 }
 
 export default function (args: Args): QueueJob {

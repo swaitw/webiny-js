@@ -1,14 +1,11 @@
-import React from "react";
-import Grid from "./Grid";
-import { PbRenderElementPlugin } from "../../../../types";
+import { PbRenderElementPlugin } from "~/types";
+import { GridRenderer } from "@webiny/app-page-builder-elements/renderers/grid";
 
 export default (): PbRenderElementPlugin => {
     return {
         type: "pb-render-page-element",
         name: "pb-render-page-element-grid",
         elementType: "grid",
-        render(props) {
-            return <Grid {...props} />;
-        }
+        render: GridRenderer
     };
 };

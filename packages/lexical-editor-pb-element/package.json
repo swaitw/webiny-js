@@ -1,0 +1,32 @@
+{
+  "name": "@webiny/lexical-editor-pb-element",
+  "version": "0.0.0",
+  "dependencies": {
+    "@emotion/styled": "11.10.6",
+    "@lexical/utils": "0.23.1",
+    "@material-design-icons/svg": "^0.14.13",
+    "@webiny/app-admin": "0.0.0",
+    "@webiny/app-page-builder": "0.0.0",
+    "@webiny/app-page-builder-elements": "0.0.0",
+    "@webiny/lexical-editor": "0.0.0",
+    "@webiny/lexical-nodes": "0.0.0",
+    "@webiny/lexical-theme": "0.0.0",
+    "@webiny/react-composition": "0.0.0",
+    "@webiny/theme": "0.0.0",
+    "@webiny/ui": "0.0.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "@webiny/cli": "0.0.0",
+    "@webiny/project-utils": "0.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
+  "scripts": {
+    "build": "yarn webiny run build",
+    "watch": "yarn webiny run watch"
+  }
+}

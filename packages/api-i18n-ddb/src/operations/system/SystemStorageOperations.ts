@@ -1,9 +1,14 @@
-import { I18NContext, I18NSystem, I18NSystemStorageOperations } from "@webiny/api-i18n/types";
-import { Entity } from "dynamodb-toolbox";
+import type {
+    I18NContext,
+    I18NSystem,
+    I18NSystemStorageOperations,
+    I18NSystemStorageOperationsCreate,
+    I18NSystemStorageOperationsUpdate
+} from "@webiny/api-i18n/types";
 import WebinyError from "@webiny/error";
 import defineSystemEntity from "~/definitions/systemEntity";
 import defineTable from "~/definitions/table";
-import { cleanupItem } from "@webiny/db-dynamodb/utils/cleanup";
+import type { IEntity } from "@webiny/db-dynamodb";
 
 interface ConstructorParams {
     context: I18NContext;
@@ -13,7 +18,7 @@ const SORT_KEY = "I18N";
 
 export class SystemStorageOperations implements I18NSystemStorageOperations {
     private readonly _context: I18NContext;
-    private readonly _entity: Entity<any>;
+    private readonly entity: IEntity;
 
     private get partitionKey(): string {
         const tenant = this._context.tenancy.getCurrentTenant();
@@ -29,22 +34,20 @@ export class SystemStorageOperations implements I18NSystemStorageOperations {
             context
         });
 
-        this._entity = defineSystemEntity({
+        this.entity = defineSystemEntity({
             context,
             table
         });
     }
 
-    public async get(): Promise<I18NSystem> {
+    public async get() {
         const keys = {
             PK: this.partitionKey,
             SK: SORT_KEY
         };
 
         try {
-            const result = await this._entity.get(keys);
-
-            return cleanupItem(this._entity, result?.Item);
+            return await this.entity.getClean<I18NSystem>(keys);
         } catch (ex) {
             throw new WebinyError(
                 "Could not load system data from the database.",
@@ -54,15 +57,15 @@ export class SystemStorageOperations implements I18NSystemStorageOperations {
         }
     }
 
-    public async create({ system }): Promise<I18NSystem> {
+    public async create({ system }: I18NSystemStorageOperationsCreate): Promise<I18NSystem> {
         const keys = {
             PK: this.partitionKey,
             SK: SORT_KEY
         };
         try {
-            await this._entity.put({
-                ...keys,
-                ...system
+            await this.entity.put({
+                ...system,
+                ...keys
             });
             return system;
         } catch (ex) {
@@ -74,15 +77,15 @@ export class SystemStorageOperations implements I18NSystemStorageOperations {
         }
     }
 
-    public async update({ system }): Promise<I18NSystem> {
+    public async update({ system }: I18NSystemStorageOperationsUpdate): Promise<I18NSystem> {
         const keys = {
             PK: this.partitionKey,
             SK: SORT_KEY
         };
         try {
-            await this._entity.put({
-                ...keys,
-                ...system
+            await this.entity.put({
+                ...system,
+                ...keys
             });
             return system;
         } catch (ex) {

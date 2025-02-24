@@ -1,15 +1,26 @@
+/**
+ * @pavel Please review types for security permissions
+ * TODO @ts-refactor
+ */
 import React, { Fragment, useCallback, useMemo } from "react";
+import ContentModelGroupPermission from "./components/ContentModelGroupPermission";
 import { Grid, Cell } from "@webiny/ui/Grid";
 import { Select } from "@webiny/ui/Select";
 import { i18n } from "@webiny/app/i18n";
-import { PermissionInfo, gridNoPaddingClass } from "@webiny/app-admin/components/Permissions";
+import {
+    CannotUseAaclAlert,
+    PermissionInfo,
+    gridNoPaddingClass
+} from "@webiny/app-admin/components/Permissions";
 import { Form } from "@webiny/form";
-import ContentModelGroupPermission from "./components/ContentModelGroupPermission";
 import { ContentModelPermission } from "./components/ContentModelPermission";
 import { ContentEntryPermission } from "./components/ContentEntryPermission";
 import { Checkbox, CheckboxGroup } from "@webiny/ui/Checkbox";
 import { useI18N } from "@webiny/app-i18n/hooks/useI18N";
 import { Link } from "@webiny/react-router";
+import { CmsSecurityPermission } from "~/types";
+import { useSecurity } from "@webiny/app-security";
+import { AaclPermission } from "@webiny/app-admin";
 
 const t = i18n.ns("app-headless-cms/admin/plugins/permissionRenderer");
 
@@ -28,7 +39,18 @@ const API_ENDPOINTS = [
 const GRAPHQL_API_TYPES_LINK =
     "https://www.webiny.com/docs/key-topics/webiny-applications/headless-cms/graphql-api/#graphql-api-types";
 
-export const CMSPermissions = ({ value, onChange }) => {
+export interface CMSPermissionsProps {
+    value: CmsSecurityPermission[];
+    onChange: (value: CmsSecurityPermission[]) => void;
+}
+export const CMSPermissions = ({ value, onChange }: CMSPermissionsProps) => {
+    const { getPermission } = useSecurity();
+
+    // We disable form elements for custom permissions if AACL cannot be used.
+    const cannotUseAAcl = useMemo(() => {
+        return !getPermission<AaclPermission>("aacl", true);
+    }, []);
+
     const { getLocales } = useI18N();
 
     const canRead = useCallback((value: any[], permissionName: string) => {
@@ -57,8 +79,8 @@ export const CMSPermissions = ({ value, onChange }) => {
     };
 
     const onFormChange = useCallback(
-        data => {
-            let newValue = [];
+        (data: CmsSecurityPermission) => {
+            let newValue: CmsSecurityPermission[] = [];
             if (Array.isArray(value)) {
                 // Let's just filter out the `cms*` permission objects.
                 // Based on the `data` we rebuild new permission object from scratch.
@@ -71,15 +93,19 @@ export const CMSPermissions = ({ value, onChange }) => {
             }
 
             if (data.accessLevel === FULL_ACCESS) {
-                newValue.push({ name: CMS_PERMISSION_FULL_ACCESS });
+                newValue.push({
+                    name: CMS_PERMISSION_FULL_ACCESS
+                });
                 onChange(newValue);
                 return;
             }
 
+            const endpoints = data.endpoints;
+
             // Handling custom access level.
-            if (Array.isArray(data.endpoints)) {
+            if (endpoints && Array.isArray(data.endpoints)) {
                 API_ENDPOINTS.forEach(api => {
-                    if (data.endpoints.includes(api.id)) {
+                    if (endpoints.includes(api.id)) {
                         newValue.push({
                             name: `${CMS_PERMISSION}.endpoint.${api.id}`
                         });
@@ -93,7 +119,7 @@ export const CMSPermissions = ({ value, onChange }) => {
             ENTITIES.forEach(entity => {
                 const accessScope = data[`${entity}AccessScope`];
                 if (accessScope && accessScope !== NO_ACCESS) {
-                    const permission = {
+                    const permission: CmsSecurityPermission = {
                         name: `${CMS_PERMISSION}.${entity}`,
                         own: false,
                         rwd: "r",
@@ -128,7 +154,7 @@ export const CMSPermissions = ({ value, onChange }) => {
                                         acc[locale] = props[entity][locale];
                                     }
                                     return acc;
-                                }, {});
+                                }, {} as Record<string, string>);
                             }
                         });
                     }
@@ -154,21 +180,28 @@ export const CMSPermissions = ({ value, onChange }) => {
     const formData = useMemo(() => {
         // This function only runs once on Form mount
         if (!Array.isArray(value)) {
-            return { accessLevel: NO_ACCESS, endpoints: [] };
+            return {
+                accessLevel: NO_ACCESS
+            };
         }
 
-        const hasFullAccess = value.find(
+        const hasFullAccess = value.some(
             item => item.name === CMS_PERMISSION_FULL_ACCESS || item.name === "*"
         );
 
         if (hasFullAccess) {
-            return { accessLevel: FULL_ACCESS, endpoints: API_ENDPOINTS.map(item => item.id) };
+            return {
+                accessLevel: FULL_ACCESS,
+                endpoints: API_ENDPOINTS.map(item => item.id)
+            };
         }
 
         const permissions = value.filter(item => item.name.startsWith(CMS_PERMISSION));
 
         if (!permissions.length) {
-            return { accessLevel: NO_ACCESS, endpoints: [] };
+            return {
+                accessLevel: NO_ACCESS
+            };
         }
 
         // We're dealing with custom permissions. Let's first prepare data for "content models", "content model groups", "content entries" and "environments".
@@ -180,7 +213,7 @@ export const CMSPermissions = ({ value, onChange }) => {
         };
 
         ENTITIES.forEach(entity => {
-            const data = {
+            const data: Record<string, any> = {
                 [`${entity}AccessScope`]: FULL_ACCESS,
                 [`${entity}RWD`]: "r",
                 [`${entity}Props`]: {}
@@ -218,26 +251,35 @@ export const CMSPermissions = ({ value, onChange }) => {
         });
 
         return returnData;
-    }, []);
+    }, []) as CmsSecurityPermission;
 
     const locales = getFormLocales();
 
-    const getSelectedContentModelGroups = useCallback(data => {
+    const getSelectedContentModelGroups = useCallback((data: CmsSecurityPermission) => {
         if (data && data.contentModelGroupAccessScope === "groups" && data.contentModelGroupProps) {
             return data.contentModelGroupProps.groups;
         }
     }, []);
 
     return (
-        <Form data={formData} onChange={onFormChange}>
+        <Form<CmsSecurityPermission> data={formData} onChange={onFormChange}>
             {({ data, Bind, setValue }) => {
+                const endpoints = data.endpoints || [];
                 const graphQLEndpointAccess =
-                    data.endpoints.includes("read") ||
-                    data.endpoints.includes("manage") ||
-                    data.endpoints.includes("preview");
+                    endpoints.includes("read") ||
+                    endpoints.includes("manage") ||
+                    endpoints.includes("preview");
 
                 return (
                     <Fragment>
+                        <Grid className={gridNoPaddingClass}>
+                            <Cell span={12}>
+                                {data.accessLevel === "custom" && cannotUseAAcl && (
+                                    <CannotUseAaclAlert />
+                                )}
+                            </Cell>
+                        </Grid>
+
                         <Grid className={gridNoPaddingClass}>
                             <Cell span={6}>
                                 <PermissionInfo title={t`Access Level`} />
@@ -278,6 +320,7 @@ export const CMSPermissions = ({ value, onChange }) => {
                                                             label={name}
                                                             value={getValue(id)}
                                                             onChange={onChange(id)}
+                                                            disabled={cannotUseAAcl}
                                                         />
                                                     ))
                                                 }
@@ -289,6 +332,7 @@ export const CMSPermissions = ({ value, onChange }) => {
                                     <ContentModelGroupPermission
                                         data={data}
                                         Bind={Bind}
+                                        disabled={cannotUseAAcl}
                                         entity={"contentModelGroup"}
                                         title={"Content Model Groups"}
                                         locales={locales}
@@ -302,6 +346,7 @@ export const CMSPermissions = ({ value, onChange }) => {
                                             data={data}
                                             setValue={setValue}
                                             Bind={Bind}
+                                            disabled={cannotUseAAcl}
                                             entity={"contentModel"}
                                             title={"Content Models"}
                                             selectedContentModelGroups={getSelectedContentModelGroups(
@@ -314,6 +359,7 @@ export const CMSPermissions = ({ value, onChange }) => {
                                     <ContentEntryPermission
                                         data={data}
                                         Bind={Bind}
+                                        disabled={cannotUseAAcl}
                                         setValue={setValue}
                                         entity={"contentEntry"}
                                         title={"Content Entries"}

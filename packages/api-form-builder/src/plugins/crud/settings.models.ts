@@ -1,26 +1,25 @@
-import { validation } from "@webiny/validation";
-import { withFields, string, boolean, fields } from "@commodo/fields";
+import zod from "zod";
 
-export const CreateDataModel = withFields({
-    domain: string(),
-    reCaptcha: fields({
-        value: {},
-        instanceOf: withFields({
-            enabled: boolean(),
-            siteKey: string({ validation: validation.create("maxLength:100") }),
-            secretKey: string({ validation: validation.create("maxLength:100") })
-        })()
-    })
-})();
+export const createSettingsValidation = zod.object({
+    domain: zod.string().optional().default(""),
+    reCaptcha: zod
+        .object({
+            enabled: zod.boolean().optional().nullish().default(null),
+            siteKey: zod.string().max(100).optional().nullish().default(null),
+            secretKey: zod.string().max(100).optional().nullish().default(null)
+        })
+        .passthrough()
+        .default({})
+});
 
-export const UpdateDataModel = withFields({
-    domain: string(),
-    reCaptcha: fields({
-        value: {},
-        instanceOf: withFields({
-            enabled: boolean(),
-            siteKey: string({ validation: validation.create("maxLength:100") }),
-            secretKey: string({ validation: validation.create("maxLength:100") })
-        })()
-    })
-})();
+export const updateSettingsValidation = zod.object({
+    domain: zod.string().optional().default(""),
+    reCaptcha: zod
+        .object({
+            enabled: zod.boolean().optional().nullish().default(null),
+            siteKey: zod.string().max(100).optional().nullish().default(null),
+            secretKey: zod.string().max(100).optional().nullish().default(null)
+        })
+        .passthrough()
+        .default({})
+});

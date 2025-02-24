@@ -1,14 +1,16 @@
-import { get } from "lodash";
+import get from "lodash/get";
 import kebabCase from "lodash/kebabCase";
 import { PbRenderElementStylePlugin } from "../../../../types";
 import { applyPerDeviceStyleWithFallback } from "../../../utils";
 
-const validateSpacingValue = value => {
-    if (!value) {
-        return "0px";
-    }
-    if (value.includes("auto")) {
+const validateSpacingValue = (value: string): string | "auto" => {
+    if (value?.includes("auto")) {
         return "auto";
+    }
+
+    const parsedValue = parseInt(value);
+    if (Number.isNaN(parsedValue)) {
+        return "0px";
     }
 
     return value;

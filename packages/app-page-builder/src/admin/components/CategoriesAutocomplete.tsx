@@ -1,7 +1,7 @@
 import React from "react";
-import { AutoComplete } from "@webiny/ui/AutoComplete";
+import { AutoComplete, AutoCompleteProps } from "@webiny/ui/AutoComplete";
 import gql from "graphql-tag";
-import { get } from "lodash";
+import get from "lodash/get";
 import { useQuery } from "@apollo/react-hooks";
 
 const GET_CATEGORY = gql`
@@ -30,7 +30,8 @@ const LIST_CATEGORIES = gql`
     }
 `;
 
-export function CategoriesAutocomplete(props) {
+type CategoriesAutocompleteProps = Partial<AutoCompleteProps>;
+export const CategoriesAutocomplete = (props: CategoriesAutocompleteProps) => {
     const listCategoriesQuery = useQuery(LIST_CATEGORIES);
     const getCategoryQuery = useQuery(GET_CATEGORY, {
         skip: !props.value,
@@ -49,4 +50,4 @@ export function CategoriesAutocomplete(props) {
             value={publishedPage}
         />
     );
-}
+};

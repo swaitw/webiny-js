@@ -1,16 +1,16 @@
 import React, { Fragment, useEffect, useRef } from "react";
-import shortid from "shortid";
-import EditorJS from "@editorjs/editorjs";
-import {
+import EditorJS, {
     LogLevels,
     OutputBlockData,
     OutputData,
     SanitizerConfig,
     ToolSettings
-} from "@editorjs/editorjs/types";
-import { FormElementMessage } from "../FormElementMessage";
+} from "@editorjs/editorjs";
+import { FormElementMessage } from "~/FormElementMessage";
 import { css } from "emotion";
 import classNames from "classnames";
+import { FormComponentProps } from "@webiny/form";
+import { generateAlphaNumericId } from "@webiny/utils/generateId";
 
 const classes = {
     wrapper: css({
@@ -26,68 +26,113 @@ const classes = {
     })
 };
 
-type EditorJSType = {
+interface EditorJSType {
     destroy?: () => void;
     save: () => Promise<any>;
-};
+}
 
-export type OnReadyParams = { editor: any; initialData: OutputData };
+export interface OnReadyParams {
+    editor: any;
+    initialData: OutputData;
+}
 
-export type RichTextEditorProps = {
+export type RichTextEditorValue = OutputBlockData[];
+
+export interface RichTextEditorProps {
     autofocus?: boolean;
+    className?: string;
     context?: { [key: string]: any };
+    description?: string;
+    disabled?: boolean;
+    label?: string;
     logLevel?: string;
     minHeight?: number;
-    onChange?: (data: OutputBlockData[]) => void;
+    onChange?: (data: RichTextEditorValue) => void;
     onReady?: (params: OnReadyParams) => void;
     placeholder?: string;
     readOnly?: boolean;
     sanitizer?: SanitizerConfig;
-    tools?: { [toolName: string]: ToolSettings };
-    value?: OutputBlockData[];
-    label?: string;
-    description?: string;
-    disabled?: boolean;
+    tools?: {
+        [toolName: string]: ToolSettings;
+    };
+    validation?: FormComponentProps["validation"];
+    value?: RichTextEditorValue;
+}
+
+const waitForDom = (id: string, callback: () => void) => {
+    let timeSpent = 0;
+    const interval = setInterval(() => {
+        if (timeSpent > 1000) {
+            clearInterval(interval);
+            return;
+        }
+
+        const dom = document.querySelector(`#${id}`);
+        if (!dom) {
+            timeSpent += 10;
+            return;
+        }
+
+        clearInterval(interval);
+        callback();
+    }, 10);
+
+    return () => {
+        clearInterval(interval);
+    };
 };
 
 export const RichTextEditor = (props: RichTextEditorProps) => {
-    const elementId = useRef("rte-" + shortid.generate());
+    const elementId = useRef("rte-" + generateAlphaNumericId());
     const editorRef = useRef<EditorJSType>();
 
     useEffect(() => {
         const { value, context, onReady, ...nativeProps } = props;
+
         const initialData = value ? { blocks: value } : { blocks: [] };
 
-        editorRef.current = new EditorJS({
-            ...nativeProps,
-            holder: elementId.current,
-            logLevel: "ERROR" as LogLevels.ERROR,
-            data: initialData,
-            onChange: async () => {
-                const { blocks: data } = await editorRef.current.save();
-                props.onChange(data);
-            },
-            onReady() {
-                if (typeof onReady !== "function") {
-                    return;
-                }
-                onReady({ editor: editorRef.current, initialData });
-            },
-            tools: Object.keys(props.tools || {}).reduce((tools, name) => {
-                const tool = props.tools[name];
-                tools[name] = tool;
-                if (!tool.config) {
-                    tool.config = { context };
-                } else if (typeof tool.config === "function") {
-                    tool.config = tool.config();
-                } else {
-                    tool.config = { ...tool.config, context };
-                }
-                return tools;
-            }, {})
+        const clearWait = waitForDom(elementId.current, () => {
+            editorRef.current = new EditorJS({
+                ...nativeProps,
+                holder: elementId.current,
+                logLevel: "ERROR" as LogLevels.ERROR,
+                data: initialData,
+                onChange: async () => {
+                    if (!editorRef.current) {
+                        return;
+                    }
+                    const { blocks: data } = await editorRef.current.save();
+                    if (!props.onChange) {
+                        return;
+                    }
+                    props.onChange(data);
+                },
+                onReady() {
+                    if (typeof onReady !== "function") {
+                        return;
+                    }
+                    onReady({ editor: editorRef.current, initialData });
+                },
+                tools: Object.keys(props.tools || {}).reduce((tools, name) => {
+                    const tool = props.tools ? props.tools[name] : null;
+                    if (!tool) {
+                        return tools;
+                    }
+                    tools[name] = tool;
+                    if (!tool.config) {
+                        tool.config = { context };
+                    } else if (typeof tool.config === "function") {
+                        tool.config = tool.config();
+                    } else {
+                        tool.config = { ...tool.config, context };
+                    }
+                    return tools;
+                }, {} as Record<string, ToolSettings>)
+            });
         });
 
-        return async () => {
+        return () => {
+            clearWait();
             if (!editorRef.current || typeof editorRef.current.destroy !== "function") {
                 return;
             }
@@ -96,11 +141,13 @@ export const RichTextEditor = (props: RichTextEditorProps) => {
         };
     }, []);
 
-    const { label, description, disabled } = props;
+    const { label, description, disabled, validation, className } = props;
 
     return (
         <Fragment>
-            <div className={classNames(classes.wrapper, { [classes.disable]: disabled })}>
+            <div
+                className={classNames(classes.wrapper, className, { [classes.disable]: disabled })}
+            >
                 {label && (
                     <div
                         className={classNames(
@@ -113,7 +160,12 @@ export const RichTextEditor = (props: RichTextEditorProps) => {
                 )}
                 <div id={elementId.current} />
             </div>
-            {description && <FormElementMessage>{description}</FormElementMessage>}
+            {validation && validation.isValid === false && (
+                <FormElementMessage error>{validation.message}</FormElementMessage>
+            )}
+            {validation && validation.isValid !== false && description && (
+                <FormElementMessage>{description}</FormElementMessage>
+            )}
         </Fragment>
     );
 };

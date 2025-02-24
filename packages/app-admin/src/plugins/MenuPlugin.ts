@@ -1,6 +1,26 @@
 import * as React from "react";
 import { Plugin } from "@webiny/plugins";
-import { ItemProps, MenuProps, SectionProps } from "~/ui/views/NavigationView/legacyMenu";
+
+export interface MenuProps {
+    name: string;
+    label: React.ReactNode;
+    icon: React.ReactElement;
+    children: React.ReactNode;
+    onClick?: (toggleSection: () => void) => void;
+}
+
+export interface SectionProps {
+    label: React.ReactNode;
+    children: React.ReactNode;
+    icon?: React.ReactElement;
+}
+
+export interface ItemProps {
+    label: React.ReactNode;
+    path: string;
+    style?: React.CSSProperties;
+    onClick?: () => any;
+}
 
 interface Props {
     Menu: React.ComponentType<MenuProps>;
@@ -14,10 +34,10 @@ interface Config {
 }
 
 export class MenuPlugin extends Plugin {
-    public static readonly type = "admin-menu";
-    private _config: Partial<Config>;
+    public static override readonly type: string = "admin-menu";
+    private readonly _config: Partial<Config>;
 
-    constructor(config?: Config) {
+    public constructor(config?: Config) {
         super();
         this._config = config || {};
     }
@@ -26,7 +46,10 @@ export class MenuPlugin extends Plugin {
         return this._config.order;
     }
 
-    render(props): React.ReactNode {
+    public render(props: Props): React.ReactNode {
+        if (!this._config.render) {
+            return null;
+        }
         return this._config.render(props);
     }
 }

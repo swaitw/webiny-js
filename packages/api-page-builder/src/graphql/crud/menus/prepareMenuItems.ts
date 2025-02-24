@@ -1,8 +1,7 @@
-import cloneDeep from "lodash/cloneDeep";
-import { PbContext } from "../../types";
+import { ListPagesParamsWhere, PbContext } from "../../types";
 import { Menu } from "~/types";
 
-const applyCleanup = async items => {
+const applyCleanup = async (items: Menu["items"]) => {
     if (!Array.isArray(items)) {
         return;
     }
@@ -21,7 +20,13 @@ const applyCleanup = async items => {
     }
 };
 
-const applyModifier = async ({ items, modifier, context }) => {
+interface ApplyModifierParams {
+    items: Menu["items"];
+    modifier: (args: { item: Record<string, any>; context: PbContext }) => void;
+    context: PbContext;
+}
+
+const applyModifier = async ({ items, modifier, context }: ApplyModifierParams) => {
     if (!Array.isArray(items)) {
         return;
     }
@@ -39,7 +44,7 @@ const prepareItems = async ({
     modifiers,
     context
 }: {
-    items?: Record<string, any>[];
+    items: Menu["items"];
     modifiers: Array<(args: { item: Record<string, any>; context: PbContext }) => void>;
     context: PbContext;
 }) => {
@@ -53,8 +58,7 @@ const prepareItems = async ({
 };
 
 export default async ({ menu, context }: { menu: Menu; context: PbContext }) => {
-    // TODO determine real type
-    const items: any = cloneDeep(menu.items);
+    const items = structuredClone(menu.items);
     // Each modifier is recursively applied to all items.
     await prepareItems({
         items,
@@ -64,7 +68,7 @@ export default async ({ menu, context }: { menu: Menu; context: PbContext }) => 
                 if (item.type === "page") {
                     let page;
                     try {
-                        page = await context.pageBuilder.pages.getPublishedById({
+                        page = await context.pageBuilder.getPublishedPageById({
                             id: item.page
                         });
                     } catch {}
@@ -82,12 +86,15 @@ export default async ({ menu, context }: { menu: Menu; context: PbContext }) => 
                 if (item.type === "pages-list") {
                     const { category, sortBy, sortDir, tags, tagsRule } = item;
 
-                    const where = { category, tags: null };
+                    const where: ListPagesParamsWhere = {
+                        category,
+                        tags: undefined
+                    };
                     if (tags) {
                         where.tags = { query: tags, rule: tagsRule || "all" };
                     }
 
-                    const [children] = await context.pageBuilder.pages.listPublished({
+                    const [children] = await context.pageBuilder.listPublishedPages({
                         limit: 200,
                         where,
                         sort: [`${sortBy}_${sortDir.toUpperCase()}`]

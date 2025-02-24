@@ -1,0 +1,40 @@
+{
+  "name": "@webiny/api-wcp",
+  "version": "0.0.0",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webiny/webiny-js.git",
+    "directory": "packages/api-wcp"
+  },
+  "description": "A set of backend Webiny Control Panel (WCP)-related features.",
+  "author": "Webiny Ltd.",
+  "license": "MIT",
+  "dependencies": {
+    "@webiny/api": "0.0.0",
+    "@webiny/error": "0.0.0",
+    "@webiny/handler-graphql": "0.0.0",
+    "@webiny/wcp": "0.0.0",
+    "node-fetch": "2.6.7"
+  },
+  "devDependencies": {
+    "@webiny/cli": "0.0.0",
+    "@webiny/project-utils": "0.0.0",
+    "jest-dynalite": "^3.6.1",
+    "rimraf": "^6.0.1",
+    "typescript": "5.3.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
+  "scripts": {
+    "watch": "yarn webiny run watch",
+    "build": "yarn webiny run build"
+  },
+  "adio": {
+    "ignoreDirs": [
+      "__tests__"
+    ]
+  }
+}

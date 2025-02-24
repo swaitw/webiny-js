@@ -15,7 +15,7 @@ export const listItem = css({
     "&:last-child": {
         borderBottom: "none"
     },
-    ".mdc-list-item__graphic": {
+    ".mdc-deprecated-list-item__graphic": {
         marginRight: 20
     }
 });
@@ -31,7 +31,7 @@ export const TitleContent = styled("div")({
 });
 
 export class PageSettingsTabElementRenderer extends UIRenderer<PageSettingsTabElement> {
-    render({ element }: UIRenderParams<PageSettingsTabElement>): React.ReactNode {
+    public render({ element }: UIRenderParams<PageSettingsTabElement>): React.ReactNode {
         const { setActiveSection } = element
             .getView<PageSettingsView>(PageSettingsView)
             .getPageSettingsHook();
@@ -43,11 +43,11 @@ export class PageSettingsTabElementRenderer extends UIRenderer<PageSettingsTabEl
                 onClick={() => setActiveSection(element.id)}
             >
                 <ListItemGraphic>
-                    <Icon icon={element.config.icon as any} />
+                    <Icon icon={element.config.icon} />
                 </ListItemGraphic>
                 <TitleContent>
                     <ListItemTitle>{element.config.title}</ListItemTitle>
-                    <Typography use={"subtitle2"}>{element.config.description}</Typography>
+                    <Typography use={"body2"}>{element.config.description}</Typography>
                 </TitleContent>
             </ListItem>
         );

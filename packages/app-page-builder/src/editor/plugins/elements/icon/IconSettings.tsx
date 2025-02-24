@@ -1,16 +1,14 @@
-import React, { useCallback } from "react";
+import React from "react";
 import { css } from "emotion";
-import { useRecoilValue } from "recoil";
-import { PbEditorPageElementSettingsRenderComponentProps } from "../../../../types";
-import { activeElementAtom, elementWithChildrenByIdSelector } from "../../../recoil/modules";
+import { PbEditorElement, PbEditorPageElementSettingsRenderComponentProps } from "~/types";
 // Components
-import IconPicker from "../../../components/IconPicker";
+import { IconPicker } from "@webiny/app-admin/components/IconPicker";
+import { ICON_PICKER_SIZE } from "@webiny/app-admin/components/IconPicker/types";
 import Accordion from "../../elementSettings/components/Accordion";
 import Wrapper from "../../elementSettings/components/Wrapper";
 import InputField from "../../elementSettings/components/InputField";
-import { BaseColorPicker } from "../../elementSettings/components/ColorPicker";
-import useUpdateHandlers from "../../elementSettings/useUpdateHandlers";
-import { updateIconElement } from "../utils/iconUtils";
+import { useActiveElement } from "~/editor";
+import { useUpdateIconSettings } from "~/editor/plugins/elementSettings/hooks/useUpdateIconSettings";
 
 const classes = {
     grid: css({
@@ -27,50 +25,25 @@ const classes = {
     })
 };
 
-const IconSettings: React.FunctionComponent<PbEditorPageElementSettingsRenderComponentProps> = ({
+const IconSettings = ({
     defaultAccordionValue
-}) => {
-    const activeElementId = useRecoilValue(activeElementAtom);
-    const element = useRecoilValue(elementWithChildrenByIdSelector(activeElementId));
-    const { data: { icon = {} } = {} } = element;
-
-    const { getUpdateValue, getUpdatePreview } = useUpdateHandlers({
-        element,
-        dataNamespace: "data.icon",
-        postModifyElement: updateIconElement
-    });
-
-    const updateIcon = useCallback(value => getUpdateValue("id")(value?.id), [getUpdateValue]);
-    const updateColor = useCallback(
-        (value: string) => getUpdateValue("color")(value),
-        [getUpdateValue]
-    );
-    const updateColorPreview = useCallback(
-        (value: string) => getUpdatePreview("color")(value),
-        [getUpdatePreview]
-    );
-    const updateWidth = useCallback(
-        (value: string) => getUpdateValue("width")(value),
-        [getUpdateValue]
-    );
+}: PbEditorPageElementSettingsRenderComponentProps) => {
+    const [activeElement] = useActiveElement<PbEditorElement>();
+    const { iconWidth, iconValue, onIconChange, onIconWidthChange, HiddenIconMarkup } =
+        useUpdateIconSettings(activeElement);
 
     return (
         <Accordion title={"Icon"} defaultValue={defaultAccordionValue}>
             <>
-                <Wrapper containerClassName={classes.grid} label={"Icon"}>
+                <Wrapper
+                    containerClassName={classes.grid}
+                    label={"Icon"}
+                    rightCellClassName={classes.rightCellStyle}
+                >
                     <IconPicker
-                        value={icon.id}
-                        onChange={updateIcon}
-                        removable={false}
-                        useInSidebar={true}
-                    />
-                </Wrapper>
-
-                <Wrapper containerClassName={classes.grid} label={"Color"}>
-                    <BaseColorPicker
-                        value={icon.color}
-                        updateValue={updateColor}
-                        updatePreview={updateColorPreview}
+                        size={ICON_PICKER_SIZE.SMALL}
+                        value={iconValue}
+                        onChange={onIconChange}
                     />
                 </Wrapper>
                 <Wrapper
@@ -82,11 +55,12 @@ const IconSettings: React.FunctionComponent<PbEditorPageElementSettingsRenderCom
                 >
                     <InputField
                         className={classes.widthInputStyle}
-                        value={icon.width}
-                        onChange={updateWidth}
+                        value={iconWidth}
+                        onChange={onIconWidthChange}
                         placeholder="50"
                     />
                 </Wrapper>
+                <HiddenIconMarkup />
             </>
         </Accordion>
     );

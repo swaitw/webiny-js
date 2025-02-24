@@ -1,12 +1,12 @@
-import { useFruitManageHandler } from "../utils/useFruitManageHandler";
-import { useContentGqlHandler } from "../utils/useContentGqlHandler";
-import { useFruitReadHandler } from "../utils/useFruitReadHandler";
-import { useCategoryManageHandler } from "../utils/useCategoryManageHandler";
-import { useProductManageHandler } from "../utils/useProductManageHandler";
-import { useProductReadHandler } from "../utils/useProductReadHandler";
-import { useArticleManageHandler } from "../utils/useArticleManageHandler";
-import { useArticleReadHandler } from "../utils/useArticleReadHandler";
-import { setupContentModelGroup, setupContentModels } from "../utils/setup";
+import { useFruitManageHandler } from "../testHelpers/useFruitManageHandler";
+import { useGraphQLHandler } from "../testHelpers/useGraphQLHandler";
+import { useFruitReadHandler } from "../testHelpers/useFruitReadHandler";
+import { useCategoryManageHandler } from "../testHelpers/useCategoryManageHandler";
+import { useProductManageHandler } from "../testHelpers/useProductManageHandler";
+import { useProductReadHandler } from "../testHelpers/useProductReadHandler";
+import { useArticleManageHandler } from "../testHelpers/useArticleManageHandler";
+import { useArticleReadHandler } from "../testHelpers/useArticleReadHandler";
+import { setupContentModelGroup, setupContentModels } from "../testHelpers/setup";
 import { Fruit } from "./mocks/contentModels";
 
 const appleData: Fruit = {
@@ -22,7 +22,8 @@ const appleData: Fruit = {
     dateTime: new Date("2020-12-15T12:12:21").toISOString(),
     dateTimeZ: "2020-12-15T14:52:41+01:00",
     time: "11:39:58",
-    description: "fruit named apple"
+    description: "fruit named apple",
+    slug: null
 };
 
 const strawberryData: Fruit = {
@@ -38,7 +39,8 @@ const strawberryData: Fruit = {
     dateTime: new Date("2020-12-19T12:12:21").toISOString(),
     dateTimeZ: "2020-12-25T14:52:41+01:00",
     time: "12:44:55",
-    description: "strawberry named fruit"
+    description: "strawberry named fruit",
+    slug: null
 };
 
 const bananaData: Fruit = {
@@ -54,7 +56,8 @@ const bananaData: Fruit = {
     dateTime: new Date("2020-12-03T12:12:21").toISOString(),
     dateTimeZ: "2020-12-03T14:52:41+01:00",
     time: "11:59:01",
-    description: "fruit banana named"
+    description: "fruit banana named",
+    slug: null
 };
 
 jest.setTimeout(100000);
@@ -63,13 +66,13 @@ describe("filtering", () => {
     const manageOpts = { path: "manage/en-US" };
     const readOpts = { path: "read/en-US" };
 
-    const mainManager = useContentGqlHandler(manageOpts);
+    const mainManager = useGraphQLHandler(manageOpts);
 
-    const { until, createFruit, publishFruit } = useFruitManageHandler({
+    const { createFruit, publishFruit } = useFruitManageHandler({
         ...manageOpts
     });
 
-    const filterOutFields = ["meta"];
+    const filterOutFields = ["meta", "deletedOn", "deletedBy", "restoredOn", "restoredBy"];
 
     const createAndPublishFruit = async (data: any): Promise<Fruit> => {
         const [response] = await createFruit({
@@ -85,6 +88,7 @@ describe("filtering", () => {
         const fruit: Fruit = publish.data.publishFruit.data;
 
         for (const field of filterOutFields) {
+            // @ts-expect-error
             delete fruit[field];
         }
         return fruit;
@@ -104,15 +108,6 @@ describe("filtering", () => {
         return createFruits();
     };
 
-    const waitFruits = async (name: string, { listFruits }: any) => {
-        // If this `until` resolves successfully, we know entry is accessible via the "read" API
-        await until(
-            () => listFruits({}).then(([data]) => data),
-            ({ data }) => data.listFruits.data.length === 3,
-            { name: `list all fruits - ${name}` }
-        );
-    };
-
     test("should filter fruits by date and sort asc", async () => {
         const { apple, strawberry } = await setupFruits();
 
@@ -120,8 +115,6 @@ describe("filtering", () => {
             ...readOpts
         });
         const { listFruits } = handler;
-
-        await waitFruits("should filter fruits by date and sort asc", handler);
 
         const [response] = await listFruits({
             where: {
@@ -153,8 +146,6 @@ describe("filtering", () => {
         });
         const { listFruits } = handler;
 
-        await waitFruits("should filter fruits by date and sort desc", handler);
-
         const [response] = await listFruits({
             where: {
                 date_gte: "2020-12-15"
@@ -184,8 +175,6 @@ describe("filtering", () => {
             ...readOpts
         });
         const { listFruits } = handler;
-
-        await waitFruits("should filter fruits by dateTime and sort asc", handler);
 
         const [response] = await listFruits({
             where: {
@@ -218,8 +207,6 @@ describe("filtering", () => {
         });
         const { listFruits } = handler;
 
-        await waitFruits("should filter fruits by dateTimeZ and sort asc", handler);
-
         const [response] = await listFruits({
             where: {
                 dateTimeZ_gte: "2020-12-15T14:52:41+01:00",
@@ -250,11 +237,6 @@ describe("filtering", () => {
             ...readOpts
         });
         const { listFruits } = handler;
-
-        await waitFruits(
-            "should filter fruits by date, dateTime, dateTimeZ and sort desc",
-            handler
-        );
 
         const [response] = await listFruits({
             where: {
@@ -291,7 +273,6 @@ describe("filtering", () => {
         });
         const { listFruits } = handler;
 
-        await waitFruits("should filter fruits by time and sort desc", handler);
         const [response] = await listFruits({
             where: {
                 time_gte: "11:59:01",
@@ -323,8 +304,6 @@ describe("filtering", () => {
         });
         const { listFruits } = handler;
 
-        await waitFruits("should sort by time asc", handler);
-
         const [response] = await listFruits({
             sort: ["time_ASC"]
         });
@@ -352,8 +331,6 @@ describe("filtering", () => {
                 ...readOpts
             });
             const { listFruits } = handler;
-
-            await waitFruits("GraphQL filtering by a boolean attribute", handler);
 
             await listFruits({
                 where: {
@@ -424,8 +401,6 @@ describe("filtering", () => {
                 ...readOpts
             });
             const { listFruits } = handler;
-
-            await waitFruits("GraphQL filtering by a number attribute", handler);
 
             await listFruits({
                 where: {
@@ -585,7 +560,15 @@ describe("filtering", () => {
                 image: "banana.jpg",
                 category: {
                     modelId: categoryModel.modelId,
-                    entryId: fruitCategoryId
+                    id: fruitCategoryId
+                },
+                variant: {
+                    images: null,
+                    options: {
+                        categories: null,
+                        image: null,
+                        longText: null
+                    }
                 }
             }
         });
@@ -607,7 +590,15 @@ describe("filtering", () => {
                 image: "plum.jpg",
                 category: {
                     modelId: categoryModel.modelId,
-                    entryId: fruitCategoryId
+                    id: fruitCategoryId
+                },
+                variant: {
+                    images: null,
+                    options: {
+                        categories: null,
+                        image: null,
+                        longText: null
+                    }
                 }
             }
         });
@@ -633,7 +624,7 @@ describe("filtering", () => {
                 image: "tesla.jpg",
                 category: {
                     modelId: categoryModel.modelId,
-                    entryId: carManufacturerCategoryId
+                    id: carManufacturerCategoryId
                 }
             }
         });
@@ -655,7 +646,7 @@ describe("filtering", () => {
                 image: "dacia.jpg",
                 category: {
                     modelId: categoryModel.modelId,
-                    entryId: carManufacturerCategoryId
+                    id: carManufacturerCategoryId
                 }
             }
         });
@@ -684,19 +675,31 @@ describe("filtering", () => {
             revision: teslaProductUnpublished.id
         });
 
+        expect(publishBananaResponse).toEqual({
+            data: {
+                publishProduct: {
+                    data: {
+                        ...bananaProductUnpublished,
+                        modifiedOn: expect.toBeDateString(),
+                        firstPublishedOn: expect.toBeDateString(),
+                        lastPublishedOn: expect.toBeDateString(),
+                        meta: {
+                            ...bananaProductUnpublished.meta,
+                            locked: true,
+                            status: "published"
+                        },
+                        savedOn: expect.any(String)
+                    },
+                    error: null
+                }
+            }
+        });
+
         const bananaProduct = publishBananaResponse.data.publishProduct.data;
         const plumProduct = publishPlumResponse.data.publishProduct.data;
         const teslaProduct = publishTeslaResponse.data.publishProduct.data;
         const daciaProduct = publishDaciaResponse.data.publishProduct.data;
 
-        // If this `until` resolves successfully, we know entry is accessible via the "read" API
-        await until(
-            () => productReader.listProducts({}).then(([data]) => data),
-            ({ data }) => {
-                return data.listProducts.data.length === 4;
-            },
-            { name: "list all products" }
-        );
         /*************************
          * MANAGERS
          **************************/
@@ -705,7 +708,9 @@ describe("filtering", () => {
          */
         const [equalManagerResponse] = await productManager.listProducts({
             where: {
-                category: fruitCategoryId
+                category: {
+                    id: fruitCategoryId
+                }
             },
             sort: ["title_ASC"]
         });
@@ -728,7 +733,9 @@ describe("filtering", () => {
          */
         const [notEqualManagerResponse] = await productManager.listProducts({
             where: {
-                category_not: fruitCategoryId
+                category: {
+                    id_not: fruitCategoryId
+                }
             },
             sort: ["title_ASC"]
         });
@@ -751,7 +758,9 @@ describe("filtering", () => {
          */
         const [inManagerResponse] = await productManager.listProducts({
             where: {
-                category_in: [carManufacturerCategoryId]
+                category: {
+                    id_in: [carManufacturerCategoryId]
+                }
             },
             sort: ["title_ASC"]
         });
@@ -774,7 +783,9 @@ describe("filtering", () => {
          */
         const [notInManagerResponse] = await productManager.listProducts({
             where: {
-                category_not_in: [carManufacturerCategoryId]
+                category: {
+                    id_not_in: [carManufacturerCategoryId]
+                }
             },
             sort: ["title_ASC"]
         });
@@ -797,7 +808,9 @@ describe("filtering", () => {
          */
         const [inMultipleManagerResponse] = await productManager.listProducts({
             where: {
-                category_in: [fruitCategoryId, carManufacturerCategoryId]
+                category: {
+                    id_in: [fruitCategoryId, carManufacturerCategoryId]
+                }
             },
             sort: ["title_ASC"]
         });
@@ -820,7 +833,9 @@ describe("filtering", () => {
          */
         const [notInMultipleManagerResponse] = await productManager.listProducts({
             where: {
-                category_not_in: [fruitCategoryId, carManufacturerCategoryId]
+                category: {
+                    id_not_in: [fruitCategoryId, carManufacturerCategoryId]
+                }
             },
             sort: ["title_ASC"]
         });
@@ -868,7 +883,9 @@ describe("filtering", () => {
          */
         const [equalReaderResponse] = await productReader.listProducts({
             where: {
-                category: carManufacturerCategoryId
+                category: {
+                    id: carManufacturerCategoryId
+                }
             },
             sort: ["title_ASC"]
         });
@@ -891,7 +908,9 @@ describe("filtering", () => {
          */
         const [notEqualReaderResponse] = await productReader.listProducts({
             where: {
-                category_not: carManufacturerCategoryId
+                category: {
+                    id_not: carManufacturerCategoryId
+                }
             },
             sort: ["title_ASC"]
         });
@@ -914,7 +933,9 @@ describe("filtering", () => {
          */
         const [inReaderResponse] = await productReader.listProducts({
             where: {
-                category_in: [fruitCategoryId]
+                category: {
+                    id_in: [fruitCategoryId]
+                }
             },
             sort: ["title_ASC"]
         });
@@ -937,7 +958,9 @@ describe("filtering", () => {
          */
         const [notInReaderResponse] = await productReader.listProducts({
             where: {
-                category_not_in: [fruitCategoryId]
+                category: {
+                    id_not_in: [fruitCategoryId]
+                }
             },
             sort: ["title_ASC"]
         });
@@ -960,7 +983,9 @@ describe("filtering", () => {
          */
         const [inMultipleReaderResponse] = await productReader.listProducts({
             where: {
-                category_in: [fruitCategoryId, carManufacturerCategoryId]
+                category: {
+                    id_in: [fruitCategoryId, carManufacturerCategoryId]
+                }
             },
             sort: ["title_ASC"]
         });
@@ -983,7 +1008,9 @@ describe("filtering", () => {
          */
         const [notInMultipleReaderResponse] = await productReader.listProducts({
             where: {
-                category_not_in: [fruitCategoryId, carManufacturerCategoryId]
+                category: {
+                    id_not_in: [fruitCategoryId, carManufacturerCategoryId]
+                }
             },
             sort: ["title_ASC"]
         });
@@ -1003,6 +1030,153 @@ describe("filtering", () => {
         });
     });
 
+    test("should filter entries by empty datetime field", async () => {
+        const categoryManager = useCategoryManageHandler(manageOpts);
+        const productManager = useProductManageHandler(manageOpts);
+
+        const group = await setupContentModelGroup(mainManager);
+        const { category: categoryModel } = await setupContentModels(mainManager, group, [
+            "category",
+            "product"
+        ]);
+
+        const [createFruitResponse] = await categoryManager.createCategory({
+            data: {
+                title: "Fruit category 123",
+                slug: "fruit-category-123"
+            }
+        });
+        expect(createFruitResponse).toEqual({
+            data: {
+                createCategory: {
+                    data: expect.any(Object),
+                    error: null
+                }
+            }
+        });
+        const fruitCategoryId = createFruitResponse.data.createCategory.data.id;
+
+        const [createBananaResponse] = await productManager.createProduct({
+            data: {
+                title: "Banana",
+                price: 100,
+                availableOn: "2021-04-19",
+                color: "red",
+                availableSizes: ["l"],
+                image: "banana.jpg",
+                category: {
+                    modelId: categoryModel.modelId,
+                    id: fruitCategoryId
+                }
+            }
+        });
+        expect(createBananaResponse).toMatchObject({
+            data: {
+                createProduct: {
+                    data: {
+                        id: expect.any(String)
+                    },
+                    error: null
+                }
+            }
+        });
+        const banana = createBananaResponse.data.createProduct.data;
+
+        const [createPlumResponse] = await productManager.createProduct({
+            data: {
+                title: "Plum",
+                price: 100,
+                availableOn: "2021-04-22",
+                color: "white",
+                availableSizes: ["s"],
+                image: "plum.jpg",
+                category: {
+                    modelId: categoryModel.modelId,
+                    id: fruitCategoryId
+                }
+            }
+        });
+        expect(createPlumResponse).toMatchObject({
+            data: {
+                createProduct: {
+                    data: {
+                        id: expect.any(String)
+                    },
+                    error: null
+                }
+            }
+        });
+        const plum = createPlumResponse.data.createProduct.data;
+
+        const [createAppleResponse] = await productManager.createProduct({
+            data: {
+                title: "Apple",
+                price: 100,
+                availableOn: null,
+                color: "red",
+                availableSizes: ["s"],
+                image: "apple.jpg",
+                category: {
+                    modelId: categoryModel.modelId,
+                    id: fruitCategoryId
+                }
+            }
+        });
+        expect(createAppleResponse).toMatchObject({
+            data: {
+                createProduct: {
+                    data: {
+                        id: expect.any(String)
+                    },
+                    error: null
+                }
+            }
+        });
+        const apple = createAppleResponse.data.createProduct.data;
+
+        const [listNullResponse] = await productManager.listProducts({
+            where: {
+                availableOn: null
+            },
+            sort: ["createdOn_ASC"]
+        });
+
+        expect(listNullResponse).toEqual({
+            data: {
+                listProducts: {
+                    data: [apple],
+                    error: null,
+                    meta: {
+                        cursor: null,
+                        hasMoreItems: false,
+                        totalCount: 1
+                    }
+                }
+            }
+        });
+
+        const [listNotNullResponse] = await productManager.listProducts({
+            where: {
+                availableOn_not: null
+            },
+            sort: ["createdOn_ASC"]
+        });
+
+        expect(listNotNullResponse).toEqual({
+            data: {
+                listProducts: {
+                    data: [banana, plum],
+                    error: null,
+                    meta: {
+                        cursor: null,
+                        hasMoreItems: false,
+                        totalCount: 2
+                    }
+                }
+            }
+        });
+    });
+
     test("should filter entries by entryId", async () => {
         const articleManager = useArticleManageHandler(manageOpts);
         const articleReader = useArticleReadHandler(readOpts);
@@ -1017,12 +1191,32 @@ describe("filtering", () => {
                 categories: []
             }
         });
+        expect(createFruitResponse).toMatchObject({
+            data: {
+                createArticle: {
+                    data: {
+                        id: expect.any(String)
+                    },
+                    error: null
+                }
+            }
+        });
 
         const [createAnimalResponse] = await articleManager.createArticle({
             data: {
                 title: "Animal 123",
                 body: null,
                 categories: []
+            }
+        });
+        expect(createAnimalResponse).toMatchObject({
+            data: {
+                createArticle: {
+                    data: {
+                        id: expect.any(String)
+                    },
+                    error: null
+                }
             }
         });
 
@@ -1034,22 +1228,7 @@ describe("filtering", () => {
             revision: createAnimalResponse.data.createArticle.data.id
         });
         const animal = publishAnimalResponse.data.publishArticle.data;
-        /**
-         * Make sure we have both categories published.
-         */
-        await until(
-            () => articleManager.listArticles().then(([data]) => data),
-            ({ data }) => {
-                const entries = data?.listArticles?.data || [];
-                if (entries.length !== 2) {
-                    return false;
-                }
-                return entries.every(entry => {
-                    return !!entry.meta.publishedOn;
-                });
-            },
-            { name: "list all published entries" }
-        );
+
         /**
          * Make sure to get only the fruit entry via manage API.
          */
@@ -1340,12 +1519,12 @@ describe("filtering", () => {
         });
     });
 
-    test("should filter entries by createdBy", async () => {
+    test("should filter entries by revisionCreatedBy", async () => {
         const articleManager = useArticleManageHandler(manageOpts);
         const articleAnotherManager = useArticleManageHandler({
             ...manageOpts,
             identity: {
-                id: "87654321",
+                id: "id-87654321",
                 displayName: "Jane Doe",
                 type: "admin"
             }
@@ -1379,26 +1558,10 @@ describe("filtering", () => {
             revision: createAnimalResponse.data.createArticle.data.id
         });
         const animal = publishAnimalResponse.data.publishArticle.data;
-        /**
-         * Make sure we have both categories published.
-         */
-        await until(
-            () => articleManager.listArticles().then(([data]) => data),
-            ({ data }) => {
-                const entries = data?.listArticles?.data || [];
-                if (entries.length < 2) {
-                    return false;
-                }
-                return entries.every(entry => {
-                    return !!entry.meta.publishedOn;
-                });
-            },
-            { name: "list all published entries" }
-        );
 
         const [listEq123Response] = await articleManager.listArticles({
             where: {
-                createdBy: "12345678"
+                createdBy: "id-12345678"
             }
         });
 
@@ -1418,7 +1581,7 @@ describe("filtering", () => {
 
         const [listEq4321Response] = await articleManager.listArticles({
             where: {
-                createdBy: "87654321"
+                revisionCreatedBy: "id-87654321"
             }
         });
 
@@ -1438,7 +1601,7 @@ describe("filtering", () => {
 
         const [listNotEqResponse] = await articleManager.listArticles({
             where: {
-                createdBy_not: "12345678"
+                createdBy_not: "id-12345678"
             }
         });
 
@@ -1458,7 +1621,7 @@ describe("filtering", () => {
 
         const [listInResponse] = await articleManager.listArticles({
             where: {
-                createdBy_in: ["12345678"]
+                createdBy_in: ["id-12345678"]
             }
         });
 
@@ -1478,7 +1641,7 @@ describe("filtering", () => {
 
         const [listNotInResponse] = await articleManager.listArticles({
             where: {
-                createdBy_not_in: ["87654321"]
+                createdBy_not_in: ["id-87654321"]
             }
         });
 
@@ -1498,7 +1661,7 @@ describe("filtering", () => {
 
         const [listNotInAllResponse] = await articleManager.listArticles({
             where: {
-                createdBy_not_in: ["87654321", "12345678"]
+                createdBy_not_in: ["id-87654321", "id-12345678"]
             }
         });
 
@@ -1517,12 +1680,12 @@ describe("filtering", () => {
         });
     });
 
-    test("should filter entries by ownedBy", async () => {
+    test("should filter entries by createdBy", async () => {
         const articleManager = useArticleManageHandler(manageOpts);
         const articleAnotherManager = useArticleManageHandler({
             ...manageOpts,
             identity: {
-                id: "87654321",
+                id: "id-87654321",
                 displayName: "Jane Doe",
                 type: "admin"
             }
@@ -1555,26 +1718,10 @@ describe("filtering", () => {
             revision: createAnimalResponse.data.createArticle.data.id
         });
         const animal = publishAnimalResponse.data.publishArticle.data;
-        /**
-         * Make sure we have both categories published.
-         */
-        await until(
-            () => articleManager.listArticles().then(([data]) => data),
-            ({ data }) => {
-                const entries = data?.listArticles?.data || [];
-                if (entries.length !== 2) {
-                    return false;
-                }
-                return entries.every(entry => {
-                    return !!entry.meta.publishedOn;
-                });
-            },
-            { name: "list all published entries" }
-        );
 
         const [listEq123Response] = await articleManager.listArticles({
             where: {
-                ownedBy: "12345678"
+                createdBy: "id-12345678"
             }
         });
 
@@ -1594,7 +1741,7 @@ describe("filtering", () => {
 
         const [listEq4321Response] = await articleManager.listArticles({
             where: {
-                ownedBy: "87654321"
+                createdBy: "id-87654321"
             }
         });
 
@@ -1614,7 +1761,7 @@ describe("filtering", () => {
 
         const [listNotEqResponse] = await articleManager.listArticles({
             where: {
-                ownedBy_not: "12345678"
+                createdBy_not: "id-12345678"
             }
         });
 
@@ -1634,7 +1781,7 @@ describe("filtering", () => {
 
         const [listInResponse] = await articleManager.listArticles({
             where: {
-                ownedBy_in: ["12345678"]
+                createdBy_in: ["id-12345678"]
             }
         });
 
@@ -1654,7 +1801,7 @@ describe("filtering", () => {
 
         const [listNotInResponse] = await articleManager.listArticles({
             where: {
-                ownedBy_not_in: ["87654321"]
+                createdBy_not_in: ["id-87654321"]
             }
         });
 
@@ -1674,7 +1821,7 @@ describe("filtering", () => {
 
         const [listNotInAllResponse] = await articleManager.listArticles({
             where: {
-                ownedBy_not_in: ["87654321", "12345678"]
+                createdBy_not_in: ["id-87654321", "id-12345678"]
             }
         });
 
@@ -1699,8 +1846,6 @@ describe("filtering", () => {
             ...readOpts
         });
         const { listFruits } = handler;
-
-        await waitFruits("should filter fruits by description", handler);
 
         const [fruitsContainsResponse] = await listFruits({
             where: {
@@ -1794,6 +1939,96 @@ describe("filtering", () => {
                             description: banana.description
                         }
                     ],
+                    error: null
+                }
+            }
+        });
+    });
+
+    it("should filter via startsWith", async () => {
+        const { apple, banana, strawberry } = await setupFruits();
+        const { listFruits } = useFruitReadHandler({
+            ...readOpts
+        });
+
+        const [filteredResponse] = await listFruits({
+            where: {
+                name_startsWith: "ap"
+            }
+        });
+        expect(filteredResponse).toMatchObject({
+            data: {
+                listFruits: {
+                    data: [apple],
+                    meta: {
+                        totalCount: 1,
+                        hasMoreItems: false,
+                        cursor: null
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [response] = await listFruits({
+            where: {
+                name_startsWith: ""
+            }
+        });
+        expect(response).toMatchObject({
+            data: {
+                listFruits: {
+                    data: [banana, strawberry, apple],
+                    meta: {
+                        totalCount: 3,
+                        hasMoreItems: false,
+                        cursor: null
+                    },
+                    error: null
+                }
+            }
+        });
+    });
+
+    it("should filter via not_startsWith", async () => {
+        const { apple, banana, strawberry } = await setupFruits();
+        const { listFruits } = useFruitReadHandler({
+            ...readOpts
+        });
+
+        const [filteredResponse] = await listFruits({
+            where: {
+                name_not_startsWith: "ap"
+            }
+        });
+        expect(filteredResponse).toMatchObject({
+            data: {
+                listFruits: {
+                    data: [banana, strawberry],
+                    meta: {
+                        totalCount: 2,
+                        hasMoreItems: false,
+                        cursor: null
+                    },
+                    error: null
+                }
+            }
+        });
+
+        const [response] = await listFruits({
+            where: {
+                name_not_startsWith: ""
+            }
+        });
+        expect(response).toMatchObject({
+            data: {
+                listFruits: {
+                    data: [banana, strawberry, apple],
+                    meta: {
+                        totalCount: 3,
+                        hasMoreItems: false,
+                        cursor: null
+                    },
                     error: null
                 }
             }

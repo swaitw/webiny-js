@@ -1,12 +1,12 @@
 import { useQuery, useMutation } from "@apollo/react-hooks";
 import gql from "graphql-tag";
-import { get } from "lodash";
+import get from "lodash/get";
 import { useTenancy } from "@webiny/app-tenancy/hooks/useTenancy";
 import { useI18N } from "@webiny/app-i18n/hooks/useI18N";
+import { PbPageData } from "~/types";
 
 const DATA_FIELDS = /* GraphQL */ `
     {
-        id
         data {
             websiteUrl
             websitePreviewUrl
@@ -27,10 +27,15 @@ const DATA_FIELDS = /* GraphQL */ `
                 facebook
                 twitter
                 instagram
+                linkedIn
                 image {
                     id
                     src
                 }
+            }
+            htmlTags {
+                header
+                footer
             }
         }
         error {
@@ -40,10 +45,15 @@ const DATA_FIELDS = /* GraphQL */ `
 `;
 
 export const GET_SETTINGS = gql`
-    query GetSettings {
+    query PbGetSettings {
         pageBuilder {
             getSettings ${DATA_FIELDS}
-            getDefaultSettings ${DATA_FIELDS}
+            getDefaultSettings {
+                data {
+                    websiteUrl
+                    websitePreviewUrl
+                }
+            }
         }
     }
 `;
@@ -69,16 +79,17 @@ export function usePageBuilderSettings() {
     const settings = get(getSettingsQuery, "data.pageBuilder.getSettings.data") || {};
     const defaultSettings = get(getSettingsQuery, "data.pageBuilder.getDefaultSettings.data") || {};
 
-    const getWebsiteUrl = (preview = false) => {
+    const getWebsiteUrl = (preview = false): string => {
         if (preview) {
             return settings.websitePreviewUrl || defaultSettings.websitePreviewUrl;
         }
         return settings.websiteUrl || defaultSettings.websiteUrl;
     };
 
-    const getPageUrl = (page, preview = false) => {
-        const url = getWebsiteUrl(preview) + page.path;
-        if (!preview || page.status === "published") {
+    const getPageUrl = (page: Pick<PbPageData, "id" | "status" | "path">): string => {
+        const preview = page.status !== "published";
+        const url = [getWebsiteUrl(preview), page.path].join("");
+        if (!preview) {
             return url;
         }
 
@@ -92,12 +103,12 @@ export function usePageBuilderSettings() {
         return url + "?" + query.filter(Boolean).join("&");
     };
 
-    const isSpecialPage = (page, type: "home" | "notFound") => {
+    const isSpecialPage = (pageId: string, type: "home" | "notFound"): boolean => {
         if (!settings.pages?.[type]) {
             return false;
         }
 
-        return settings.pages[type] === page.pid;
+        return settings.pages[type] === pageId;
     };
 
     const updateSettingsMutation = useMutation(UPDATE_SETTINGS);

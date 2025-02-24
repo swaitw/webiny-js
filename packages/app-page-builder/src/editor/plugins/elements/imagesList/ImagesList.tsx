@@ -1,26 +1,16 @@
-import * as React from "react";
-import { usePageBuilder } from "../../../../hooks/usePageBuilder";
-import { plugins } from "@webiny/plugins";
-import { PbPageElementImagesListComponentPlugin } from "../../../../types";
+import React from "react";
+import { PbEditorElement } from "~/types";
+import PeImagesList from "./PeImagesList";
 
-const ImagesList = ({ data }) => {
-    const { theme } = usePageBuilder();
-    const { component, images } = data;
-    const components = plugins.byType<PbPageElementImagesListComponentPlugin>(
-        "pb-page-element-images-list-component"
-    );
-    const imageList = components.find(cmp => cmp.componentName === component);
+import { Element } from "@webiny/app-page-builder-elements/types";
 
-    if (!imageList) {
-        return <div>Selected image gallery component not found!</div>;
-    }
+interface ImagesListProps {
+    element: PbEditorElement;
+}
 
-    const { component: ListComponent } = imageList;
-    if (!ListComponent) {
-        return <div>You must select a component to render your image gallery!</div>;
-    }
-
-    return <ListComponent data={images} theme={theme} />;
+const ImagesList = (props: ImagesListProps) => {
+    const { element, ...rest } = props;
+    return <PeImagesList element={element as Element} {...rest} />;
 };
 
-export default React.memo(ImagesList);
+export default ImagesList;

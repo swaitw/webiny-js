@@ -1,10 +1,16 @@
 import React, { useCallback, useRef, cloneElement } from "react";
-import getValue from "./functions/getValue";
-import setValue from "./functions/setValue";
+import { getValue } from "./functions/getValue";
+import { setValue } from "./functions/setValue";
+import { BindComponent, Bind as BaseFormBind } from "@webiny/form";
+import { useModelField } from "~/admin/hooks";
 
-export default function PredefinedValues({ field, fieldPlugin, form }) {
-    const memoizedBindComponents = useRef({});
-    const { Bind: BaseFormBind } = form;
+interface MemoizedBindComponents {
+    [key: string]: BindComponent;
+}
+
+const PredefinedValues = () => {
+    const { field, fieldPlugin } = useModelField();
+    const memoizedBindComponents = useRef<MemoizedBindComponents>({});
 
     const getBind = useCallback((index = -1) => {
         const memoKey = index;
@@ -12,14 +18,14 @@ export default function PredefinedValues({ field, fieldPlugin, form }) {
             return memoizedBindComponents.current[memoKey];
         }
 
-        memoizedBindComponents.current[memoKey] = function Bind({ children, name }) {
+        const Bind: BindComponent = ({ children, name }) => {
             return (
                 <BaseFormBind name={"predefinedValues.values"}>
                     {bind => {
                         const props = {
                             ...bind,
                             value: getValue({ bind, index, name }),
-                            onChange: value => {
+                            onChange: (value: string[]) => {
                                 setValue({ value, bind, index, name });
                             }
                         };
@@ -28,14 +34,23 @@ export default function PredefinedValues({ field, fieldPlugin, form }) {
                             return children(props);
                         }
 
-                        return cloneElement(children, props);
+                        return cloneElement(children as unknown as React.ReactElement, props);
                     }}
                 </BaseFormBind>
             );
         };
 
+        memoizedBindComponents.current[memoKey] = Bind;
+
         return memoizedBindComponents.current[memoKey];
     }, []);
+    if (!fieldPlugin.field.renderPredefinedValues) {
+        return (
+            <>{`Missing "field.renderPredefinedValues" method in field type plugin: "${field.type}".`}</>
+        );
+    }
 
-    return fieldPlugin.field.renderPredefinedValues({ field, getBind });
-}
+    return <>{fieldPlugin.field.renderPredefinedValues({ getBind })}</>;
+};
+
+export default PredefinedValues;

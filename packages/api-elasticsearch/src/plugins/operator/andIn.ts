@@ -2,7 +2,7 @@ import { ElasticsearchQueryBuilderOperatorPlugin } from "~/plugins/definition/El
 import { ElasticsearchBoolQueryConfig, ElasticsearchQueryBuilderArgsPlugin } from "~/types";
 
 export class ElasticsearchQueryBuilderOperatorAndInPlugin extends ElasticsearchQueryBuilderOperatorPlugin {
-    public name = "elasticsearch.queryBuilder.operator.andIn.default";
+    public override name = "elasticsearch.queryBuilder.operator.andIn.default";
 
     public getOperator(): string {
         return "and_in";
@@ -30,7 +30,7 @@ export class ElasticsearchQueryBuilderOperatorAndInPlugin extends ElasticsearchQ
         }
 
         for (const value of values) {
-            query.must.push({
+            query.filter.push({
                 term: {
                     [useBasePath ? basePath : path]: value
                 }

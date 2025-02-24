@@ -1,0 +1,29 @@
+{
+  "name": "@webiny/app-utils",
+  "version": "0.0.0",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webiny/webiny-js.git",
+    "directory": "packages/app-utils"
+  },
+  "author": "Webiny Ltd.",
+  "license": "MIT",
+  "dependencies": {
+    "@webiny/utils": "0.0.0",
+    "mobx": "^6.9.0"
+  },
+  "devDependencies": {
+    "@webiny/cli": "0.0.0",
+    "@webiny/project-utils": "0.0.0",
+    "typescript": "5.3.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
+  "scripts": {
+    "build": "yarn webiny run build",
+    "watch": "yarn webiny run watch"
+  }
+}

@@ -1,47 +1,68 @@
-import * as React from "react";
-import * as R from "@rmwc/button";
+import React from "react";
+import * as RmwcButton from "@rmwc/button";
 import { Fab, FabProps } from "@rmwc/fab";
 import { Icon, IconProps } from "../Icon/Icon";
 import classNames from "classnames";
 import { SyntheticEvent } from "react";
+import { webinyButtonStyles } from "./Button.styles";
 
-export type ButtonProps = {
-    // Make button flat (only applicable to Primary button).
+export interface ButtonProps {
+    /**
+     * Make button flat (only applicable to Primary button).
+     */
     flat?: boolean;
 
-    // Make button smaller.
+    /**
+     * Make button smaller.
+     */
     small?: boolean;
 
-    // onClick handler.
-    onClick?: (event: React.MouseEvent<any, MouseEvent>) => void | null;
+    /**
+     * Returning `any` allows us to pass callbacks to the button without worrying about their
+     * specific return types. Buttons don't use return values from callbacks, so we don't have to worry
+     * about their return types at all.
+     */
+    onClick?: (event: React.MouseEvent<any, MouseEvent>) => any;
 
-    // Label and optionally an icon (using Button.Icon component).
+    /**
+     * Label and optionally an icon (using Button.Icon component).
+     */
     children?: React.ReactNode;
 
-    // Show ripple effect on button click. Default: true
+    /**
+     * Show ripple effect on button click.
+     */
     ripple?: boolean;
 
+    /**
+     * Additional button class name.
+     */
     className?: string;
 
+    /**
+     * Is button disabled?
+     */
     disabled?: boolean;
 
+    /**
+     * Additional inline styles.
+     */
     style?: { [key: string]: any };
 
-    // For testing purposes.
+    /**
+     * ID of the element for testing purposes.
+     */
     "data-testid"?: string;
-};
+}
 
 /**
  * Shows a default button, used typically when action is not of high priority.
- * @param props
- * @returns {*}
- * @constructor
  */
 export const ButtonDefault = (props: ButtonProps) => {
-    const { disabled, onClick, children, small, ripple = true, className = "", style } = props;
+    const { disabled, onClick, children, small, ripple, className = "", style } = props;
 
     return (
-        <R.Button
+        <RmwcButton.Button
             style={style}
             disabled={disabled}
             dense={small}
@@ -51,15 +72,12 @@ export const ButtonDefault = (props: ButtonProps) => {
             data-testid={props["data-testid"]}
         >
             {children}
-        </R.Button>
+        </RmwcButton.Button>
     );
 };
 
 /**
  * Shows primary button, eg. for submitting forms.
- * @param props
- * @returns {*}
- * @constructor
  */
 export const ButtonPrimary = (props: ButtonProps) => {
     const {
@@ -68,12 +86,12 @@ export const ButtonPrimary = (props: ButtonProps) => {
         children,
         small = false,
         flat = false,
-        ripple = true,
-        style = null,
+        ripple,
+        style = {},
         className = null
     } = props;
     return (
-        <R.Button
+        <RmwcButton.Button
             raised={!flat}
             dense={small}
             disabled={disabled}
@@ -85,15 +103,12 @@ export const ButtonPrimary = (props: ButtonProps) => {
             data-testid={props["data-testid"]}
         >
             {children}
-        </R.Button>
+        </RmwcButton.Button>
     );
 };
 
 /**
  * Shows a secondary button - eg. for doing a reset on a form.
- * @param props
- * @returns {*}
- * @constructor
  */
 export const ButtonSecondary = (props: ButtonProps) => {
     const {
@@ -101,49 +116,50 @@ export const ButtonSecondary = (props: ButtonProps) => {
         onClick,
         children,
         small = false,
-        ripple = true,
+        ripple,
         className = null,
-        style = null
+        style = {}
     } = props;
 
     return (
-        <R.Button
+        <RmwcButton.Button
             disabled={disabled}
             outlined
             dense={small}
             ripple={ripple}
             onClick={onClick}
             style={style}
-            className={classNames("webiny-ui-button webiny-ui-button--secondary", className)}
+            className={classNames(
+                "webiny-ui-button webiny-ui-button--secondary",
+                webinyButtonStyles,
+                className
+            )}
             data-testid={props["data-testid"]}
         >
             {children}
-        </R.Button>
+        </RmwcButton.Button>
     );
 };
 
 export type ButtonFloatingProps = ButtonProps &
-    FabProps & {
-        label?: React.ReactNode;
-        icon?: React.ReactNode;
+    Omit<FabProps, "icon"> & {
+        label?: string | JSX.Element;
+        icon?: JSX.Element;
         onMouseDown?: (e: SyntheticEvent) => void;
         onMouseUp?: (e: SyntheticEvent) => void;
     };
 
 /**
  * A floating button, shown on the side of the screen, typically used for creating new content or accessing settings.
- * @param props
- * @returns {*}
- * @constructor
  */
 export const ButtonFloating = (props: ButtonFloatingProps) => {
     const {
         disabled,
+        label,
         icon,
         onClick,
         small = false,
-        label = false,
-        ripple = true,
+        ripple,
         className = null,
         ...rest
     } = props;
@@ -164,8 +180,5 @@ export const ButtonFloating = (props: ButtonFloatingProps) => {
 
 /**
  * Shows an icon, suitable to be shown inside of a button.
- * @param props
- * @returns {*}
- * @constructor
  */
 export const ButtonIcon = (props: IconProps) => <Icon {...props} />;

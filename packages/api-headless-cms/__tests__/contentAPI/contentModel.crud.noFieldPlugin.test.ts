@@ -1,5 +1,5 @@
 import { CmsGroup, CmsModelFieldToGraphQLPlugin } from "~/types";
-import { useContentGqlHandler } from "../utils/useContentGqlHandler";
+import { useGraphQLHandler } from "../testHelpers/useGraphQLHandler";
 
 const customFieldPlugin = (): CmsModelFieldToGraphQLPlugin => ({
     name: "cms-model-field-to-graphql-custom-test-field",
@@ -28,8 +28,13 @@ const customFieldPlugin = (): CmsModelFieldToGraphQLPlugin => ({
 describe("content model test no field plugin", () => {
     const readHandlerOpts = { path: "read/en-US" };
     const manageHandlerOpts = { path: "manage/en-US" };
+    const previewHandlerOpts = { path: "preview/en-US" };
 
-    const { createContentModelGroupMutation } = useContentGqlHandler(manageHandlerOpts);
+    const {
+        createContentModelGroupMutation,
+        createContentModelMutation,
+        updateContentModelMutation
+    } = useGraphQLHandler(manageHandlerOpts);
 
     let contentModelGroup: CmsGroup;
 
@@ -46,13 +51,12 @@ describe("content model test no field plugin", () => {
     });
 
     test("prevent content model update if a backend plugin for a field does not exist", async () => {
-        const { createContentModelMutation, updateContentModelMutation } =
-            useContentGqlHandler(manageHandlerOpts);
-
         await createContentModelMutation({
             data: {
                 name: "Test Content model",
                 modelId: "testContentModel",
+                singularApiName: "TestContentModel",
+                pluralApiName: "TestContentModels",
                 group: contentModelGroup.id
             }
         }).then(async ([response]) => {
@@ -81,6 +85,7 @@ describe("content model test no field plugin", () => {
                                 name: "text-input"
                             },
                             label: "test",
+                            storageId: "test",
                             fieldId: "test",
                             id: "aaa",
                             predefinedValues: {
@@ -95,6 +100,7 @@ describe("content model test no field plugin", () => {
                                 name: "text-input"
                             },
                             label: "test",
+                            storageId: "test",
                             fieldId: "test",
                             id: "bbb",
                             predefinedValues: {
@@ -124,18 +130,20 @@ describe("content model test no field plugin", () => {
 
     test("schema generation should not break if an old field type still exists", async () => {
         const customField = customFieldPlugin();
-        const manageModelAPI = useContentGqlHandler({
+        const manageModelAPI = useGraphQLHandler({
             ...manageHandlerOpts,
             plugins: [customField]
         });
-        const manageAPI = useContentGqlHandler(manageHandlerOpts);
-        const readAPI = useContentGqlHandler(readHandlerOpts);
-        const previewAPI = useContentGqlHandler(manageHandlerOpts);
+        const manageAPI = useGraphQLHandler(manageHandlerOpts);
+        const readAPI = useGraphQLHandler(readHandlerOpts);
+        const previewAPI = useGraphQLHandler(previewHandlerOpts);
 
         await manageModelAPI.createContentModelMutation({
             data: {
                 name: "Event",
                 modelId: "event",
+                singularApiName: "Event",
+                pluralApiName: "Events",
                 group: contentModelGroup.id
             }
         });
@@ -151,7 +159,7 @@ describe("content model test no field plugin", () => {
                         helpText: "",
                         label: "Title",
                         type: "text",
-                        fieldId: "title",
+                        storageId: "title",
                         validation: [],
                         listValidation: [],
                         placeholderText: "placeholder text",
@@ -165,7 +173,7 @@ describe("content model test no field plugin", () => {
                         helpText: "",
                         label: "Slug",
                         type: "text",
-                        fieldId: "slug",
+                        storageId: "slug",
                         validation: [],
                         listValidation: [],
                         placeholderText: "placeholder text",
@@ -179,7 +187,7 @@ describe("content model test no field plugin", () => {
                         helpText: "",
                         label: "Test",
                         type: "custom-test-field",
-                        fieldId: "test",
+                        storageId: "test",
                         validation: [],
                         listValidation: [],
                         renderer: {
@@ -194,6 +202,8 @@ describe("content model test no field plugin", () => {
             data: {
                 name: "Bug",
                 modelId: "bug",
+                singularApiName: "Bug",
+                pluralApiName: "Bugs",
                 group: contentModelGroup.id
             }
         });

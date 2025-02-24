@@ -1,45 +1,43 @@
-import React, { ReactElement } from "react";
-import {
-    useDrag,
-    DragPreviewImage,
-    ConnectDragSource,
-    DragSourceMonitor,
-    DragObjectWithType
-} from "react-dnd";
+import React from "react";
+import { useDrag, DragPreviewImage, ConnectDragSource, DragSourceMonitor } from "react-dnd";
+import { DragObjectWithType } from "~/types";
 
 const emptyImage = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
 
-export type DraggableChildrenFunction = (params: {
+interface DraggableChildrenFunctionParams {
     isDragging: boolean;
-    drag: ConnectDragSource;
-}) => ReactElement;
+    drag: ConnectDragSource | null;
+}
+export interface DraggableChildrenFunction {
+    (params: DraggableChildrenFunctionParams): React.ReactElement;
+}
 
-export type DraggableProps = {
+export interface DraggableProps {
     children: DraggableChildrenFunction;
     beginDrag(props: DraggableProps, monitor: DragSourceMonitor): any;
     endDrag(item: any, monitor: DragSourceMonitor): void;
-    target: string[];
+    target?: string[];
     enabled: boolean;
-};
+}
 
-export type DraggableItem = DragObjectWithType & {
-    target: string[];
-};
+export interface DraggableItem extends DragObjectWithType {
+    target?: string[];
+}
 
-const Draggable = React.memo((props: DraggableProps) => {
-    const { children, beginDrag, endDrag, target, enabled = true } = props;
+const Draggable = (props: DraggableProps) => {
+    const { children, beginDrag, endDrag, enabled = true } = props;
 
     const [{ isDragging }, drag, preview] = useDrag({
-        item: { type: "element", target } as DraggableItem,
-        collect: monitor => ({
-            isDragging: monitor.isDragging()
-        }),
-        begin(monitor) {
+        type: "element",
+        item(monitor) {
             if (typeof beginDrag === "function") {
                 return beginDrag(props, monitor);
             }
             return { ...props };
         },
+        collect: monitor => ({
+            isDragging: monitor.isDragging()
+        }),
         end(item, monitor) {
             if (typeof endDrag === "function") {
                 return endDrag(item, monitor);
@@ -57,6 +55,6 @@ const Draggable = React.memo((props: DraggableProps) => {
             {children({ isDragging, drag })}
         </>
     );
-});
+};
 
-export default Draggable;
+export default React.memo(Draggable);

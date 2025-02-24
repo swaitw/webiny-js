@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 import { useLazyQuery, useQuery } from "@apollo/react-hooks";
-import get from "lodash/get";
-import { Grid, Cell } from "@webiny/ui/Grid";
+import { Cell, Grid } from "@webiny/ui/Grid";
 import { Alert } from "@webiny/ui/Alert";
 import { AutoComplete } from "@webiny/ui/AutoComplete";
 import styled from "@emotion/styled";
@@ -9,44 +8,76 @@ import { validation } from "@webiny/validation";
 import Accordion from "@webiny/app-page-builder/editor/plugins/elementSettings/components/Accordion";
 import {
     ButtonContainer,
-    SimpleButton,
-    classes
+    classes,
+    SimpleButton
 } from "@webiny/app-page-builder/editor/plugins/elementSettings/components/StyledComponents";
-import { LIST_FORMS, GET_FORM_REVISIONS } from "./graphql";
+import {
+    GET_FORM_REVISIONS,
+    GetFormRevisionsQueryResponse,
+    GetFormRevisionsQueryVariables,
+    LIST_FORMS,
+    ListFormsQueryResponse
+} from "./graphql";
+import { BindComponent, FormOnSubmit } from "@webiny/form";
 
 const FormOptionsWrapper = styled("div")({
     minHeight: 250
 });
 
-const FormElementAdvancedSettings = ({ Bind, submit, data }) => {
-    const listQuery = useQuery(LIST_FORMS, { fetchPolicy: "network-only" });
+interface FormElementAdvancedSettingsPropsData {
+    settings: {
+        form: {
+            parent: string;
+            revision?: string;
+        };
+    };
+}
+
+interface FormElementAdvancedSettingsProps {
+    Bind: BindComponent;
+    submit: FormOnSubmit;
+    data: FormElementAdvancedSettingsPropsData;
+}
+interface RevisionsOutputOption {
+    name: string;
+    id: string;
+}
+interface RevisionsOutput {
+    options: RevisionsOutputOption[];
+    value: RevisionsOutputOption | null;
+}
+const FormElementAdvancedSettings = ({ Bind, submit, data }: FormElementAdvancedSettingsProps) => {
+    const listQuery = useQuery<ListFormsQueryResponse>(LIST_FORMS, { fetchPolicy: "network-only" });
 
     const selectedForm = useMemo(() => {
         return {
-            parent: get(data, "settings.form.parent"),
-            revision: get(data, "settings.form.revision")
+            parent: data.settings?.form?.parent,
+            revision: data.settings?.form?.revision
         };
     }, [data]);
 
-    const [getFormRevisions, getQuery] = useLazyQuery(GET_FORM_REVISIONS, {
+    const [getFormRevisions, getQuery] = useLazyQuery<
+        GetFormRevisionsQueryResponse,
+        GetFormRevisionsQueryVariables
+    >(GET_FORM_REVISIONS, {
         variables: {
             id: selectedForm.parent
         }
     });
 
     const latestRevisions = useMemo(() => {
-        const output = {
+        const output: RevisionsOutput = {
             options: [],
             value: null
         };
         if (listQuery.data) {
-            const latestFormRevisionsList = get(listQuery, "data.formBuilder.listForms.data") || [];
+            const latestFormRevisionsList = listQuery.data.formBuilder?.listForms?.data || [];
 
             output.options = latestFormRevisionsList.map(({ id, name }) => ({ id, name }));
             output.value =
                 output.options.find(item => {
                     if (typeof item.id !== "string" || typeof selectedForm.parent !== "string") {
-                        return;
+                        return false;
                     }
                     // Get selected form's "baseId", i.e without the revision number suffix.
                     const [baseId] = selectedForm.parent.split("#");
@@ -58,16 +89,15 @@ const FormElementAdvancedSettings = ({ Bind, submit, data }) => {
     }, [listQuery, selectedForm]);
 
     const publishedRevisions = useMemo(() => {
-        const output = {
+        const output: RevisionsOutput = {
             options: [],
             value: null
         };
 
-        if (getQuery.data) {
-            const publishedRevisions = get(
-                getQuery,
-                "data.formBuilder.getFormRevisions.data"
-            ).filter(revision => revision.published);
+        if (getQuery.data?.formBuilder?.getFormRevisions?.data) {
+            const publishedRevisions = getQuery.data.formBuilder.getFormRevisions.data.filter(
+                revision => revision.published
+            );
             output.options = publishedRevisions.map(item => ({
                 id: item.id,
                 name: `${item.name} (version ${item.version})`
@@ -100,7 +130,7 @@ const FormElementAdvancedSettings = ({ Bind, submit, data }) => {
                             {({ onChange }) => (
                                 <AutoComplete
                                     options={latestRevisions.options}
-                                    value={latestRevisions.value}
+                                    value={latestRevisions.value || undefined}
                                     onChange={value => {
                                         onChange(value);
                                         getFormRevisions();
@@ -137,7 +167,7 @@ const FormElementAdvancedSettings = ({ Bind, submit, data }) => {
                                             description={description}
                                             disabled={!parentSelected || noPublished}
                                             options={publishedRevisions.options}
-                                            value={publishedRevisions.value}
+                                            value={publishedRevisions.value || undefined}
                                             onChange={onChange}
                                         />
                                     );

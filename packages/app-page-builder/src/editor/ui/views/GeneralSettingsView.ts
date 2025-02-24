@@ -9,8 +9,15 @@ import { PbPageLayoutPlugin } from "~/types";
 import { FileManagerElement } from "@webiny/app-admin/ui/elements/form/FileManagerElement";
 import { TagsMultiAutocompleteElement } from "~/editor/ui/elements/TagsMultiAutocompleteElement";
 
-const toSlug = (value, cb) => {
-    cb(slugify(value, { replacement: "-", lower: true, remove: /[*#\?<>_\{\}\[\]+~.()'"!:;@]/g })); // eslint-disable-line
+const toSlug = (value: string, cb: (value: string) => void): void => {
+    cb(
+        slugify(value, {
+            replacement: "-",
+            lower: true,
+            remove: /[*#\?<>_\{\}\[\]+~.()'"!:;@]/g,
+            trim: false
+        })
+    );
 };
 
 export class GeneralSettingsView extends PageSettingsFormView {
@@ -23,7 +30,8 @@ export class GeneralSettingsView extends PageSettingsFormView {
             new InputElement("title", {
                 name: "title",
                 label: "Title",
-                description: "Page title.",
+                description:
+                    "Page title. Will be used on the public website if the SEO title wasn't specified (SEO settings tab).",
                 validators: () => validation.create("required")
             })
         );
@@ -69,8 +77,7 @@ export class GeneralSettingsView extends PageSettingsFormView {
         this.addField(
             new FileManagerElement("image", {
                 name: "settings.general.image",
-                label: "Page Image",
-                onChangePickAttributes: ["id", "src"]
+                label: "Page Image"
             })
         );
 

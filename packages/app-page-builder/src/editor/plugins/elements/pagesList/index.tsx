@@ -6,11 +6,12 @@ import {
     PbEditorPageElementPlugin,
     PbEditorPageElementAdvancedSettingsPlugin,
     DisplayMode,
-    PbEditorElementPluginArgs
-} from "../../../../types";
+    PbEditorElementPluginArgs,
+    OnCreateActions
+} from "~/types";
 import { createInitialPerDeviceSettingValue } from "../../elementSettings/elementSettingsUtils";
 import { ReactComponent as PageListIcon } from "./page-list-icon.svg";
-import PagesList from "./PagesList";
+import { PagesList } from "./PagesList";
 import PagesListFilterSettings from "./PagesListFilterSettings";
 import PagesListDesignSettings from "./PagesListDesignSettings";
 
@@ -24,7 +25,7 @@ export default (args: PbEditorElementPluginArgs = {}): PluginCollection => {
         }
     });
 
-    const elementType = kebabCase(args.elementType || "pages-list");
+    const elementType: string = kebabCase(args.elementType || "pages-list");
 
     const defaultToolbar = {
         title: "List of pages",
@@ -38,7 +39,7 @@ export default (args: PbEditorElementPluginArgs = {}): PluginCollection => {
         }
     };
 
-    const defaultSettings = ["pb-editor-page-element-settings-delete"];
+    const defaultSettings: string[] = ["pb-editor-page-element-settings-delete"];
 
     return [
         {
@@ -52,7 +53,7 @@ export default (args: PbEditorElementPluginArgs = {}): PluginCollection => {
                     ? args.settings(defaultSettings)
                     : defaultSettings,
             target: ["cell", "block"],
-            onCreate: "open-settings",
+            onCreate: OnCreateActions.OPEN_SETTINGS,
             create(options = {}) {
                 const defaultValue = {
                     type: this.elementType,
@@ -75,8 +76,8 @@ export default (args: PbEditorElementPluginArgs = {}): PluginCollection => {
 
                 return typeof args.create === "function" ? args.create(defaultValue) : defaultValue;
             },
-            render({ element }) {
-                return <PagesList data={element.data} />;
+            render(props) {
+                return <PagesList {...props} />;
             }
         } as PbEditorPageElementPlugin,
         {

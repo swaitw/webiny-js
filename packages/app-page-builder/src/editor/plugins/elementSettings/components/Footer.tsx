@@ -11,11 +11,15 @@ const switchStyle = css({
     }
 });
 
-const Footer = ({ advanced, toggleAdvanced }) => (
+interface FooterProps {
+    advanced: boolean;
+    toggleAdvanced: (value: any) => void;
+}
+const Footer = ({ advanced, toggleAdvanced }: FooterProps) => (
     <FooterStyled>
         <Grid className={"no-bottom-padding"}>
             <Cell span={8}>
-                <Typography use={"subtitle2"}>Show advanced options</Typography>
+                <Typography use={"body2"}>Show advanced options</Typography>
             </Cell>
             <Cell span={4}>
                 <Switch className={switchStyle} value={advanced} onChange={toggleAdvanced} />

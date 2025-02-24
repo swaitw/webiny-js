@@ -1,34 +1,33 @@
-import * as React from "react";
+import React from "react";
 import { OutputBlockData } from "@editorjs/editorjs";
 import { termsOfServiceEnabled } from "./../functions";
-import { FbFormModel, FbFormRenderComponentProps } from "../../../types";
+import { FbFormModel, FbFormRenderComponentProps } from "~/types";
 
-type CreateTermsOfServiceComponentArgs = {
+interface CreateTermsOfServiceComponentArgs {
     props: FbFormRenderComponentProps;
     formData: FbFormModel;
     setTermsOfServiceAccepted: (value: boolean) => void;
-};
+}
 
 type ChildrenFunction = (params: {
     onChange: (value: boolean) => void;
-    errorMessage: String;
+    errorMessage: string;
     message: OutputBlockData[];
 }) => React.ReactNode;
 
-export type TermsOfServiceProps = {
+export interface TermsOfServiceProps {
     children: ChildrenFunction;
     onChange?: (value: string) => void;
-    onErrored?: Function;
-    onExpired?: Function;
-};
+    onErrored?: (...args: any) => void;
+    onExpired?: (...args: any) => void;
+}
 
-export type TermsOfServiceComponent = React.FC<TermsOfServiceProps>;
+export type TermsOfServiceComponent = React.ComponentType<TermsOfServiceProps>;
 
 const createTermsOfServiceComponent = ({
     formData,
     setTermsOfServiceAccepted
 }: CreateTermsOfServiceComponentArgs): TermsOfServiceComponent =>
-    // @ts-ignore
     function TermsOfService(props: TermsOfServiceProps) {
         if (!termsOfServiceEnabled(formData)) {
             return null;

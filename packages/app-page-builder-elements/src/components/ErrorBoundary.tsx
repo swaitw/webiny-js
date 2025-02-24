@@ -1,25 +1,73 @@
-import React from "react";
+import React, { ErrorInfo } from "react";
+import { Element as ElementType } from "~/types";
 
-class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
-    constructor(props) {
+type State =
+    | {
+          hasError: true;
+          error: Error;
+      }
+    | { hasError: false; error: undefined };
+
+interface Props {
+    element: ElementType;
+    [key: string]: any;
+}
+
+const displayNone = {
+    display: "none"
+};
+
+declare global {
+    // eslint-disable-next-line
+    namespace JSX {
+        interface IntrinsicElements {
+            "pb-element-error": any;
+        }
+    }
+}
+
+class ErrorBoundary extends React.Component<Props, State> {
+    constructor(props: Props) {
         super(props);
-        this.state = { hasError: false };
+        this.state = {
+            hasError: false,
+            error: undefined
+        };
     }
 
-    static getDerivedStateFromError() {
+    static getDerivedStateFromError(error: Error) {
         // Update state so the next render will show the fallback UI.
-        return { hasError: true };
+        return {
+            hasError: true,
+            error
+        };
     }
 
-    componentDidCatch(error, errorInfo) {
-        console.log("An error occurred while rendering a page element:");
-        console.log(error, errorInfo);
+    public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+        const { element } = this.props;
+        console.groupCollapsed(
+            `%cELEMENT ERROR%c: An error occurred while rendering page element "${element.id}" of type "${element.type}".`,
+            "color:red",
+            "color:default"
+        );
+        console.log("element", element);
+        console.error(error, errorInfo);
+        console.groupEnd();
     }
 
-    render() {
+    public override render() {
         if (this.state.hasError) {
-            // You can render any custom fallback UI
-            return <h1>Something went wrong.</h1>;
+            const elementData = {
+                id: this.props.element.id,
+                type: this.props.element.type,
+                error: this.state.error.message
+            };
+
+            return (
+                <pb-element-error style={displayNone}>
+                    {JSON.stringify(elementData)}
+                </pb-element-error>
+            );
         }
 
         return this.props.children;

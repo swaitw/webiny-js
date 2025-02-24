@@ -25,7 +25,12 @@ const ElevationContent = styled("div")({
     padding: 20
 });
 
-const Block = ({ children, title, ...props }) => {
+interface BlockProps {
+    title: string;
+    className?: string;
+    children: React.ReactNode;
+}
+const Block = ({ children, title, ...props }: BlockProps) => {
     return (
         <BlockWrapper {...props}>
             <h4>

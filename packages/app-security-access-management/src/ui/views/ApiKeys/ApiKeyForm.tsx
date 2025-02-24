@@ -6,7 +6,13 @@ import { i18n } from "@webiny/app/i18n";
 import { Form } from "@webiny/form";
 import { Grid, Cell } from "@webiny/ui/Grid";
 import { Input } from "@webiny/ui/Input";
-import { ButtonDefault, ButtonIcon, ButtonPrimary, CopyButton } from "@webiny/ui/Button";
+import {
+    ButtonDefault,
+    ButtonIcon,
+    ButtonPrimary,
+    CopyButton,
+    IconButton
+} from "@webiny/ui/Button";
 import { CircularProgress } from "@webiny/ui/Progress";
 import { FormElementMessage } from "@webiny/ui/FormElementMessage";
 import { Permissions } from "@webiny/app-admin/components/Permissions";
@@ -25,7 +31,10 @@ import { SnackbarAction } from "@webiny/ui/Snackbar";
 import isEmpty from "lodash/isEmpty";
 import EmptyView from "@webiny/app-admin/components/EmptyView";
 import { ReactComponent as AddIcon } from "@webiny/app-admin/assets/icons/add-18px.svg";
+import { ReactComponent as CopyIcon } from "@material-design-icons/svg/outlined/content_copy.svg";
 import styled from "@emotion/styled";
+import { ApiKey } from "~/types";
+import { Tooltip } from "@webiny/ui/Tooltip";
 
 const t = i18n.ns("app-security-admin-users/admin/api-keys/form");
 
@@ -34,7 +43,17 @@ const ButtonWrapper = styled("div")({
     justifyContent: "space-between"
 });
 
-const ApiKeyForm = () => {
+const PermissionsTitleCell = styled(Cell)`
+    display: flex;
+    align-items: center;
+`;
+
+export interface ApiKeyFormProps {
+    // TODO @ts-refactor delete and go up the tree and sort it out
+    [key: string]: any;
+}
+
+export const ApiKeyForm = () => {
     const { location, history } = useRouter();
     const { showSnackbar } = useSnackbar();
     const newEntry = new URLSearchParams(location.search).get("new") === "true";
@@ -67,8 +86,8 @@ const ApiKeyForm = () => {
     const loading = [getQuery, createMutation, updateMutation].find(item => item.loading);
 
     const onSubmit = useCallback(
-        async data => {
-            if (!data.permissions || !data.permissions.length) {
+        async (formData: ApiKey) => {
+            if (!formData.permissions || !formData.permissions.length) {
                 showSnackbar(t`You must configure permissions before saving!`, {
                     timeout: 60000,
                     dismissesOnAction: true,
@@ -77,10 +96,10 @@ const ApiKeyForm = () => {
                 return;
             }
 
-            const isUpdate = data.createdOn;
+            const isUpdate = formData.createdOn;
             const [operation, args] = isUpdate
-                ? [update, { variables: { id: data.id, data: pickDataForAPI(data) } }]
-                : [create, { variables: { data: pickDataForAPI(data) } }];
+                ? [update, { variables: { id: formData.id, data: pickDataForAPI(formData) } }]
+                : [create, { variables: { data: pickDataForAPI(formData) } }];
 
             const response = await operation(args);
 
@@ -97,7 +116,7 @@ const ApiKeyForm = () => {
         [id]
     );
 
-    const data = get(getQuery, "data.security.apiKey.data", {});
+    const data: ApiKey = get(getQuery, "data.security.apiKey.data", {});
 
     const showEmptyView = !newEntry && !loading && isEmpty(data);
     // Render "No content" selected view.
@@ -128,7 +147,10 @@ const ApiKeyForm = () => {
                             <Grid>
                                 <Cell span={12}>
                                     <Bind name="name" validators={validation.create("required")}>
-                                        <Input label={t`Name`} />
+                                        <Input
+                                            label={t`Name`}
+                                            data-testid="sam.key.new.form.name"
+                                        />
                                     </Bind>
                                 </Cell>
                             </Grid>
@@ -138,7 +160,11 @@ const ApiKeyForm = () => {
                                         name="description"
                                         validators={validation.create("required")}
                                     >
-                                        <Input label={t`Description`} rows={4} />
+                                        <Input
+                                            label={t`Description`}
+                                            rows={4}
+                                            data-testid="sam.key.new.form.description"
+                                        />
                                     </Bind>
                                 </Cell>
                             </Grid>
@@ -183,7 +209,23 @@ const ApiKeyForm = () => {
                             </Grid>
                             <Grid>
                                 <Cell span={12}>
-                                    <Typography use={"subtitle1"}>{t`Permissions`}</Typography>
+                                    <PermissionsTitleCell span={12}>
+                                        <Typography use={"subtitle1"}>{t`Permissions`}</Typography>
+                                        <Tooltip
+                                            content="Copy permissions as JSON"
+                                            placement={"top"}
+                                        >
+                                            <IconButton
+                                                icon={<CopyIcon />}
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(
+                                                        JSON.stringify(data.permissions, null, 2)
+                                                    );
+                                                    showSnackbar("JSON data copied to clipboard.");
+                                                }}
+                                            />
+                                        </Tooltip>
+                                    </PermissionsTitleCell>
                                 </Cell>
                                 <Cell span={12}>
                                     <Bind name={"permissions"} defaultValue={[]}>
@@ -196,9 +238,13 @@ const ApiKeyForm = () => {
                             <ButtonWrapper>
                                 <ButtonDefault
                                     onClick={() => history.push("/access-management/api-keys")}
+                                    data-testid="sam.key.new.form.button.cancel"
                                 >{t`Cancel`}</ButtonDefault>
                                 <ButtonPrimary
-                                    onClick={form.submit}
+                                    onClick={ev => {
+                                        form.submit(ev);
+                                    }}
+                                    data-testid="sam.key.new.form.button.save"
                                 >{t`Save API key`}</ButtonPrimary>
                             </ButtonWrapper>
                         </SimpleFormFooter>
@@ -208,5 +254,3 @@ const ApiKeyForm = () => {
         </Form>
     );
 };
-
-export default ApiKeyForm;

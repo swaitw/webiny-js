@@ -1,6 +1,7 @@
-import { FormComponentProps } from "./../types";
+import React from "react";
+import { FormComponentProps } from "~/types";
 
-export type AutoCompleteBaseProps = FormComponentProps & {
+export interface AutoCompleteBaseProps extends FormComponentProps {
     /**
      * Component label.
      */
@@ -24,7 +25,7 @@ export type AutoCompleteBaseProps = FormComponentProps & {
     /**
      * Description beneath the autoComplete.
      */
-    description?: string;
+    description?: React.ReactNode;
 
     /**
      * Placeholder text for the form control. Set to a blank string to create a non-floating placeholder label.
@@ -54,12 +55,12 @@ export type AutoCompleteBaseProps = FormComponentProps & {
     /**
      * Callback that gets executed on change of input value.
      */
-    onInput?: Function;
+    onInput?: (value: any) => void;
 
     /**
      * Callback that gets executed when the input is focused.
      */
-    onFocus?: Function;
+    onFocus?: (ev: React.FocusEvent<any>) => void;
 
     /**
      * Set if you are saving plain strings as values.
@@ -69,5 +70,5 @@ export type AutoCompleteBaseProps = FormComponentProps & {
     /**
      * Renders a single suggestion item.
      */
-    renderItem: Function;
-};
+    renderItem: (item: any, index?: number) => React.ReactNode;
+}

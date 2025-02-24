@@ -1,12 +1,17 @@
-import { Entity, Table } from "dynamodb-toolbox";
-import { I18NContext } from "@webiny/api-i18n/types";
-import { getExtraAttributes } from "@webiny/db-dynamodb/utils/attributes";
+import type { Table } from "@webiny/db-dynamodb/toolbox";
+import type { I18NContext } from "@webiny/api-i18n/types";
+import { getExtraAttributesFromPlugins } from "@webiny/db-dynamodb/utils/attributes";
+import type { IEntity } from "@webiny/db-dynamodb";
+import { createEntity } from "@webiny/db-dynamodb";
 
-export default (params: { context: I18NContext; table: Table }): Entity<any> => {
+export default (params: {
+    context: Pick<I18NContext, "plugins">;
+    table: Table<string, string, string>;
+}): IEntity => {
     const { context, table } = params;
     const entityName = "I18NSystem";
-    const attributes = getExtraAttributes(context, entityName);
-    return new Entity({
+    const attributes = getExtraAttributesFromPlugins(context.plugins, entityName);
+    return createEntity({
         name: entityName,
         table,
         attributes: {
@@ -17,6 +22,9 @@ export default (params: { context: I18NContext; table: Table }): Entity<any> => 
                 sortKey: true
             },
             version: {
+                type: "string"
+            },
+            tenant: {
                 type: "string"
             },
             ...attributes

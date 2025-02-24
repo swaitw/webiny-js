@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect } from "react";
 import { css } from "emotion";
-import { isEqual } from "lodash";
-import { get } from "lodash";
-import { PbEditorElement } from "../../../../../types";
-import useRenderEmptyEmbed from "../../../elements/utils/oembed/useRenderEmptyEmbed";
+import isEqual from "lodash/isEqual";
+import get from "lodash/get";
+import { PbEditorElement, PbElementDataTypeSource } from "~/types";
+import useRenderEmptyEmbed from "~/editor/plugins/elements/utils/oembed/useRenderEmptyEmbed";
+import { useElementVariableValue } from "~/editor/hooks/useElementVariableValue";
 
 declare global {
     interface Window {
@@ -11,10 +12,11 @@ declare global {
     }
 }
 
-function appendSDK(props) {
-    const { element } = props;
-    const { url } = get(element, "data.source") || {};
+interface PinterestEmbedProps {
+    element: PbEditorElement;
+}
 
+async function appendSDK(url: string): Promise<void> {
     if (!url || window["PinUtils"]) {
         return Promise.resolve();
     }
@@ -25,12 +27,14 @@ function appendSDK(props) {
         script.src = encodeURI("https://assets.pinterest.com/js/pinit.js");
         script.setAttribute("async", "");
         script.setAttribute("charset", "utf-8");
-        script.onload = resolve;
+        script.onload = () => {
+            return resolve();
+        };
         document.body.appendChild(script);
     });
 }
 
-function initEmbed(props) {
+async function initEmbed(props: PinterestEmbedProps): Promise<void> {
     const { element } = props;
     const node = document.getElementById(element.id);
     if (node && window.PinUtils) {
@@ -42,7 +46,7 @@ const centerAlign = css({
     textAlign: "center"
 });
 
-const getHTML = data => {
+const getHTML = (data: PbElementDataTypeSource): string => {
     return `<a
         data-pin-do="embedPin"
         data-pin-width="${data.size || "small"}"
@@ -50,30 +54,40 @@ const getHTML = data => {
     />`;
 };
 
-export default React.memo(
-    (props: { element: PbEditorElement }) => {
-        const { element } = props;
+const PinterestEmbed = (props: PinterestEmbedProps) => {
+    const { element } = props;
+    const variableValue = useElementVariableValue(element);
+    const data: PbElementDataTypeSource = get(element, "data.source");
 
-        useEffect(() => {
-            appendSDK(props).then(() => initEmbed(props));
-        }, [element]);
+    const pinUrl = variableValue || data?.url;
 
-        const renderEmpty = useRenderEmptyEmbed(element);
+    useEffect(() => {
+        appendSDK(pinUrl).then(() => initEmbed(props));
+    }, [pinUrl]);
 
-        const renderEmbed = useCallback(() => {
-            const data = get(element, "data.source");
-            return (
-                <div
-                    id={element.id}
-                    className={centerAlign}
-                    dangerouslySetInnerHTML={{ __html: getHTML(data) }}
-                />
-            );
-        }, [element]);
+    const renderEmpty = useRenderEmptyEmbed(element);
 
-        const { url } = get(element, "data.source") || {};
+    const renderEmbed = useCallback((): React.ReactElement => {
+        const pinData = {
+            url: variableValue ? variableValue : data?.url,
+            size: data?.size || "small"
+        };
 
-        return url ? renderEmbed() : renderEmpty();
-    },
-    (props, nextProps) => isEqual(props, nextProps)
+        return (
+            <div
+                id={element.id}
+                className={centerAlign}
+                dangerouslySetInnerHTML={{ __html: getHTML(pinData) }}
+            />
+        );
+    }, [pinUrl]);
+
+    return pinUrl ? renderEmbed() : renderEmpty();
+};
+
+const MemoizedPinterestEmbed = React.memo(PinterestEmbed, (props, nextProps) =>
+    isEqual(props, nextProps)
 );
+
+MemoizedPinterestEmbed.displayName = "MemoizedPinterestEmbed";
+export default MemoizedPinterestEmbed;

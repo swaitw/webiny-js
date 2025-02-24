@@ -1,11 +1,12 @@
 import { CmsGroup } from "~/types";
-import { useContentGqlHandler } from "../utils/useContentGqlHandler";
+import { useGraphQLHandler } from "../testHelpers/useGraphQLHandler";
 import { pubSubTracker } from "./mocks/lifecycleHooks";
 
 describe("content model test reserved model ids", () => {
     const manageHandlerOpts = { path: "manage/en-US" };
 
-    const { createContentModelGroupMutation } = useContentGqlHandler(manageHandlerOpts);
+    const { createContentModelGroupMutation, createContentModelMutation } =
+        useGraphQLHandler(manageHandlerOpts);
 
     let contentModelGroup: CmsGroup;
 
@@ -24,12 +25,12 @@ describe("content model test reserved model ids", () => {
     });
 
     test(`should not allow creation of a model the modelId set to blacklisted value`, async () => {
-        const { createContentModelMutation } = useContentGqlHandler(manageHandlerOpts);
-
         const [response1] = await createContentModelMutation({
             data: {
                 name: "Content Model",
                 modelId: "contentModel",
+                singularApiName: "ContentModel",
+                pluralApiName: "ContentModels",
                 group: contentModelGroup.id
             }
         });
@@ -39,8 +40,10 @@ describe("content model test reserved model ids", () => {
                 createContentModel: {
                     data: null,
                     error: {
-                        code: "",
-                        data: null,
+                        code: "MODEL_ID_NOT_ALLOWED",
+                        data: {
+                            input: "contentModel"
+                        },
                         message: 'Provided model ID "contentModel" is not allowed.'
                     }
                 }
@@ -51,6 +54,8 @@ describe("content model test reserved model ids", () => {
             data: {
                 name: "Content Model Group",
                 modelId: "contentModelGroup",
+                singularApiName: "ContentModelGroup",
+                pluralApiName: "ContentModelsGroups",
                 group: contentModelGroup.id
             }
         });
@@ -60,8 +65,10 @@ describe("content model test reserved model ids", () => {
                 createContentModel: {
                     data: null,
                     error: {
-                        code: "",
-                        data: null,
+                        code: "MODEL_ID_NOT_ALLOWED",
+                        data: {
+                            input: "contentModelGroup"
+                        },
                         message: 'Provided model ID "contentModelGroup" is not allowed.'
                     }
                 }

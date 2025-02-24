@@ -1,0 +1,53 @@
+{
+  "name": "@webiny/pulumi-aws",
+  "version": "0.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webiny/webiny-js.git"
+  },
+  "description": "A set of Pulumi apps that deploy Webiny CMS into Amazon Web Services (AWS).",
+  "author": "Webiny Ltd",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
+  "dependencies": {
+    "@pulumi/aws": "6.67.0",
+    "@pulumi/pulumi": "3.147.0",
+    "@pulumi/random": "4.17.0",
+    "@webiny/aws-sdk": "0.0.0",
+    "@webiny/cli-plugin-deploy-pulumi": "0.0.0",
+    "@webiny/pulumi": "0.0.0",
+    "form-data": "^4.0.0",
+    "node-fetch": "2.6.7"
+  },
+  "devDependencies": {
+    "@webiny/api-page-builder": "0.0.0",
+    "@webiny/aws-layers": "0.0.0",
+    "@webiny/cli": "0.0.0",
+    "@webiny/feature-flags": "0.0.0",
+    "@webiny/project-utils": "0.0.0",
+    "chalk": "^4.1.2",
+    "lodash": "^4.17.21",
+    "mime": "^3.0.0",
+    "rimraf": "^6.0.1",
+    "typescript": "5.3.3"
+  },
+  "scripts": {
+    "build": "yarn webiny run build",
+    "watch": "yarn webiny run watch"
+  },
+  "adio": {
+    "ignore": {
+      "dependencies": [
+        "@pulumi/pulumi",
+        "@pulumi/aws"
+      ],
+      "src": [
+        "@aws-sdk/client-dynamodb",
+        "@aws-sdk/lib-dynamodb"
+      ]
+    }
+  }
+}

@@ -1,10 +1,6 @@
-import path from "path";
+import trimEnd from "lodash/trimEnd";
+import { PrerenderingSettings } from "~/types";
 
-export default (args, configuration) => {
-    if (args.url) {
-        return args.url;
-    }
-
-    const websiteUrl = args?.configuration?.website.url || configuration?.website?.url;
-    return path.join(websiteUrl, args.path);
+export const getRenderUrl = (path: string, settings: PrerenderingSettings) => {
+    return [trimEnd(settings.appUrl, "/"), path].join("");
 };

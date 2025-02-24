@@ -1,11 +1,11 @@
-import * as React from "react";
-import { FormComponentProps } from "./../types";
+import React from "react";
+import { FormComponentProps } from "~/types";
 import BrowseFiles, { SelectedFile, FileError } from "react-butterfiles";
-import { FormElementMessage } from "../FormElementMessage";
+import { FormElementMessage } from "~/FormElementMessage";
 import styled from "@emotion/styled";
 import classNames from "classnames";
 import Image from "./Image";
-import ImageEditorDialog from "./ImageEditorDialog";
+import { ImageEditorDialog } from "./ImageEditorDialog";
 
 const ImageUploadWrapper = styled("div")({
     position: "relative",
@@ -24,7 +24,7 @@ const ImageUploadWrapper = styled("div")({
     }
 });
 
-type Props = FormComponentProps & {
+interface SingleImageUploadProps extends FormComponentProps {
     // Component label.
     label?: string;
 
@@ -38,7 +38,7 @@ type Props = FormComponentProps & {
     className?: string;
 
     // Define a list of accepted image types.
-    accept?: Array<string>;
+    accept?: string[];
 
     // Define file's max allowed size (default is "10mb").
     // Uses "bytes" (https://www.npmjs.com/package/bytes) library to convert string notation to actual number.
@@ -46,7 +46,9 @@ type Props = FormComponentProps & {
 
     // Image editor options.
     // Please check the docs of ImageEditor component for the list of all available options.
-    imageEditor?: Object;
+    imageEditor?: {
+        [key: string]: any;
+    };
 
     // Custom image preview renderer. By default images are rendered via simple <img> element.
     renderImagePreview?: () => React.ReactElement<any>;
@@ -62,28 +64,35 @@ type Props = FormComponentProps & {
         multipleNotAllowed: string;
         multipleMaxSizeExceeded: string;
     };
-};
+}
 
-type State = {
+interface StateImage {
+    name: string;
+    type: string;
+    size: number;
+    src?: string;
+}
+interface State {
     loading: boolean;
-    error?: FileError;
+    error: FileError | null;
     imageEditor: {
-        image?: {
-            name: string;
-            type: string;
-            size: number;
-            src?: string;
-        };
+        image: StateImage | null;
         open: boolean;
     };
-};
+}
 
 // Do not apply editing for following image types.
 const noImageEditingTypes = ["image/svg+xml", "image/gif"];
 
-export class SingleImageUpload extends React.Component<Props, State> {
-    static defaultProps = {
-        validation: { isValid: null },
+type ErrorType =
+    | "maxSizeExceeded"
+    | "unsupportedFileType"
+    | "default"
+    | "multipleNotAllowed"
+    | "multipleMaxSizeExceeded";
+
+export class SingleImageUpload extends React.Component<SingleImageUploadProps, State> {
+    static defaultProps: Partial<SingleImageUploadProps> = {
         maxSize: "10mb",
         imageEditor: {},
         accept: ["image/jpeg", "image/png", "image/gif", "image/svg+xml"],
@@ -97,7 +106,7 @@ export class SingleImageUpload extends React.Component<Props, State> {
         }
     };
 
-    state = {
+    public override state: State = {
         loading: false,
         error: null,
         imageEditor: {
@@ -129,7 +138,7 @@ export class SingleImageUpload extends React.Component<Props, State> {
         this.setState({ error });
     };
 
-    render() {
+    public override render() {
         const {
             className,
             value,
@@ -145,12 +154,19 @@ export class SingleImageUpload extends React.Component<Props, State> {
         } = this.props;
 
         let imageEditorImageSrc = "";
-        if (this.state.imageEditor.image) {
+        if (this.state.imageEditor.image && this.state.imageEditor.image.src) {
             imageEditorImageSrc = this.state.imageEditor.image.src;
         }
 
         const src = value ? value.src : null;
 
+        const errorType = this.state.error ? (this.state.error.type as ErrorType) : null;
+
+        const { isValid: validationIsValid, message: validationMessage } = validation || {};
+        /**
+         * accept can be safely cast because of default value
+         * errorType as keyof Props["errorMessages"] can be safely
+         */
         return (
             <ImageUploadWrapper className={classNames(className)}>
                 {label && !src && (
@@ -177,14 +193,17 @@ export class SingleImageUpload extends React.Component<Props, State> {
                                     (await onChange({ ...this.state.imageEditor.image, src }));
                                 this.setState({
                                     loading: false,
-                                    imageEditor: { image: null, open: false }
+                                    imageEditor: {
+                                        image: null,
+                                        open: false
+                                    }
                                 });
                             });
                         });
                     }}
                 />
                 <BrowseFiles
-                    accept={accept}
+                    accept={accept as string[]}
                     maxSize={maxSize}
                     convertToBase64
                     onSuccess={this.handleFiles}
@@ -196,7 +215,7 @@ export class SingleImageUpload extends React.Component<Props, State> {
                                 renderImagePreview={renderImagePreview}
                                 loading={this.state.loading}
                                 value={value}
-                                removeImage={showRemoveImageButton ? onChange : null}
+                                removeImage={showRemoveImageButton ? onChange : undefined}
                                 uploadImage={browseFiles}
                                 editImage={browseFiles}
                             />
@@ -204,18 +223,19 @@ export class SingleImageUpload extends React.Component<Props, State> {
                     )}
                 </BrowseFiles>
 
-                {validation.isValid === false && (
-                    <FormElementMessage error>{validation.message}</FormElementMessage>
+                {validationIsValid === false && (
+                    <FormElementMessage error>{validationMessage}</FormElementMessage>
                 )}
 
-                {validation.isValid !== false && description && (
+                {validationIsValid !== false && description && (
                     <FormElementMessage>{description}</FormElementMessage>
                 )}
 
                 {this.state.error && (
                     <FormElementMessage error>
-                        {this.props.errorMessages[this.state.error.type] ||
-                            this.props.errorMessages.default}
+                        {this.props.errorMessages[
+                            errorType as keyof SingleImageUploadProps["errorMessages"]
+                        ] || this.props.errorMessages.default}
                     </FormElementMessage>
                 )}
             </ImageUploadWrapper>

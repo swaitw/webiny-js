@@ -1,18 +1,9 @@
-import React, { ReactNode } from "react";
+import React, { createContext, useMemo, useState } from "react";
 import classNames from "classnames";
-import { TabBar } from "@rmwc/tabs";
-import { Tab, TabProps } from "./Tab";
+import { TabBar, Tab as RmwcTab } from "@rmwc/tabs";
+import { TabProps } from "./Tab";
 
-export type TabsRenderProps = {
-    switchTab(tabIndex: number): void;
-};
-
-export type TabsProps = {
-    /**
-     * A collection of tabs that needs to be rendered.
-     */
-    children: ((props: TabsRenderProps) => ReactNode) | ReactNode;
-
+export interface TabsProps extends React.HTMLAttributes<HTMLDivElement> {
     /**
      * Append a class name.
      */
@@ -29,115 +20,113 @@ export type TabsProps = {
     value?: number;
 
     /**
-     * Function to change active tab.
+     * Tab ID for the testing.
      */
-    updateValue?: (index: number) => void;
-};
+    "data-testid"?: string;
+}
 
-type State = {
-    activeTabIndex: number;
-};
-
-const disabledStyles = {
+const disabledStyles: Record<string, string | number> = {
     opacity: 0.5,
     pointerEvents: "none"
 };
 
+interface TabItem extends TabProps {
+    id: string;
+}
+
+interface TabsContext {
+    addTab(props: TabItem): void;
+    removeTab(id: string): void;
+}
+
+export const TabsContext = createContext<TabsContext | undefined>(undefined);
+
 /**
  * Use Tabs component to display a list of choices, once the handler is triggered.
  */
-export class Tabs extends React.Component<TabsProps, State> {
-    state = {
-        activeTabIndex: 0
-    };
+export const Tabs = ({ children, value, onActivate, className, ...props }: TabsProps) => {
+    const [activeTabIndex, setActiveIndex] = useState(0);
+    const [tabs, setTabs] = useState<TabItem[]>([]);
 
-    switchTab(activeTabIndex) {
-        if (typeof this.props.updateValue === "function") {
-            this.props.updateValue(activeTabIndex);
-        } else {
-            this.setState({ activeTabIndex });
-        }
-    }
+    const activeIndex = value !== undefined ? value : activeTabIndex;
 
-    renderChildren(children, activeIndex) {
-        const tabs = React.Children.toArray(children)
-            .filter(c => c !== null)
-            .map((child: React.ReactElement<TabProps>) => {
-                return {
-                    label: child.props.label,
-                    children: child.props.children,
-                    icon: child.props.icon,
-                    disabled: child.props.disabled,
-                    style: child.props.style,
-                    "data-testid": child.props["data-testid"]
-                };
-            });
+    /* We need to generate a key like this to trigger a proper component re-render when child tabs change. */
+    const tabBar = (
+        <TabBar
+            key={tabs.map(tab => tab.id).join(";")}
+            className="webiny-ui-tabs__tab-bar"
+            activeTabIndex={activeIndex}
+            onActivate={evt => {
+                setActiveIndex(evt.detail.index);
+                onActivate && onActivate(evt.detail.index);
+            }}
+        >
+            {tabs.map(item => {
+                if (!item.visible) {
+                    return <RmwcTab tag={"div"} style={{ display: "none" }} key={item.id} />;
+                }
 
-        const tabBar = (
-            <TabBar
-                className="webiny-ui-tabs__tab-bar"
-                activeTabIndex={activeIndex}
-                onActivate={evt => {
-                    if (typeof this.props.updateValue === "function") {
-                        this.props.updateValue(evt.detail.index);
-                    } else {
-                        this.setState({ activeTabIndex: evt.detail.index });
-                    }
-                    this.props.onActivate && this.props.onActivate(evt.detail.index);
-                }}
-            >
-                {tabs.map((item: TabProps, index) => {
-                    const style = item.style || {};
-                    if (item.disabled) {
-                        Object.assign(style, disabledStyles);
-                    }
+                const style = item.style || {};
+                if (item.disabled) {
+                    Object.assign(style, disabledStyles);
+                }
 
-                    return (
-                        <Tab
-                            tag={"div"}
-                            style={style}
-                            key={item.label + "-" + index}
-                            data-testid={item["data-testid"]}
-                            {...(item.icon ? { icon: item.icon } : {})}
-                            {...(item.label ? { label: item.label } : {})}
-                        />
-                    );
-                })}
-            </TabBar>
-        );
-
-        const content = [];
-        for (let i = 0; i < tabs.length; i++) {
-            const current = tabs[i];
-            if (activeIndex === i) {
-                content.push(<div key={i}>{current.children}</div>);
-            } else {
-                content.push(
-                    <div key={i} style={{ display: "none" }}>
-                        {current.children}
-                    </div>
+                return (
+                    <RmwcTab
+                        tag={"div"}
+                        style={style}
+                        key={item.id}
+                        data-testid={item["data-testid"]}
+                        {...(item.icon ? { icon: item.icon } : {})}
+                    >
+                        {item.label}
+                    </RmwcTab>
                 );
+            })}
+        </TabBar>
+    );
+
+    const content = tabs.filter(Boolean).map((tab, index) => {
+        if (activeIndex === index) {
+            return <div key={index}>{tab.children}</div>;
+        } else {
+            return (
+                <div key={index} style={{ display: "none" }}>
+                    {tab.children}
+                </div>
+            );
+        }
+    });
+
+    const context: TabsContext = useMemo(
+        () => ({
+            addTab(props) {
+                setTabs(tabs => {
+                    const existingIndex = tabs.findIndex(tab => tab.id === props.id);
+                    if (existingIndex > -1) {
+                        return [
+                            ...tabs.slice(0, existingIndex),
+                            props,
+                            ...tabs.slice(existingIndex + 1)
+                        ];
+                    }
+                    return [...tabs, props];
+                });
+            },
+            removeTab(id) {
+                setTabs(tabs => tabs.filter(tab => tab.id === id));
             }
-        }
+        }),
+        [setTabs]
+    );
 
-        return (
-            <div className={classNames("webiny-ui-tabs", this.props.className)}>
-                {tabBar}
-                <div className={"webiny-ui-tabs__content mdc-tab-content"}>{content}</div>
-            </div>
-        );
-    }
+    return (
+        <div id={props.id} className={classNames("webiny-ui-tabs", className)}>
+            {tabBar}
+            <div className={"webiny-ui-tabs__content mdc-tab-content"}>{content}</div>
+            <TabsContext.Provider value={context}>{children}</TabsContext.Provider>
+        </div>
+    );
+};
 
-    render() {
-        const activeIndex =
-            this.props.value !== undefined ? this.props.value : this.state.activeTabIndex;
-
-        let children = this.props.children;
-        if (typeof this.props.children === "function") {
-            // @ts-ignore
-            children = this.props.children({ switchTab: this.switchTab.bind(this) });
-        }
-
-        return this.renderChildren(children, activeIndex);
-    }
-}
+Tabs.displayName = "Tabs";

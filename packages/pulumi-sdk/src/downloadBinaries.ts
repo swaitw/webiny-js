@@ -1,12 +1,14 @@
-const os = require("os");
-const tar = require("tar");
-const fs = require("fs");
-const download = require("download");
-const path = require("path");
-const decompress = require("decompress");
-const semver = require("semver");
+import os from "os";
+// @ts-expect-error `tar` has no types.
+import tar from "tar";
+import fs from "fs";
+import path from "path";
+// @ts-expect-error `tar` has no types.
+import decompress from "decompress";
+import semver from "semver";
+import { downloadFile } from "./downloadFile";
 
-// We gotta sanitize the package version, since on a few occasions, we've detected the Pulumi version
+// We need to sanitize the package version because, occasionally, we've noticed that the Pulumi version
 // can look like the following: "2.25.2+dirty". We want to ensure only "2.25.2" is returned.
 // @see https://github.com/pulumi/pulumi/issues/6847
 const getPulumiVersion = () => {
@@ -14,7 +16,11 @@ const getPulumiVersion = () => {
     return semver.clean(version);
 };
 
-export default async (downloadFolder, beforeInstall, afterInstall) => {
+export default async (
+    downloadFolder: string,
+    beforeInstall?: () => void,
+    afterInstall?: () => void
+) => {
     if (fs.existsSync(downloadFolder)) {
         return false;
     }
@@ -47,45 +53,51 @@ export default async (downloadFolder, beforeInstall, afterInstall) => {
     return true;
 };
 
-async function setupDarwin(downloadFolder) {
+const SUPPORTED_ARCHITECTURES = ["x64", "arm64"];
+
+async function setupDarwin(downloadFolder: string) {
     const version = getPulumiVersion();
-    const filename = `pulumi-v${version}-darwin-x64.tar.gz`;
+    const arch = SUPPORTED_ARCHITECTURES.includes(process.arch) ? process.arch : "x64";
+
+    const filename = `pulumi-v${version}-darwin-${arch}.tar.gz`;
     const downloadUrl = "https://get.pulumi.com/releases/sdk/" + filename;
 
-    await download(downloadUrl, downloadFolder);
+    const absoluteFilename = path.join(downloadFolder, filename);
+    await downloadFile(downloadUrl, absoluteFilename);
 
     await tar.extract({
         cwd: downloadFolder,
-        file: path.join(downloadFolder, filename)
+        file: absoluteFilename
     });
 
     fs.unlinkSync(path.join(downloadFolder, filename));
 }
 
-async function setupWindows(downloadFolder) {
+async function setupWindows(downloadFolder: string) {
     const version = getPulumiVersion();
     const filename = `pulumi-v${version}-windows-x64.zip`;
     const downloadUrl = "https://get.pulumi.com/releases/sdk/" + filename;
 
-    await download(downloadUrl, downloadFolder);
+    const absoluteFilename = path.join(downloadFolder, filename);
+    await downloadFile(downloadUrl, absoluteFilename);
 
-    const archive = path.join(downloadFolder, filename);
     const destination = path.join(downloadFolder, "pulumi");
-    await decompress(archive, destination, { strip: 2 });
+    await decompress(absoluteFilename, destination, { strip: 2 });
 
     fs.unlinkSync(path.join(downloadFolder, filename));
 }
 
-async function setupLinux(downloadFolder) {
+async function setupLinux(downloadFolder: string) {
     const version = getPulumiVersion();
     const filename = `pulumi-v${version}-linux-x64.tar.gz`;
     const downloadUrl = "https://get.pulumi.com/releases/sdk/" + filename;
 
-    await download(downloadUrl, downloadFolder);
+    const absoluteFilename = path.join(downloadFolder, filename);
+    await downloadFile(downloadUrl, absoluteFilename);
 
     await tar.extract({
         cwd: downloadFolder,
-        file: path.join(downloadFolder, filename)
+        file: absoluteFilename
     });
 
     fs.unlinkSync(path.join(downloadFolder, filename));

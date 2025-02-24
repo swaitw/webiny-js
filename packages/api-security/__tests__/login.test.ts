@@ -5,9 +5,13 @@ describe(`"Login" test`, () => {
     const { install, securityIdentity } = useGqlHandler({ plugins: [defaultIdentity()] });
 
     beforeEach(async () => {
-        const [response] = await install.install({ "x-tenant": "root" });
+        const [response] = await install.install({
+            "x-tenant": "root"
+        });
+
         if (response.data.security.install.error) {
             throw new Error(response.data.security.install.error.message);
+            // @ts-expect-error
             process.exit(0);
         }
     });
@@ -23,7 +27,11 @@ describe(`"Login" test`, () => {
                             id: "123456789",
                             displayName: "John Doe",
                             type: "admin",
-                            permissions: [{ name: "*" }]
+                            permissions: [
+                                {
+                                    name: "*"
+                                }
+                            ]
                         },
                         error: null
                     }

@@ -1,14 +1,30 @@
+import bytes from "bytes";
 import useGqlHandler from "./useGqlHandler";
-import { waitPage } from "./utils/waitPage";
 import { defaultIdentity } from "../tenancySecurity";
+import { expectCompressed } from "~tests/graphql/utils/expectCompressed";
+import { decompress } from "./utils/compression";
+import { calculateSize, createPageContent } from "~tests/graphql/mocks/pageContent";
+import { PageElementId } from "~/graphql/crud/pages/PageElementId";
 
 jest.setTimeout(100000);
 
 describe("CRUD Test", () => {
     const handler = useGqlHandler();
 
-    const { createCategory, createPage, deletePage, listPages, getPage, updatePage, until } =
-        handler;
+    const {
+        createBlockCategory,
+        createCategory,
+        createPage,
+        createPageBlock,
+        createPageElement,
+        deletePage,
+        duplicatePage,
+        listPages,
+        getPage,
+        updatePage,
+        updatePageBlock,
+        until
+    } = handler;
 
     test("create, read, update and delete pages", async () => {
         const [createPageUnknownResponse] = await createPage({ category: "unknown" });
@@ -39,7 +55,7 @@ describe("CRUD Test", () => {
         const ids = [];
         // Test creating, getting and updating three pages.
         for (let i = 0; i < 3; i++) {
-            let data: any = {
+            let data: Record<string, any> = {
                 category: "slug"
             };
 
@@ -103,22 +119,22 @@ describe("CRUD Test", () => {
                             src: `https://someimages.com/image-${i}.png`
                         }
                     }
-                }
+                },
+                /**
+                 * This basically creates a page content of 1MB in size
+                 */
+                content: createPageContent("1MB")
             };
 
-            const [updatePageResponse] = await updatePage({
+            await updatePage({
                 id,
                 data
             });
-
-            const updatedPage = updatePageResponse.data.pageBuilder.updatePage.data;
-
-            await waitPage(handler, updatedPage);
         }
 
         const [listAfterUpdateResponse] = await until(
             () => listPages({ sort: ["createdOn_DESC"] }),
-            ([res]) => {
+            ([res]: any) => {
                 const data: any[] = res.data.pageBuilder.listPages.data;
                 return data.length === 3 && data.every(obj => obj.title.match(/title-UPDATED-/));
             },
@@ -226,7 +242,7 @@ describe("CRUD Test", () => {
 
         const [listPagesAfterDeleteResponse] = await until(
             () => listPages({ sort: ["createdOn_DESC"] }),
-            ([res]) => {
+            ([res]: any) => {
                 return res.data.pageBuilder.listPages.data.length === 0;
             },
             {
@@ -300,5 +316,464 @@ describe("CRUD Test", () => {
                 }
             }
         });
+    });
+
+    it("should create multiple page revisions and sort them properly", async () => {
+        await createCategory({
+            data: {
+                slug: `category`,
+                name: `Category`,
+                url: `/category-url/`,
+                layout: `layout`
+            }
+        });
+
+        const page = await createPage({ category: "category" }).then(([res]) => {
+            return res.data.pageBuilder.createPage.data;
+        });
+        const revisions: string[] = [page.id];
+        const total = 25;
+
+        for (let i = revisions.length; i < total; i++) {
+            const [revisionResponse] = await createPage({
+                from: revisions[i - 1],
+                category: "category"
+            });
+
+            expect(revisionResponse).toMatchObject({
+                data: {
+                    pageBuilder: {
+                        createPage: {
+                            data: {
+                                id: `${page.pid}#${String(i + 1).padStart(4, "0")}`
+                            },
+                            error: null
+                        }
+                    }
+                }
+            });
+
+            revisions.push(revisionResponse.data.pageBuilder.createPage.data.id);
+        }
+
+        const [pageDataResponse] = await until(
+            () =>
+                getPage({
+                    id: page.id
+                }),
+            ([res]: any) => {
+                return res.data.pageBuilder.getPage.data.revisions.length === total;
+            },
+            {
+                name: "get page with revisions",
+                tries: 20
+            }
+        );
+
+        expect(pageDataResponse).toMatchObject({
+            data: {
+                pageBuilder: {
+                    getPage: {
+                        data: {
+                            id: page.id,
+                            revisions: revisions
+                                .map(rev => {
+                                    return {
+                                        id: rev
+                                    };
+                                })
+                                .reverse() // We reverse the array because API returns revisions in DESC order.
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
+    });
+
+    test("get page with resolved reference block", async () => {
+        // Create page block and add element inside of it
+        const [createBlockCategoryResponse] = await createBlockCategory({
+            data: {
+                slug: "block-category",
+                name: "block-category-name",
+                icon: "block-category-icon",
+                description: "block-category-description"
+            }
+        });
+        expect(createBlockCategoryResponse).toMatchObject({
+            data: {
+                pageBuilder: {
+                    createBlockCategory: {
+                        data: {
+                            slug: "block-category"
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
+
+        const [createPageBlockResponse] = await createPageBlock({
+            data: {
+                name: "block-name",
+                blockCategory: "block-category",
+                content: {
+                    id: PageElementId.create().getValue(),
+                    data: {},
+                    elements: [],
+                    type: "block"
+                }
+            }
+        });
+
+        const blockData = createPageBlockResponse.data.pageBuilder.createPageBlock.data;
+
+        const [createPageElementResponse] = await createPageElement({
+            data: {
+                name: "element-name",
+                type: "element",
+                content: {
+                    id: PageElementId.create().getValue(),
+                    type: "paragraph",
+                    data: {},
+                    elements: []
+                }
+            }
+        });
+
+        const pageElementData = createPageElementResponse.data.pageBuilder.createPageElement.data;
+
+        const uncompressedBlock = await decompress(blockData);
+
+        const updatedContent = {
+            ...uncompressedBlock,
+            elements: [...uncompressedBlock.content.elements, pageElementData.content]
+        };
+        const [updatePageBlockResult] = await updatePageBlock({
+            id: blockData.id,
+            data: {
+                content: updatedContent
+            }
+        });
+        expect(updatePageBlockResult).toMatchObject({
+            data: {
+                pageBuilder: {
+                    updatePageBlock: {
+                        data: {
+                            id: blockData.id,
+                            content: expectCompressed()
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
+
+        // Create page
+        await createCategory({
+            data: {
+                slug: "category-slug",
+                name: "category-name",
+                url: "/category-url/",
+                layout: "category-layout"
+            }
+        });
+
+        const [createPageResponse] = await createPage({
+            category: "category-slug"
+        });
+
+        const { id: pageId, content } = createPageResponse.data.pageBuilder.createPage.data;
+
+        // Add block to the page as reference (without elements)
+        const pageBlockElementId = PageElementId.create().getValue();
+
+        await updatePage({
+            id: pageId,
+            data: {
+                content: {
+                    ...content,
+                    elements: [
+                        ...content.elements,
+                        {
+                            id: pageBlockElementId,
+                            data: { blockId: blockData.id },
+                            elements: [],
+                            path: [],
+                            type: "block"
+                        }
+                    ]
+                }
+            }
+        });
+
+        // Get page with resolved block (with elements)
+        const [getPageWithReferenceBlockResponse] = await getPage({ id: pageId });
+
+        const resolvedBlockData =
+            getPageWithReferenceBlockResponse.data.pageBuilder.getPage.data.content.elements[0];
+
+        expect(resolvedBlockData).toMatchObject({
+            data: { blockId: blockData.id },
+            elements: [
+                {
+                    ...pageElementData.content,
+                    id: `${pageBlockElementId}#${pageElementData.content.id}`
+                }
+            ],
+            path: [],
+            type: "block"
+        });
+    });
+
+    it("should create a page with large amount of content", async () => {
+        await createCategory({
+            data: {
+                slug: `slug`,
+                name: `name`,
+                url: `/some-url/`,
+                layout: `layout`
+            }
+        });
+
+        const [createPageResponse] = await createPage({
+            category: "slug"
+        });
+        const id = createPageResponse.data.pageBuilder.createPage.data.id;
+        expect(id).toMatch("#0001");
+
+        const content = createPageContent("3.2MB");
+        const size = calculateSize(content);
+
+        expect(size).toBeGreaterThan(bytes("3.19MB"));
+
+        const [updatePageResponse] = await updatePage({
+            id,
+            data: {
+                content
+            }
+        });
+
+        expect(updatePageResponse).toMatchObject({
+            data: {
+                pageBuilder: {
+                    updatePage: {
+                        data: {
+                            id
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
+        expect(updatePageResponse.data.pageBuilder.updatePage.data.content).toEqual(content);
+
+        const [getPageResponse] = await getPage({ id });
+        expect(getPageResponse).toMatchObject({
+            data: {
+                pageBuilder: {
+                    getPage: {
+                        data: {
+                            id
+                        },
+                        error: null
+                    }
+                }
+            }
+        });
+        expect(getPageResponse.data.pageBuilder.getPage.data.content).toEqual(content);
+    });
+
+    it("should fail to update a page with above the limit content size", async () => {
+        await createCategory({
+            data: {
+                slug: `slug`,
+                name: `name`,
+                url: `/some-url/`,
+                layout: `layout`
+            }
+        });
+
+        const [createPageResponse] = await createPage({
+            category: "slug"
+        });
+        const id = createPageResponse.data.pageBuilder.createPage.data.id;
+        expect(id).toMatch("#0001");
+
+        const content = createPageContent("4MB");
+        const size = calculateSize(content);
+
+        expect(size).toBeGreaterThan(bytes("3.99MB"));
+
+        const [updatePageResponse] = await updatePage({
+            id,
+            data: {
+                content
+            }
+        });
+
+        expect(updatePageResponse.data.pageBuilder.updatePage.error?.message).toEqual(
+            "Item size has exceeded the maximum allowed size"
+        );
+        expect(updatePageResponse.data.pageBuilder.updatePage.data).toBeNull();
+    });
+
+    it("should list all pages via pid_in condition", async () => {
+        const [categoryResponse] = await createCategory({
+            data: {
+                slug: `category`,
+                name: `Category`,
+                url: `/category-url/`,
+                layout: `layout`
+            }
+        });
+        const category = categoryResponse.data.pageBuilder.createCategory.data;
+
+        const page1 = await createPage({ category: category.slug }).then(([res]) => {
+            return res.data.pageBuilder.createPage.data;
+        });
+        const page2 = await createPage({ category: category.slug }).then(([res]) => {
+            return res.data.pageBuilder.createPage.data;
+        });
+        const page3 = await createPage({ category: category.slug }).then(([res]) => {
+            return res.data.pageBuilder.createPage.data;
+        });
+        const page4 = await createPage({ category: category.slug }).then(([res]) => {
+            return res.data.pageBuilder.createPage.data;
+        });
+        const page5 = await createPage({ category: category.slug }).then(([res]) => {
+            return res.data.pageBuilder.createPage.data;
+        });
+
+        const [result1] = await listPages({
+            where: {
+                pid_in: [page3.pid, page5.pid]
+            }
+        });
+        expect(result1).toMatchObject({
+            data: {
+                pageBuilder: {
+                    listPages: {
+                        data: [
+                            {
+                                pid: page5.pid
+                            },
+                            {
+                                pid: page3.pid
+                            }
+                        ],
+                        error: null,
+                        meta: {
+                            totalCount: 2
+                        }
+                    }
+                }
+            }
+        });
+
+        const [result2] = await listPages({
+            where: {
+                pid_in: [page2.pid]
+            }
+        });
+        expect(result2).toMatchObject({
+            data: {
+                pageBuilder: {
+                    listPages: {
+                        data: [
+                            {
+                                pid: page2.pid
+                            }
+                        ],
+                        error: null,
+                        meta: {
+                            totalCount: 1
+                        }
+                    }
+                }
+            }
+        });
+
+        const [result3] = await listPages({
+            where: {
+                pid_in: [page1.pid, page2.pid, page3.pid, page4.pid, page5.pid]
+            }
+        });
+        expect(result3).toMatchObject({
+            data: {
+                pageBuilder: {
+                    listPages: {
+                        data: [
+                            {
+                                pid: page5.pid
+                            },
+                            {
+                                pid: page4.pid
+                            },
+                            {
+                                pid: page3.pid
+                            },
+                            {
+                                pid: page2.pid
+                            },
+                            {
+                                pid: page1.pid
+                            }
+                        ],
+                        error: null,
+                        meta: {
+                            totalCount: 5
+                        }
+                    }
+                }
+            }
+        });
+    });
+
+    it("should duplicate a page", async () => {
+        // Let's create a page and update it with some data
+        await createCategory({
+            data: {
+                slug: `slug`,
+                name: `name`,
+                url: `/some-url/`,
+                layout: `layout`
+            }
+        });
+
+        const [createPageResponse] = await createPage({
+            category: "slug"
+        });
+
+        const id = createPageResponse.data.pageBuilder.createPage.data.id;
+        const content = createPageContent("1MB");
+        const settings = {
+            general: {
+                snippet: "any-snippet"
+            }
+        };
+
+        await updatePage({
+            id,
+            data: {
+                content,
+                settings
+            }
+        });
+
+        // Let's duplicate the page
+        const [duplicatePageResponse] = await duplicatePage({
+            id
+        });
+
+        expect(duplicatePageResponse.data.pageBuilder.duplicatePage.data.title).toContain(
+            " (Copy)"
+        );
+        expect(duplicatePageResponse.data.pageBuilder.duplicatePage.data.path).toContain("-copy");
+        expect(duplicatePageResponse.data.pageBuilder.duplicatePage.data.content).toEqual(content);
+        expect(
+            duplicatePageResponse.data.pageBuilder.duplicatePage.data.settings.general.snippet
+        ).toEqual(settings.general.snippet);
     });
 });

@@ -1,62 +1,92 @@
-import { I18NContext, I18NContextObject, I18NLocale } from "~/types";
-import { ContextPlugin } from "@webiny/handler/plugins/ContextPlugin";
 import WebinyError from "@webiny/error";
+import {
+    I18NContext,
+    I18NLocaleData,
+    I18NLocalesStorageOperations,
+    LocalesCRUD,
+    OnLocaleAfterCreateTopicParams,
+    OnLocaleAfterDeleteTopicParams,
+    OnLocaleAfterUpdateTopicParams,
+    OnLocaleBeforeCreateTopicParams,
+    OnLocaleBeforeDeleteTopicParams,
+    OnLocaleBeforeUpdateTopicParams
+} from "~/types";
 import { NotFoundError } from "@webiny/handler-graphql";
-import { NotAuthorizedError } from "@webiny/api-security";
-import { LocalesStorageOperationsProviderPlugin } from "~/plugins/LocalesStorageOperationsProviderPlugin";
-import { LocalePlugin } from "~/plugins/LocalePlugin";
-import { runLifecycleEvent } from "./locales/lifecycleEvent";
+import { createTopic } from "@webiny/pubsub";
+import { Tenant } from "@webiny/api-tenancy/types";
+import { LocalesPermissions } from "./permissions/LocalesPermissions";
+import { IdentityValue } from "@webiny/api-security";
 
-export default new ContextPlugin<I18NContext>(async context => {
-    if (!context.i18n) {
-        context.i18n = {} as I18NContextObject;
-    }
-    const pluginType = LocalesStorageOperationsProviderPlugin.type;
+export interface CreateLocalesCrudParams {
+    context: I18NContext;
+    storageOperations: I18NLocalesStorageOperations;
+    localesPermissions: LocalesPermissions;
+    getTenant: () => Tenant;
+}
 
-    const providerPlugin = context.plugins
-        .byType<LocalesStorageOperationsProviderPlugin>(pluginType)
-        .find(() => true);
+export const createLocalesCrud = (params: CreateLocalesCrudParams): LocalesCRUD => {
+    const { storageOperations, context, localesPermissions, getTenant } = params;
 
-    if (!providerPlugin) {
-        throw new WebinyError(`Missing "${pluginType}" plugin.`, "PLUGIN_NOT_FOUND", {
-            type: pluginType
-        });
-    }
+    const getTenantId = () => {
+        return getTenant().id;
+    };
+    // create
+    const onLocaleBeforeCreate = createTopic<OnLocaleBeforeCreateTopicParams>(
+        "i18n.onLocaleBeforeCreate"
+    );
+    const onLocaleAfterCreate = createTopic<OnLocaleAfterCreateTopicParams>(
+        "i18n.onLocaleAfterCreate"
+    );
+    // update
+    const onLocaleBeforeUpdate = createTopic<OnLocaleBeforeUpdateTopicParams>(
+        "i18n.onLocaleBeforeUpdate"
+    );
+    const onLocaleAfterUpdate = createTopic<OnLocaleAfterUpdateTopicParams>(
+        "i18n.onLocaleAfterUpdate"
+    );
+    // delete
+    const onLocaleBeforeDelete = createTopic<OnLocaleBeforeDeleteTopicParams>(
+        "i18n.onLocaleBeforeDelete"
+    );
+    const onLocaleAfterDelete = createTopic<OnLocaleAfterDeleteTopicParams>(
+        "i18n.onLocaleAfterDelete"
+    );
 
-    const storageOperations = await providerPlugin.provide({
-        context
-    });
-
-    const localePlugins = context.plugins.byType<LocalePlugin>(LocalePlugin.type);
-
-    context.i18n.locales = {
-        getDefault: async () => {
+    return {
+        onLocaleBeforeCreate,
+        onLocaleAfterCreate,
+        onLocaleBeforeUpdate,
+        onLocaleAfterUpdate,
+        onLocaleBeforeDelete,
+        onLocaleAfterDelete,
+        storageOperations,
+        async getDefaultLocale() {
+            let locale: I18NLocaleData | null = null;
             try {
-                const locale = await storageOperations.getDefault();
-                if (!locale) {
-                    throw new NotFoundError(`Default locale  not found.`);
-                }
-                return {
-                    ...locale,
-                    createdOn: locale.createdOn ? locale.createdOn : new Date().toISOString()
-                };
+                locale = await storageOperations.getDefault({
+                    tenant: getTenantId()
+                });
             } catch (ex) {
                 throw new WebinyError(
                     ex.message || "Could not load the default locale.",
                     ex.code || "LOCALE_DEFAULT_ERROR"
                 );
             }
+            if (!locale) {
+                throw new NotFoundError(`Default locale  not found.`);
+            }
+            return {
+                ...locale,
+                createdOn: locale.createdOn ? locale.createdOn : new Date().toISOString()
+            };
         },
-        get: async code => {
+        async getLocale(code) {
+            let locale: I18NLocaleData | null = null;
             try {
-                const locale = await storageOperations.get(code);
-                if (!locale) {
-                    throw new NotFoundError(`Locale "${code}" not found.`);
-                }
-                return {
-                    ...locale,
-                    createdOn: locale.createdOn ? locale.createdOn : new Date().toISOString()
-                };
+                locale = await storageOperations.get({
+                    tenant: getTenantId(),
+                    code
+                });
             } catch (ex) {
                 throw new WebinyError(
                     ex.message || "Could not load the requested locale.",
@@ -66,13 +96,25 @@ export default new ContextPlugin<I18NContext>(async context => {
                     }
                 );
             }
+
+            if (!locale) {
+                throw new NotFoundError(`Locale "${code}" not found.`);
+            }
+
+            return {
+                ...locale,
+                createdOn: locale.createdOn ? locale.createdOn : new Date().toISOString()
+            };
         },
 
-        list: async params => {
+        async listLocales(params) {
             const { where, sort, after, limit = 1000 } = params || {};
             try {
                 return await storageOperations.list({
-                    where,
+                    where: {
+                        ...(where || {}),
+                        tenant: getTenantId()
+                    },
                     sort: sort && sort.length ? sort : ["createdOn_DESC"],
                     after,
                     limit
@@ -84,44 +126,38 @@ export default new ContextPlugin<I18NContext>(async context => {
                 );
             }
         },
+        async createLocale(input) {
+            await localesPermissions.ensure();
 
-        create: async input => {
-            const { security, tenancy } = context;
-
-            const permission = await security.getPermission("i18n.locale");
-
-            if (!permission) {
-                throw new NotAuthorizedError();
-            }
-
-            const original = await storageOperations.get(input.code);
+            const original = await storageOperations.get({
+                tenant: getTenantId(),
+                code: input.code
+            });
 
             if (original) {
                 throw new WebinyError(`Locale with key "${original.code}" already exists.`);
             }
 
-            const identity = security.getIdentity();
+            const identity = context.security.getIdentity();
 
-            const defaultLocale = await storageOperations.getDefault();
+            const defaultLocale = await storageOperations.getDefault({
+                tenant: getTenantId()
+            });
 
-            const locale: I18NLocale = {
+            const locale: I18NLocaleData = {
                 ...input,
                 default: input.default === true,
                 createdOn: new Date().toISOString(),
-                createdBy: {
-                    id: identity.id,
-                    displayName: identity.displayName,
-                    type: identity.type
-                },
-                tenant: tenancy.getCurrentTenant().id,
+                createdBy: IdentityValue.create(identity).getValue(),
+                tenant: getTenantId(),
                 webinyVersion: context.WEBINY_VERSION
             };
 
             try {
-                await runLifecycleEvent("beforeCreate", {
+                await onLocaleBeforeCreate.publish({
                     context,
-                    plugins: localePlugins,
-                    data: locale
+                    locale,
+                    tenant: getTenantId()
                 });
                 const result = await storageOperations.create({
                     locale
@@ -132,11 +168,20 @@ export default new ContextPlugin<I18NContext>(async context => {
                         locale: result
                     });
                 }
-                await runLifecycleEvent("afterCreate", {
+
+                // We want to reload the internally cached locales after a new locale is created.
+                await context.i18n.reloadLocales();
+
+                // If the new locale is the only locale in the system, make it the current request locale.
+                if (context.i18n.getLocales().length === 1) {
+                    context.i18n.setCurrentLocale("default", locale);
+                    context.i18n.setCurrentLocale("content", locale);
+                }
+
+                await onLocaleAfterCreate.publish({
                     context,
-                    plugins: localePlugins,
-                    data: locale,
-                    locale: result
+                    locale: result,
+                    tenant: getTenantId()
                 });
                 return locale;
             } catch (ex) {
@@ -151,16 +196,10 @@ export default new ContextPlugin<I18NContext>(async context => {
                 );
             }
         },
+        async updateLocale(this: LocalesCRUD, code, input) {
+            await localesPermissions.ensure();
 
-        update: async (code, input) => {
-            const { i18n, security } = context;
-
-            const permission = await security.getPermission("i18n.locale");
-
-            if (!permission) {
-                throw new NotAuthorizedError();
-            }
-            const original = await i18n.locales.get(code);
+            const original = await this.getLocale(code);
             if (!original) {
                 throw new NotFoundError(`Locale "${code}" not found.`);
             }
@@ -176,12 +215,14 @@ export default new ContextPlugin<I18NContext>(async context => {
             }
             const defaultLocale = original.default
                 ? original
-                : await storageOperations.getDefault();
+                : await storageOperations.getDefault({
+                      tenant: getTenantId()
+                  });
             if (!defaultLocale) {
                 throw new NotFoundError(`Missing default locale.`);
             }
 
-            const locale: I18NLocale = {
+            const locale: I18NLocaleData = {
                 ...original,
                 ...input,
                 createdOn: original.createdOn ? original.createdOn : new Date().toISOString(),
@@ -189,11 +230,11 @@ export default new ContextPlugin<I18NContext>(async context => {
             };
 
             try {
-                await runLifecycleEvent("beforeUpdate", {
+                await onLocaleBeforeUpdate.publish({
                     context,
-                    plugins: localePlugins,
-                    original,
-                    data: locale
+                    locale,
+                    tenant: getTenantId(),
+                    original
                 });
                 const result = await storageOperations.update({
                     original,
@@ -205,12 +246,15 @@ export default new ContextPlugin<I18NContext>(async context => {
                         locale
                     });
                 }
-                await runLifecycleEvent("afterUpdate", {
+
+                // We want to reload the internally cached locales after a locale is updated.
+                await context.i18n.reloadLocales();
+
+                await onLocaleAfterUpdate.publish({
                     context,
-                    plugins: localePlugins,
-                    data: locale,
-                    original,
-                    locale: result
+                    locale: result,
+                    tenant: getTenantId(),
+                    original
                 });
                 return locale;
             } catch (ex) {
@@ -224,15 +268,12 @@ export default new ContextPlugin<I18NContext>(async context => {
                 );
             }
         },
-        delete: async code => {
-            const { i18n, security } = context;
+        async deleteLocale(this: LocalesCRUD, code) {
+            const { tenancy } = context;
 
-            const permission = await security.getPermission("i18n.locale");
+            await localesPermissions.ensure();
 
-            if (!permission) {
-                throw new NotAuthorizedError();
-            }
-            const locale = await i18n.locales.get(code);
+            const locale = await this.getLocale(code);
             if (!locale) {
                 throw new NotFoundError(`Locale "${code}" not found.`);
             }
@@ -242,23 +283,30 @@ export default new ContextPlugin<I18NContext>(async context => {
                     "Cannot delete default locale, please set another locale as default first."
                 );
             }
-            const [allLocales] = await i18n.locales.list();
+            const [allLocales] = await this.listLocales();
             if (allLocales.length === 1) {
                 throw new WebinyError("Cannot delete the last locale.");
             }
+
+            const tenant = tenancy.getCurrentTenant().id;
+
             try {
-                await runLifecycleEvent("beforeDelete", {
+                await onLocaleBeforeDelete.publish({
                     context,
-                    plugins: localePlugins,
-                    locale
+                    locale,
+                    tenant
                 });
                 await storageOperations.delete({
                     locale
                 });
-                await runLifecycleEvent("afterDelete", {
+
+                // We want to reload the internally cached locales after a locale is deleted.
+                await context.i18n.reloadLocales();
+
+                await onLocaleAfterDelete.publish({
                     context,
-                    plugins: localePlugins,
-                    locale
+                    locale,
+                    tenant
                 });
                 return locale;
             } catch (ex) {
@@ -272,4 +320,4 @@ export default new ContextPlugin<I18NContext>(async context => {
             }
         }
     };
-});
+};

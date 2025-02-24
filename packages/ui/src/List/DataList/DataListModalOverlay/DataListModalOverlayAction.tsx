@@ -2,10 +2,10 @@ import React, { useContext } from "react";
 import { IconButton } from "../../../Button";
 import { DataListModalOverlayContext } from "./DataListModalOverlayContext";
 
-export type DataListModalOverlayActionProps = {
+export interface DataListModalOverlayActionProps {
     icon: React.ReactNode;
     "data-testid"?: string;
-};
+}
 
 export const DataListModalOverlayAction = ({ icon, ...rest }: DataListModalOverlayActionProps) => {
     const { isOpen, setIsOpen } = useContext(DataListModalOverlayContext);

@@ -9,7 +9,7 @@ We have an active community on [slack](https://www.webiny.com/slack). Talk to th
 
 ### Branches
 
-`next` is the main branch on which we develop. All `issue` branches should be branched from `next` branch, unless you're working on an issue that belongs to one of our [projects](https://github.com/webiny/webiny-js/projects). In that case, a project branch will be specified in the project board. If you're not sure about the branch, don't hesitate to contact us.
+`dev` is the main branch on which we develop. All `issue` branches should be branched from `dev` branch, unless you're working on an issue that belongs to one of our [projects](https://github.com/webiny/webiny-js/projects). In that case, a project branch will be specified in the project board. If you're not sure about the branch, don't hesitate to contact us.
 
 ### Workflow
 
@@ -59,12 +59,12 @@ Once you clone the repository, you will have a monorepo which consists of a bunc
 - `handler-*` are utility packages to create serverless function handlers
 - `cli-*` are packages that are use by Webiny CLI
 
-In the root of the project, you'll find the `api` and `apps` folders. You'll find an in-depth explanation of [project organization on our docs portal](https://docs.webiny.com/docs/key-topics/project-organization).
+In the root of the project, you'll find the `api` and `apps` folders. You'll find an in-depth explanation of [project organization on our docs portal](https://www.webiny.com/docs/core-development-concepts/project-organization/project-applications).
 The setup of our Github repo is identical to the one created by `create-webiny-project`.
 
 ## Prerequisites
 
-1. Node `12` or higher (to manage your Node versions we recommend [n](https://www.npmjs.com/package/n) for OSX/Linux, and [nvm-windows](https://github.com/coreybutler/nvm-windows) for Windows)
+1. Node `14` or higher (to manage your Node versions we recommend [n](https://www.npmjs.com/package/n) for OSX/Linux, and [nvm-windows](https://github.com/coreybutler/nvm-windows) for Windows)
 
 2. `yarn 1.22.*` or higher (because our project setup uses workspaces). We prefer using `yarn 2` as it's a lot faster and some issues from `yarn 1` are finally fixed. 
    If you don't already have `yarn`, visit https://yarnpkg.com/ to install it.
@@ -75,7 +75,7 @@ The setup of our Github repo is identical to the one created by `create-webiny-p
 
 > IMPORTANT: The following commands should be executed from the root of your repository.
  
-1. Fork and clone the repo. It will be on `next` branch by default.
+1. Fork and clone the repo. It will be on `dev` branch by default.
 
 2. Install all dependencies:
 
@@ -88,28 +88,24 @@ The setup of our Github repo is identical to the one created by `create-webiny-p
    yarn setup-project
    ```
 
-4. Deploy your API to use with local React apps: 
+4. Deploy your Core and API apps to use with local React apps: 
    ```
-   yarn webiny deploy api --env=dev
+   yarn webiny deploy apps/core --env=dev
+   yarn webiny deploy apps/api --env=dev
    ```
 
 6. Begin working on the `admin` app:
    ```
-   cd apps/admin/code
-   yarn start --env=dev
+   yarn webiny watch apps/admin --env=dev -p admin
    ```
+   Add more packages to the watch command using `-p` and specifying the name of the package, for example, `-p @webiny/app-admin -p @webiny/app-page-builder`
    
 7. Begin working on the `website` app (OPTIONAL):
    ```
-   cd apps/website/code
-   yarn start --env=dev
+   yarn webiny watch apps/website --env=dev
    ```
-
-8. Run `watch` on packages you are working on so that your changes are automatically built into the corresponding `dist` folder. React app build will automatically rebuild and hot-reload changes that happen in the `dist` folder of all related packages.
-
-The easiest way to run a watch is by running `yarn webiny ws run watch --scope=your-scope`. You can use glob patterns in the `--scope` parameter. For example, `yarn webiny ws run watch --scope=@webiny/app*` will run `watch` on all packages that start
-
-Another way is to use `--folder` parameter, which will run the `watch` command on all workspaces found within the given folder: `yarn webiny ws run watch --folder=./packages`. Keep in mind that `packages` folder contains over 60 packages so you don't want to watch all of them, all the time.
+   
+Learn more about the `watch` command here: https://www.webiny.com/docs/how-to-guides/use-watch-command
 
 ## Tests
 

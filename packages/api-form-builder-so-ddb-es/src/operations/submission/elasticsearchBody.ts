@@ -1,16 +1,18 @@
-import { SearchBody as esSearchBody } from "elastic-ts";
-import { decodeCursor } from "@webiny/api-elasticsearch/cursors";
+import { PrimitiveValue, SearchBody as esSearchBody } from "elastic-ts";
+import {
+    applyWhere,
+    createLimit,
+    createSort,
+    ElasticsearchQueryBuilderOperatorPlugin,
+    isSharedElasticsearchIndex
+} from "@webiny/api-elasticsearch";
 import { ElasticsearchBoolQueryConfig } from "@webiny/api-elasticsearch/types";
-import { createSort } from "@webiny/api-elasticsearch/sort";
-import { createLimit } from "@webiny/api-elasticsearch/limit";
-import { ElasticsearchQueryBuilderOperatorPlugin } from "@webiny/api-elasticsearch/plugins/definition/ElasticsearchQueryBuilderOperatorPlugin";
 import { SubmissionElasticsearchFieldPlugin } from "~/plugins/SubmissionElasticsearchFieldPlugin";
 import { SubmissionElasticsearchSortModifierPlugin } from "~/plugins/SubmissionElasticsearchSortModifierPlugin";
 import { SubmissionElasticsearchBodyModifierPlugin } from "~/plugins/SubmissionElasticsearchBodyModifierPlugin";
 import { FormBuilderStorageOperationsListSubmissionsParams } from "@webiny/api-form-builder/types";
 import { SubmissionElasticsearchQueryModifierPlugin } from "~/plugins/SubmissionElasticsearchQueryModifierPlugin";
 import { PluginsContainer } from "@webiny/plugins";
-import { applyWhere } from "@webiny/api-elasticsearch/where";
 
 const createInitialQueryValue = (): ElasticsearchBoolQueryConfig => {
     return {
@@ -44,16 +46,19 @@ const createElasticsearchQuery = (params: CreateElasticsearchQueryParams) => {
     /**
      * Be aware that, if having more registered operator plugins of same type, the last one will be used.
      */
-    const operatorPlugins: Record<string, ElasticsearchQueryBuilderOperatorPlugin> = plugins
+    const operatorPlugins = plugins
         .byType<ElasticsearchQueryBuilderOperatorPlugin>(
             ElasticsearchQueryBuilderOperatorPlugin.type
         )
         .reduce((acc, plugin) => {
+            if (plugin.isLocaleSupported(initialWhere.locale) === false) {
+                return acc;
+            }
             acc[plugin.getOperator()] = plugin;
             return acc;
-        }, {});
+        }, {} as Record<string, ElasticsearchQueryBuilderOperatorPlugin>);
 
-    const where: FormBuilderStorageOperationsListSubmissionsParams["where"] = {
+    const where: Partial<FormBuilderStorageOperationsListSubmissionsParams["where"]> = {
         ...initialWhere
     };
     /**
@@ -62,8 +67,8 @@ const createElasticsearchQuery = (params: CreateElasticsearchQueryParams) => {
      * When ES index is shared between tenants, we need to filter records by tenant ID.
      * No need for the tenant filtering otherwise as each index is for single tenant.
      */
-    const sharedIndex = process.env.ELASTICSEARCH_SHARED_INDEXES === "true";
-    if (sharedIndex) {
+    const sharedIndex = isSharedElasticsearchIndex();
+    if (sharedIndex && where.tenant) {
         query.must.push({
             term: {
                 "tenant.keyword": where.tenant
@@ -80,7 +85,7 @@ const createElasticsearchQuery = (params: CreateElasticsearchQueryParams) => {
      */
     query.must.push({
         term: {
-            "locale.keyword": where.locale
+            "locale.keyword": where.locale as string
         }
     });
     delete where.locale;
@@ -89,7 +94,7 @@ const createElasticsearchQuery = (params: CreateElasticsearchQueryParams) => {
      */
     query.must.push({
         term: {
-            "form.parent.keyword": where.formId
+            "form.parent.keyword": where.formId as string
         }
     });
     delete where.formId;
@@ -110,19 +115,19 @@ interface CreateElasticsearchBodyParams {
     plugins: PluginsContainer;
     where: FormBuilderStorageOperationsListSubmissionsParams["where"];
     limit: number;
-    after?: string;
+    after?: PrimitiveValue[];
     sort: string[];
 }
 
 export const createElasticsearchBody = (params: CreateElasticsearchBodyParams): esSearchBody => {
     const { plugins, where, limit: initialLimit, sort: initialSort, after } = params;
 
-    const fieldPlugins: Record<string, SubmissionElasticsearchFieldPlugin> = plugins
+    const fieldPlugins = plugins
         .byType<SubmissionElasticsearchFieldPlugin>(SubmissionElasticsearchFieldPlugin.type)
         .reduce((acc, plugin) => {
             acc[plugin.field] = plugin;
             return acc;
-        }, {});
+        }, {} as Record<string, SubmissionElasticsearchFieldPlugin>);
 
     const limit = createLimit(initialLimit, 100);
 
@@ -168,12 +173,7 @@ export const createElasticsearchBody = (params: CreateElasticsearchBodyParams): 
             }
         },
         size: limit + 1,
-        /**
-         * Casting as any is required due to search_after is accepting an array of values.
-         * Which is correct in some cases. In our case, it is not.
-         * https://www.elastic.co/guide/en/elasticsearch/reference/7.13/paginate-search-results.html
-         */
-        search_after: decodeCursor(after) as any,
+        search_after: after,
         sort
     };
 

@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo } from "react";
 import { css } from "emotion";
-import { useRecoilValue } from "recoil";
 import startCase from "lodash/startCase";
 import get from "lodash/get";
 import set from "lodash/set";
@@ -9,15 +8,11 @@ import { Tooltip } from "@webiny/ui/Tooltip";
 import { plugins } from "@webiny/plugins";
 import { Cell, Grid } from "@webiny/ui/Grid";
 import SingleImageUpload from "@webiny/app-admin/components/SingleImageUpload";
+import { FileManagerFileItem } from "@webiny/app-admin";
 import {
     PbEditorPageElementSettingsRenderComponentProps,
     PbEditorResponsiveModePlugin
 } from "~/types";
-import {
-    activeElementAtom,
-    elementWithChildrenByIdSelector,
-    uiAtom
-} from "../../../recoil/modules";
 import useUpdateHandlers from "../useUpdateHandlers";
 // Components
 import Wrapper from "../components/Wrapper";
@@ -26,6 +21,8 @@ import Accordion from "../components/Accordion";
 import ColorPicker from "../components/ColorPicker";
 import { ContentWrapper, classes } from "../components/StyledComponents";
 import { applyFallbackDisplayMode } from "../elementSettingsUtils";
+import { useDisplayMode } from "~/editor/hooks/useDisplayMode";
+import { useActiveElement } from "~/editor/hooks/useActiveElement";
 
 const positions = [
     "top left",
@@ -46,19 +43,19 @@ const imageSelect = css({
 const DATA_NAMESPACE = "data.settings.background";
 const BACKGROUND_SETTINGS_COUNT = 2;
 
-type SettingsPropsType = {
+interface SettingsPropsType extends PbEditorPageElementSettingsRenderComponentProps {
     options: {
+        image?: boolean;
         [key: string]: any;
     };
-};
-const BackgroundSettings: React.FunctionComponent<
-    SettingsPropsType & PbEditorPageElementSettingsRenderComponentProps
-> = ({ options, defaultAccordionValue }) => {
-    const { displayMode } = useRecoilValue(uiAtom);
-    const activeElementId = useRecoilValue(activeElementAtom);
-    const element = useRecoilValue(elementWithChildrenByIdSelector(activeElementId));
+}
+const BackgroundSettings = ({ options, defaultAccordionValue }: SettingsPropsType) => {
+    const { displayMode } = useDisplayMode();
+    const [element] = useActiveElement();
+
     const { getUpdateValue, getUpdatePreview } = useUpdateHandlers({
-        element,
+        // We know active element must exist for settings to be rendered, so using `!` is ok here.
+        element: element!,
         dataNamespace: DATA_NAMESPACE,
         postModifyElement: ({ newElement }) => {
             const value = get(newElement, `${DATA_NAMESPACE}.${displayMode}`, {});
@@ -69,30 +66,37 @@ const BackgroundSettings: React.FunctionComponent<
         }
     });
 
-    const { config: activeDisplayModeConfig } = useMemo(() => {
+    const memoizedResponsiveModePlugin = useMemo(() => {
         return plugins
             .byType<PbEditorResponsiveModePlugin>("pb-editor-responsive-mode")
             .find(pl => pl.config.displayMode === displayMode);
     }, [displayMode]);
 
+    const { config: activeDisplayModeConfig } = memoizedResponsiveModePlugin || {
+        config: {
+            displayMode: null,
+            icon: null
+        }
+    };
+
     const setImage = useCallback(
-        value => getUpdateValue(`${displayMode}.image.file`)(value),
+        (value: FileManagerFileItem | null) => getUpdateValue(`${displayMode}.image.file`)(value),
         [getUpdateValue, displayMode]
     );
     const setScaling = useCallback(
-        value => getUpdateValue(`${displayMode}.image.scaling`)(value),
+        (value: string) => getUpdateValue(`${displayMode}.image.scaling`)(value),
         [getUpdateValue, displayMode]
     );
     const setPosition = useCallback(
-        value => getUpdateValue(`${displayMode}.image.position`)(value),
+        (value: string) => getUpdateValue(`${displayMode}.image.position`)(value),
         [getUpdateValue, displayMode]
     );
     const setColor = useCallback(
-        value => getUpdateValue(`${displayMode}.color`)(value),
+        (value: string) => getUpdateValue(`${displayMode}.color`)(value),
         [getUpdateValue, displayMode]
     );
     const onColorChange = useCallback(
-        value => getUpdatePreview(`${displayMode}.color`)(value),
+        (value: string) => getUpdatePreview(`${displayMode}.color`)(value),
         [getUpdatePreview, displayMode]
     );
 

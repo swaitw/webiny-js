@@ -12,7 +12,8 @@ import {
     ButtonContainer,
     SimpleButton
 } from "../../../elementSettings/components/StyledComponents";
-import { PbEditorElementPluginArgs } from "../../../../../types";
+import { PbEditorElementPluginArgs } from "~/types";
+import { PeTwitter } from "./PeTwitter";
 
 declare global {
     interface Window {
@@ -46,9 +47,15 @@ export default (args: PbEditorElementPluginArgs = {}) => {
     return [
         createEmbedPlugin({
             type: elementType,
+            /**
+             * TODO @ts-refactor @ashutosh
+             * Completely different types between method result and variable
+             */
+            // @ts-expect-error
             toolbar:
                 typeof args.toolbar === "function" ? args.toolbar(defaultToolbar) : defaultToolbar,
             create: args.create,
+            // @ts-expect-error
             settings: args.settings,
             oembed: {
                 global: "twttr",
@@ -59,6 +66,10 @@ export default (args: PbEditorElementPluginArgs = {}) => {
             },
             renderElementPreview({ width, height }) {
                 return <img style={{ width, height }} src={placeholder} alt={"Tweet"} />;
+            },
+            render(props) {
+                // @ts-expect-error No need to worry about different element.elements type.
+                return <PeTwitter {...props} />;
             }
         }),
         createEmbedSettingsPlugin({

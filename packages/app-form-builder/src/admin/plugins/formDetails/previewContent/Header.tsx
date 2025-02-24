@@ -2,13 +2,8 @@ import React from "react";
 import { css } from "emotion";
 import { Typography } from "@webiny/ui/Typography";
 import { Grid, Cell } from "@webiny/ui/Grid";
-import {
-    PublishRevision,
-    DeleteRevision,
-    EditRevision,
-    RevisionSelector
-} from "./HeaderComponents";
-import { FbFormDetailsPluginRenderParams, FbRevisionModel } from "../../../../types";
+import { PublishRevision, EditRevision, DeleteForm, RevisionSelector } from "./HeaderComponents";
+import { FbFormDetailsPluginRenderParams, FbRevisionModel } from "~/types";
 
 const headerTitle = css({
     "&.mdc-layout-grid": {
@@ -36,10 +31,10 @@ const headerActions = css({
     alignItems: "center"
 });
 
-type HeaderProps = FbFormDetailsPluginRenderParams & {
+interface HeaderProps extends FbFormDetailsPluginRenderParams {
     revision: FbRevisionModel;
     selectRevision: (revision: FbRevisionModel) => void;
-};
+}
 
 const Header = (props: HeaderProps) => {
     const { revision } = props;
@@ -54,7 +49,7 @@ const Header = (props: HeaderProps) => {
                         <RevisionSelector {...props} />
                         <EditRevision {...props} />
                         <PublishRevision {...props} />
-                        <DeleteRevision {...props} />
+                        <DeleteForm {...props} />
                     </Cell>
                 </Grid>
             )}

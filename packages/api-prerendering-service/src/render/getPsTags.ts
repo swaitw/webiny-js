@@ -1,8 +1,10 @@
-const parseAttributes = content => {
+import { TagPathLink } from "~/types";
+
+const parseAttributes = (content: string): TagPathLink => {
     const regex = /data-([a-zA-Z0-9-#]+)="([a-zA-Z0-9-#]+)"/gm;
     let m;
 
-    const output: any = {};
+    const output: Partial<TagPathLink> = {};
     while ((m = regex.exec(content)) !== null) {
         // This is necessary to avoid infinite loops with zero-width matches
         if (m.index === regex.lastIndex) {
@@ -10,21 +12,17 @@ const parseAttributes = content => {
         }
 
         const [, name, value] = m;
-        output[name] = value;
+        output[name as keyof TagPathLink] = value;
     }
-
-    if (output.name && output.type) {
-        return output;
-    }
-    return output;
+    return output as TagPathLink;
 };
 
-export default (content, unique = true) => {
+export default (content: string, unique = true): TagPathLink[] => {
     if (!content) {
         return [];
     }
 
-    const psTags = [];
+    const psTags: TagPathLink[] = [];
     const regex = /<ps-tag (.*?)>/gm;
     let m;
 
@@ -39,11 +37,12 @@ export default (content, unique = true) => {
     }
 
     if (unique && psTags.length > 0) {
-        const uniqueMap = {};
-        for (let i = 0; i < psTags.length; i++) {
-            const psTag = psTags[i];
-            uniqueMap[psTag.key + psTag.value] = psTag;
-        }
+        const uniqueMap: Record<string, TagPathLink> = psTags.reduce((collection, psTag) => {
+            collection[`${psTag.key || ""}${psTag.value || ""}`] = psTag;
+
+            return collection;
+        }, {} as Record<string, TagPathLink>);
+
         return Object.values(uniqueMap);
     }
     return psTags;

@@ -1,4 +1,4 @@
-import { get } from "lodash";
+import get from "lodash/get";
 import { PbRenderElementAttributesPlugin } from "../../../../types";
 
 export default {
@@ -10,7 +10,9 @@ export default {
             return attributes;
         }
 
-        const attrs = { "data-aos": animation.name };
+        const attrs: Record<string, string> = {
+            "data-aos": animation.name
+        };
 
         if (animation.advanced) {
             attrs["data-aos-duration"] = animation.duration;

@@ -1,37 +1,26 @@
 import fs from "fs-extra";
 import extract from "extract-zip";
 import path from "path";
-import rimraf from "rimraf";
-import S3 from "aws-sdk/clients/s3";
+import { GetObjectCommand, getSignedUrl, S3 } from "@webiny/aws-sdk/client-s3";
 import download from "./download";
 
 const PAGE_BUILDER_S3_BUCKET = process.env.S3_BUCKET;
 const PAGE_BUILDER_INSTALLATION_FILES_ZIP_KEY = "pbInstallation.zip";
 
-function extractZip(zipPath, dir) {
+function extractZip(zipPath: string, dir: string): Promise<void> {
     return new Promise((resolve, reject) => {
-        extract(zipPath, { dir }, e => {
-            if (e) {
-                reject(e);
+        extract(zipPath, { dir }, err => {
+            if (err) {
+                reject(err);
                 return;
             }
-            // @ts-ignore
             resolve();
         });
     });
 }
 
-export function deleteFile(path) {
-    return new Promise((resolve, reject) => {
-        rimraf(path, e => {
-            if (e) {
-                reject(e);
-                return;
-            }
-            // @ts-ignore
-            resolve();
-        });
-    });
+export function deleteFile(path: string): Promise<void> {
+    return fs.remove(path);
 }
 
 const INSTALL_DIR = "/tmp";
@@ -40,10 +29,13 @@ const INSTALL_EXTRACT_DIR = path.join(INSTALL_DIR, "apiPageBuilder");
 
 export default async () => {
     const s3 = new S3({ region: process.env.AWS_REGION });
-    const installationFilesUrl = await s3.getSignedUrlPromise("getObject", {
-        Bucket: PAGE_BUILDER_S3_BUCKET,
-        Key: PAGE_BUILDER_INSTALLATION_FILES_ZIP_KEY
-    });
+    const installationFilesUrl = await getSignedUrl(
+        s3,
+        new GetObjectCommand({
+            Bucket: PAGE_BUILDER_S3_BUCKET,
+            Key: PAGE_BUILDER_INSTALLATION_FILES_ZIP_KEY
+        })
+    );
 
     fs.ensureDirSync(INSTALL_DIR);
     await download(installationFilesUrl, INSTALL_ZIP_PATH);
@@ -73,10 +65,13 @@ export const downloadAndExtractZip = async ({
     if (zipFileUrl) {
         installationFilesUrl = zipFileUrl;
     } else {
-        installationFilesUrl = await s3.getSignedUrlPromise("getObject", {
-            Bucket: PAGE_BUILDER_S3_BUCKET,
-            Key: zipFileKey
-        });
+        installationFilesUrl = await getSignedUrl(
+            s3,
+            new GetObjectCommand({
+                Bucket: PAGE_BUILDER_S3_BUCKET,
+                Key: zipFileKey
+            })
+        );
     }
 
     fs.ensureDirSync(INSTALL_DIR);

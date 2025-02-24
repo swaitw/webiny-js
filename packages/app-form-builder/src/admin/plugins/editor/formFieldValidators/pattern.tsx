@@ -9,7 +9,7 @@ import {
     FbBuilderFormFieldValidatorPlugin
 } from "~/types";
 
-export default {
+const plugin: FbBuilderFormFieldValidatorPlugin = {
     type: "form-editor-field-validator",
     name: "form-editor-field-validator-pattern",
     validator: {
@@ -50,6 +50,9 @@ export default {
                                 const selectedPatternPlugin = presetPlugins.find(
                                     item => item.pattern.name === value
                                 );
+                                if (!selectedPatternPlugin) {
+                                    return;
+                                }
 
                                 setMessage(selectedPatternPlugin.pattern.message);
                             }}
@@ -82,4 +85,5 @@ export default {
             );
         }
     }
-} as FbBuilderFormFieldValidatorPlugin;
+};
+export default plugin;

@@ -1,9 +1,12 @@
 import HandlerClient from "./HandlerClient";
-import { Context } from "@webiny/handler/types";
+import { ClientContext } from "~/types";
 
-export default () => ({
+export * from "./HandlerClientPlugin";
+
+export const createHandlerClient = () => ({
     type: "context",
-    apply(context: Context) {
+    name: "handler-client.context",
+    async apply(context: ClientContext) {
         context.handlerClient = new HandlerClient(context);
     }
 });

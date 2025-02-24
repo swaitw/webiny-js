@@ -1,7 +1,7 @@
 import * as React from "react";
 import { plugins } from "@webiny/plugins";
 import { validation } from "@webiny/validation";
-import { PbPageElementPagesListComponentPlugin } from "../../../../types";
+import { PbPageElementPagesListComponentPlugin } from "~/types";
 import Accordion from "../../elementSettings/components/Accordion";
 import Wrapper from "../../elementSettings/components/Wrapper";
 import InputField from "../../elementSettings/components/InputField";
@@ -12,9 +12,21 @@ import {
     SimpleButton
 } from "../../elementSettings/components/StyledComponents";
 import { Cell, Grid } from "@webiny/ui/Grid";
+import { BindComponent } from "@webiny/form";
 
-const PagesListDesignSettings = ({ Bind, submit }) => {
-    const components = plugins.byType<PbPageElementPagesListComponentPlugin>(
+interface PagesListDesignSettingsProps {
+    Bind: BindComponent;
+    submit: (event: React.MouseEvent) => void;
+}
+
+const PagesListDesignSettings = ({ Bind, submit }: PagesListDesignSettingsProps) => {
+    let components: Array<{
+        name?: string;
+        title: string;
+        componentName: string;
+    }> = [];
+
+    components = plugins.byType<PbPageElementPagesListComponentPlugin>(
         "pb-page-element-pages-list-component"
     );
 
@@ -67,5 +79,4 @@ const PagesListDesignSettings = ({ Bind, submit }) => {
         </Accordion>
     );
 };
-
 export default PagesListDesignSettings;

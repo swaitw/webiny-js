@@ -1,0 +1,55 @@
+# A config for the "aws-nuke" tool which destroys all cloud infrastructure
+# deployed into our "webiny-ci" AWS account. The config is used within
+# the `.github/workflows/cleanup.yml` workflow (triggered once a day).
+
+regions:
+  - eu-central-1
+  - global
+
+account-blocklist:
+  - "999999999999" # We don't have "production" accounts.
+
+accounts:
+  "726952677045":
+    filters:
+      S3Bucket:
+        - "s3://webiny-ci"
+      IAMRole:
+        - "GitHubActionsWebinyJs"
+        - "GitHubActionsWebinyJsAdminAccess"
+      IAMPolicy:
+        - "DeployWebinyProjectGroup1"
+        - "DeployWebinyProjectGroup2"
+        - "DeployWebinyProjectGroup3"
+        - "DeployWebinyProjectExtra"
+      IAMRolePolicyAttachment:
+        - "GitHubActionsWebinyJs -> DeployWebinyProjectGroup1"
+        - "GitHubActionsWebinyJs -> DeployWebinyProjectGroup2"
+        - "GitHubActionsWebinyJs -> DeployWebinyProjectGroup3"
+        - "GitHubActionsWebinyJs -> DeployWebinyProjectExtra"
+        - "GitHubActionsWebinyJsAdminAccess -> AdministratorAccess"
+
+resource-types:
+  # These resource types will be destroyed.
+  # List of all resource types: https://github.com/rebuy-de/aws-nuke/tree/main/resources
+  targets:
+    - APIGatewayV2API
+    - S3Object
+    - S3Bucket
+    - CloudWatchLogsLogGroup
+    - LambdaFunction
+    - CloudFrontDistribution
+    - CloudFrontDistributionDeployment
+    - CloudFrontFunction
+    - CloudFrontOriginAccessIdentity
+    - CognitoUserPool
+    - CognitoUserPoolClient
+    - IAMPolicy
+    - IAMRole
+    - IAMRolePolicy
+    - IAMRolePolicyAttachment
+    - DynamoDBTable
+    - CloudWatchEventsRule
+    - CloudWatchEventsTarget
+    - CloudWatchEventsBuses
+    - SQSQueue

@@ -1,0 +1,31 @@
+{
+  "extends": "../../tsconfig.json",
+  "include": ["src", "__tests__"],
+  "references": [
+    { "path": "../aws-sdk" },
+    { "path": "../cli-plugin-deploy-pulumi" },
+    { "path": "../pulumi" },
+    { "path": "../api-page-builder" },
+    { "path": "../feature-flags" }
+  ],
+  "compilerOptions": {
+    "rootDirs": ["./src", "./__tests__"],
+    "outDir": "./dist",
+    "declarationDir": "./dist",
+    "paths": {
+      "~/*": ["./src/*"],
+      "~tests/*": ["./__tests__/*"],
+      "@webiny/aws-sdk/*": ["../aws-sdk/src/*"],
+      "@webiny/aws-sdk": ["../aws-sdk/src"],
+      "@webiny/cli-plugin-deploy-pulumi/*": ["../cli-plugin-deploy-pulumi/src/*"],
+      "@webiny/cli-plugin-deploy-pulumi": ["../cli-plugin-deploy-pulumi/src"],
+      "@webiny/pulumi/*": ["../pulumi/src/*"],
+      "@webiny/pulumi": ["../pulumi/src"],
+      "@webiny/api-page-builder/*": ["../api-page-builder/src/*"],
+      "@webiny/api-page-builder": ["../api-page-builder/src"],
+      "@webiny/feature-flags/*": ["../feature-flags/src/*"],
+      "@webiny/feature-flags": ["../feature-flags/src"]
+    },
+    "baseUrl": "."
+  }
+}

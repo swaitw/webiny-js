@@ -1,7 +1,6 @@
-import React from "react";
 import kebabCase from "lodash/kebabCase";
-import { PbRenderElementPluginArgs, PbRenderElementPlugin } from "../../../../types";
-import Icon from "./Icon";
+import { PbRenderElementPluginArgs, PbRenderElementPlugin } from "~/types";
+import { IconRenderer } from "@webiny/app-page-builder-elements/renderers/icon";
 
 export default (args: PbRenderElementPluginArgs = {}): PbRenderElementPlugin => {
     const elementType = args.elementType || "icon";
@@ -10,8 +9,6 @@ export default (args: PbRenderElementPluginArgs = {}): PbRenderElementPlugin => 
         name: `pb-render-page-element-${kebabCase(elementType)}`,
         type: "pb-render-page-element",
         elementType: "icon",
-        render(props) {
-            return <Icon {...props} />;
-        }
+        render: IconRenderer
     };
 };

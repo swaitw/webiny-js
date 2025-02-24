@@ -7,6 +7,10 @@ import { DynamicFieldset } from "@webiny/ui/DynamicFieldset";
 import { Typography } from "@webiny/ui/Typography";
 import { ButtonPrimary, ButtonSecondary } from "@webiny/ui/Button";
 import { Input } from "@webiny/ui/Input";
+import { Switch } from "@webiny/ui/Switch";
+import { BindComponent, CmsModelField } from "~/types";
+import { BindComponentRenderProp, FormAPI, useForm } from "@webiny/form";
+import { useModelField } from "~/admin/hooks";
 
 const t = i18n.ns("app-headless-cms/admin/fields/dynamic-fieldset-predefined-values");
 
@@ -41,95 +45,164 @@ const Header = styled("div")({
     marginBottom: 15
 });
 
-function PredefinedValuesDynamicFieldset({ getBind, renderValueInput = null }) {
+interface PredefinedValue {
+    selected?: boolean;
+}
+
+interface OnSelectedParams {
+    form: FormAPI;
+    bind: BindComponentRenderProp;
+    field: CmsModelField;
+    index: number;
+    value: boolean;
+}
+const onSelectedChange = (params: OnSelectedParams) => {
+    const { form, bind, field, index: targetIndex, value: setToValue } = params;
+
+    form.setValue(
+        "predefinedValues.values",
+        bind.value.map((value: PredefinedValue, index: number) => {
+            const defaultValue = field.multipleValues ? value.selected : false;
+            return {
+                ...value,
+                selected: index === targetIndex ? setToValue : defaultValue
+            };
+        })
+    );
+};
+
+export interface PredefinedValuesDynamicFieldsetProps {
+    getBind: (value?: any) => BindComponent;
+    renderValueInput?: ((Bind: BindComponent) => React.ReactNode) | null;
+}
+const PredefinedValuesDynamicFieldset = ({
+    getBind,
+    renderValueInput = null
+}: PredefinedValuesDynamicFieldsetProps) => {
     const Bind = getBind();
+    const { field } = useModelField();
+    const form = useForm();
 
     return (
         <Grid>
             <Cell span={12}>
                 <Bind>
-                    <DynamicFieldset>
-                        {({ actions, header, row, empty }) => (
-                            <React.Fragment>
-                                {row(({ index }) => {
-                                    const Bind = getBind(index);
-
+                    {bind => {
+                        return (
+                            <DynamicFieldset {...bind}>
+                                {({ actions, header, row, empty }) => {
                                     return (
                                         <React.Fragment>
-                                            <GridInner>
-                                                <Cell span={5}>
-                                                    <Fieldset>
-                                                        <Bind name={"label"}>
-                                                            <Input label={t`Label`} />
-                                                        </Bind>
-                                                    </Fieldset>
-                                                </Cell>
-                                                <Cell span={5}>
-                                                    <Fieldset>
-                                                        {renderValueInput ? (
-                                                            renderValueInput(Bind)
-                                                        ) : (
-                                                            <Bind name={"value"}>
-                                                                <Input label={t`Value`} />
-                                                            </Bind>
-                                                        )}
-                                                    </Fieldset>
-                                                </Cell>
+                                            {row(({ index }) => {
+                                                const Bind = getBind(index);
 
-                                                <Cell span={2} className={controlButtons}>
-                                                    <ButtonPrimary
-                                                        small
-                                                        onClick={actions.add(index)}
-                                                    >
-                                                        +
-                                                    </ButtonPrimary>
-                                                    <ButtonSecondary
-                                                        small
-                                                        onClick={actions.remove(index)}
-                                                    >
-                                                        -
-                                                    </ButtonSecondary>
-                                                </Cell>
-                                            </GridInner>
+                                                return (
+                                                    <React.Fragment>
+                                                        <GridInner>
+                                                            <Cell span={4}>
+                                                                <Fieldset>
+                                                                    <Bind name={"label"}>
+                                                                        <Input label={t`Label`} />
+                                                                    </Bind>
+                                                                </Fieldset>
+                                                            </Cell>
+                                                            <Cell span={4}>
+                                                                <Fieldset>
+                                                                    {renderValueInput ? (
+                                                                        renderValueInput(Bind)
+                                                                    ) : (
+                                                                        <Bind name={"value"}>
+                                                                            <Input
+                                                                                label={t`Value`}
+                                                                            />
+                                                                        </Bind>
+                                                                    )}
+                                                                </Fieldset>
+                                                            </Cell>
+                                                            <Cell span={2}>
+                                                                <Fieldset>
+                                                                    <Bind name={"selected"}>
+                                                                        <Switch
+                                                                            label={"Selected"}
+                                                                            description={
+                                                                                "Mark as selected value"
+                                                                            }
+                                                                            onChange={value => {
+                                                                                onSelectedChange({
+                                                                                    form,
+                                                                                    bind,
+                                                                                    field,
+                                                                                    index,
+                                                                                    value
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                    </Bind>
+                                                                </Fieldset>
+                                                            </Cell>
+
+                                                            <Cell
+                                                                span={2}
+                                                                className={controlButtons}
+                                                            >
+                                                                <ButtonPrimary
+                                                                    small
+                                                                    onClick={actions.add(index)}
+                                                                >
+                                                                    +
+                                                                </ButtonPrimary>
+                                                                <ButtonSecondary
+                                                                    small
+                                                                    onClick={actions.remove(index)}
+                                                                >
+                                                                    -
+                                                                </ButtonSecondary>
+                                                            </Cell>
+                                                        </GridInner>
+                                                    </React.Fragment>
+                                                );
+                                            })}
+                                            {empty(() => {
+                                                return (
+                                                    <React.Fragment>
+                                                        <Header>
+                                                            <Typography
+                                                                use={"overline"}
+                                                            >{t`Predefined values`}</Typography>
+                                                        </Header>
+
+                                                        <GridInner className={emptyStyles}>
+                                                            <Cell span={12}>
+                                                                <Typography use={"subtitle1"}>
+                                                                    {t`There are no predefined values available.`}
+                                                                </Typography>
+                                                            </Cell>
+                                                            <Cell span={12}>
+                                                                <ButtonPrimary
+                                                                    onClick={actions.add()}
+                                                                >{t`Add a predefined value`}</ButtonPrimary>
+                                                            </Cell>
+                                                        </GridInner>
+                                                    </React.Fragment>
+                                                );
+                                            })}
+                                            {header(() => (
+                                                <Header>
+                                                    <Typography
+                                                        use={"overline"}
+                                                    >{t`Predefined values`}</Typography>
+                                                </Header>
+                                            ))}
                                         </React.Fragment>
                                     );
-                                })}
-                                {empty(() => (
-                                    <React.Fragment>
-                                        <Header>
-                                            <Typography
-                                                use={"overline"}
-                                            >{t`Predefined values`}</Typography>
-                                        </Header>
-
-                                        <GridInner className={emptyStyles}>
-                                            <Cell span={12}>
-                                                <Typography use={"subtitle1"}>
-                                                    {t`There are no predefined values available.`}
-                                                </Typography>
-                                            </Cell>
-                                            <Cell span={12}>
-                                                <ButtonPrimary
-                                                    onClick={actions.add()}
-                                                >{t`Add a predefined value`}</ButtonPrimary>
-                                            </Cell>
-                                        </GridInner>
-                                    </React.Fragment>
-                                ))}
-                                {header(() => (
-                                    <Header>
-                                        <Typography
-                                            use={"overline"}
-                                        >{t`Predefined values`}</Typography>
-                                    </Header>
-                                ))}
-                            </React.Fragment>
-                        )}
-                    </DynamicFieldset>
+                                }}
+                            </DynamicFieldset>
+                        );
+                    }}
                 </Bind>
             </Cell>
         </Grid>
     );
-}
+};
 
 export default PredefinedValuesDynamicFieldset;

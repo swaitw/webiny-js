@@ -1,10 +1,10 @@
-import { Subscriber, Topic } from "~/types";
+import { Event, Subscriber, Topic } from "~/types";
 
-export const createTopic = <TEvent = any>(topicName?: string): Topic<TEvent> => {
+export const createTopic = <TEvent extends Event = Event>(topicName?: string): Topic<TEvent> => {
     const subscribers: Subscriber<TEvent>[] = [];
 
     const withUnsubscribe = (cb: Subscriber<TEvent>) => {
-        const once = async event => {
+        const once = async (event: TEvent) => {
             await cb(event);
             const index = subscribers.findIndex(fn => fn === once);
             if (index > -1) {
@@ -19,18 +19,42 @@ export const createTopic = <TEvent = any>(topicName?: string): Topic<TEvent> => 
         getTopicName() {
             return topicName || "unknown";
         },
-        subscribe(cb: Subscriber<TEvent>) {
+        subscribe(cb) {
+            /**
+             * TODO @ts-refactor figure out types for callback
+             */
+            // @ts-expect-error
             subscribers.push(cb);
         },
-        subscribeOnce(cb: Subscriber<TEvent>) {
+        subscribeOnce(cb) {
+            /**
+             * TODO @ts-refactor figure out types for callback
+             */
+            // @ts-expect-error
             subscribers.push(withUnsubscribe(cb));
         },
-        getSubscribers() {
+        getSubscribers(): Subscriber<TEvent>[] {
             return subscribers;
         },
-        async publish(event) {
+        async publish(event: TEvent) {
             for (const cb of subscribers) {
-                await cb(event);
+                try {
+                    await cb(event);
+                } catch (e) {
+                    console.error(
+                        `An error occurred while publishing an event (topic: ${topicName}).`,
+                        {
+                            topicName: topicName,
+                            error: {
+                                message: e.message,
+                                code: e.code,
+                                data: e.data,
+                                stack: e.stack
+                            }
+                        }
+                    );
+                    throw e;
+                }
             }
         }
     };

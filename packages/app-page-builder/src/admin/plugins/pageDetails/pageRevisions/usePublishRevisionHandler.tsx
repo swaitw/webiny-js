@@ -1,106 +1,56 @@
 import React from "react";
-import { set } from "dot-prop-immutable";
-import { useApolloClient } from "@apollo/react-hooks";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
-import { PUBLISH_PAGE, UNPUBLISH_PAGE, GET_PAGE } from "../../../graphql/pages";
+import { useAdminPageBuilder } from "~/admin/hooks/useAdminPageBuilder";
+import { useRecords } from "@webiny/app-aco";
+import { PbPageDataItem } from "~/types";
 
-export function usePublishRevisionHandler({ page }) {
-    const client = useApolloClient();
+export function usePublishRevisionHandler() {
     const { showSnackbar } = useSnackbar();
+    const pageBuilder = useAdminPageBuilder();
+    const { getRecord } = useRecords();
 
-    const publishRevision = async revision => {
-        const { data: res } = await client.mutate({
-            mutation: PUBLISH_PAGE,
-            variables: { id: revision.id },
-            update: (cache, { data }) => {
-                // Don't do anything if there was an error during publishing!
-                if (data.pageBuilder.publishPage.error) {
-                    return;
-                }
-
-                // Update revisions
-                const pageFromCache = cache.readQuery({
-                    query: GET_PAGE,
-                    variables: { id: page.id }
-                });
-
-                page.revisions.forEach(r => {
-                    // Update published/locked fields on the revision that was just published.
-                    if (r.id === revision.id) {
-                        r.status = "published";
-                        r.locked = true;
-                        return;
-                    }
-
-                    // Unpublish other published revisions
-                    if (r.status === "published") {
-                        r.status = "unpublished";
-                    }
-                });
-
-                // Write our data back to the cache.
-                cache.writeQuery({
-                    query: GET_PAGE,
-                    data: set(pageFromCache, "pageBuilder.getPage.data", page)
-                });
-            }
+    const publishRevision = async (revision: Pick<PbPageDataItem, "id" | "version" | "pid">) => {
+        const response = await pageBuilder.publishPage(revision, {
+            client: pageBuilder.client
         });
+        if (response) {
+            const { error } = response;
+            if (error) {
+                return showSnackbar(error.message);
+            }
 
-        const { error } = res.pageBuilder.publishPage;
-        if (error) {
-            return showSnackbar(error.message);
+            // Sync ACO record - retrieve the most updated record from network
+            await getRecord(revision.pid);
+
+            showSnackbar(
+                <span>
+                    Successfully published revision <strong>#{revision.version}</strong>!
+                </span>
+            );
         }
-
-        showSnackbar(
-            <span>
-                Successfully published revision <strong>#{revision.version}</strong>!
-            </span>
-        );
     };
 
-    const unpublishRevision = async revision => {
-        const { data: res } = await client.mutate({
-            mutation: UNPUBLISH_PAGE,
-            variables: { id: revision.id },
-            update: (cache, { data }) => {
-                // Don't do anything if there was an error during publishing!
-                if (data.pageBuilder.unpublishPage.error) {
-                    return;
-                }
-
-                // Update revisions
-                const pageFromCache = cache.readQuery({
-                    query: GET_PAGE,
-                    variables: { id: page.id }
-                });
-
-                page.revisions.forEach(r => {
-                    // Update published/locked fields on the revision that was just published.
-                    if (r.id === revision.id) {
-                        r.status = "unpublished";
-                        r.locked = true;
-                        return;
-                    }
-                });
-
-                // Write our data back to the cache.
-                cache.writeQuery({
-                    query: GET_PAGE,
-                    data: set(pageFromCache, "pageBuilder.getPage.data", page)
-                });
-            }
+    const unpublishRevision = async (
+        revision: Pick<PbPageDataItem, "id" | "version" | "pid">
+    ): Promise<void> => {
+        const response = await pageBuilder.unpublishPage(revision, {
+            client: pageBuilder.client
         });
+        if (response) {
+            const { error } = response;
+            if (error) {
+                return showSnackbar(error.message);
+            }
 
-        const { error } = res.pageBuilder.unpublishPage;
-        if (error) {
-            return showSnackbar(error.message);
+            // Sync ACO record - retrieve the most updated record from network
+            await getRecord(revision.pid);
+
+            showSnackbar(
+                <span>
+                    Successfully unpublished revision <strong>#{revision.version}</strong>!
+                </span>
+            );
         }
-
-        showSnackbar(
-            <span>
-                Successfully unpublished revision <strong>#{revision.version}</strong>!
-            </span>
-        );
     };
 
     return {

@@ -4,15 +4,20 @@ import { IconButton } from "@webiny/ui/Button";
 import { Tooltip } from "@webiny/ui/Tooltip";
 import { ReactComponent as EditIcon } from "../../../../icons/edit.svg";
 import { useRevision } from "../../formRevisions/useRevision";
-import usePermission from "../../../../../hooks/usePermission";
+import { usePermission } from "~/hooks/usePermission";
+import { FbRevisionModel } from "~/types";
 
-const EditRevision = ({ revision, form }) => {
+interface EditRevisionProps {
+    revision: FbRevisionModel;
+    form: FbRevisionModel;
+}
+const EditRevision = ({ revision, form }: EditRevisionProps) => {
     const { createRevision } = useRevision({ revision, form });
     const { history } = useRouter();
-    const { canEdit } = usePermission();
+    const { canUpdate } = usePermission();
 
     // Render nothing is user doesn't have required permission.
-    if (!canEdit(form)) {
+    if (!canUpdate(form)) {
         return null;
     }
 
@@ -35,7 +40,7 @@ const EditRevision = ({ revision, form }) => {
             <IconButton
                 data-testid={"fb.form-preview.header.create-revision"}
                 icon={<EditIcon />}
-                onClick={createRevision}
+                onClick={() => createRevision(revision.id)}
             />
         </Tooltip>
     );

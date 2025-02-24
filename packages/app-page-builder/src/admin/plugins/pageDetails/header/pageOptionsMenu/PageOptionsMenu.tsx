@@ -1,42 +1,26 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { IconButton } from "@webiny/ui/Button";
 import { Icon } from "@webiny/ui/Icon";
-import { ReactComponent as MoreVerticalIcon } from "../../../../assets/more_vert.svg";
-import { ReactComponent as PreviewIcon } from "../../../../assets/visibility.svg";
-import { ReactComponent as HomeIcon } from "../../../../assets/round-home-24px.svg";
+import { ReactComponent as MoreVerticalIcon } from "~/admin/assets/more_vert.svg";
+import { ReactComponent as HomeIcon } from "~/admin/assets/round-home-24px.svg";
+import { ReactComponent as GridViewIcon } from "@material-design-icons/svg/outlined/grid_view.svg";
 import { ListItemGraphic } from "@webiny/ui/List";
 import { MenuItem, Menu } from "@webiny/ui/Menu";
-import { usePageBuilderSettings } from "../../../../hooks/usePageBuilderSettings";
-import { useSiteStatus } from "../../../../hooks/useSiteStatus";
+import { CreatePageTemplateDialog } from "~/admin/views/PageTemplates/CreatePageTemplateDialog";
+import { usePageBuilderSettings } from "~/admin/hooks/usePageBuilderSettings";
 import { css } from "emotion";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
 import classNames from "classnames";
 import { useConfirmationDialog } from "@webiny/app-admin/hooks/useConfirmationDialog";
-import { useConfigureWebsiteUrlDialog } from "../../../../hooks/useConfigureWebsiteUrl";
 import { plugins } from "@webiny/plugins";
-import { PbPageDetailsHeaderRightOptionsMenuItemPlugin } from "../../../../../types";
-import gql from "graphql-tag";
-import { useMutation } from "@apollo/react-hooks";
+import { PbPageData, PbPageDetailsHeaderRightOptionsMenuItemPlugin, PbPageTemplate } from "~/types";
 import { SecureView } from "@webiny/app-security";
-
-const PUBLISH_PAGE = gql`
-    mutation PbPublishPage($id: ID!) {
-        pageBuilder {
-            publishPage(id: $id) {
-                data {
-                    id
-                    path
-                    status
-                    locked
-                }
-                error {
-                    code
-                    message
-                }
-            }
-        }
-    }
-`;
+import { useAdminPageBuilder } from "~/admin/hooks/useAdminPageBuilder";
+import { useFolders } from "@webiny/app-aco";
+import { useTemplatesPermissions } from "~/hooks/permissions";
+import { PreviewPage } from "./PreviewPage";
+import { DuplicatePage } from "./DuplicatePage";
+import { useCreatePageTemplateFromPage } from "~/features";
 
 const menuStyles = css({
     width: 250,
@@ -48,18 +32,17 @@ const menuStyles = css({
     }
 });
 
-const PageOptionsMenu = props => {
+interface PageOptionsMenuProps {
+    page: PbPageData;
+}
+
+const PageOptionsMenu = (props: PageOptionsMenuProps) => {
     const { page } = props;
-    const { settings, isSpecialPage, getPageUrl, getWebsiteUrl, updateSettingsMutation } =
-        usePageBuilderSettings();
+    const [isCreateTemplateDialogOpen, setIsCreateTemplateDialogOpen] = useState<boolean>(false);
+    const { settings, isSpecialPage, updateSettingsMutation } = usePageBuilderSettings();
+    const { createPageTemplateFromPage } = useCreatePageTemplateFromPage();
 
-    const [isSiteRunning, refreshSiteStatus] = useSiteStatus(getWebsiteUrl());
-    const { showConfigureWebsiteUrlDialog } = useConfigureWebsiteUrlDialog(
-        getWebsiteUrl(),
-        refreshSiteStatus
-    );
-
-    const publishPageMutation = useMutation(PUBLISH_PAGE);
+    const pageBuilder = useAdminPageBuilder();
 
     const { showSnackbar } = useSnackbar();
     const { showConfirmation } = useConfirmationDialog({
@@ -74,19 +57,29 @@ const PageOptionsMenu = props => {
         )
     });
 
-    // We must prevent opening in new tab - Cypress doesn't work with new tabs.
-    const target = window.Cypress ? "_self" : "_blank";
-    const url = getPageUrl(page, !page.locked);
+    const handleCreateTemplateClick = useCallback(
+        async (formData: Pick<PbPageTemplate, "title" | "slug" | "description">) => {
+            try {
+                const pageTemplate = await createPageTemplateFromPage(page.id, formData);
 
-    const handlePreviewClick = useCallback(() => {
-        if (isSiteRunning) {
-            window.open(url, target, "noopener");
-        } else {
-            showConfigureWebsiteUrlDialog();
-        }
-    }, [url, isSiteRunning]);
+                setIsCreateTemplateDialogOpen(false);
+                showSnackbar(`Template "${pageTemplate.title}" created successfully.`);
+            } catch (error) {
+                showSnackbar(error.message);
+            }
+        },
+        [page]
+    );
 
-    const previewButtonLabel = page.locked ? "View" : "Preview";
+    const { folderLevelPermissions: flp } = useFolders();
+    const { canCreate: templatesCanCreate } = useTemplatesPermissions();
+
+    const canCreateTemplate = templatesCanCreate();
+
+    const folderId = page.wbyAco_location?.folderId;
+    const flpCanManageContent = flp.canManageContent(folderId);
+
+    const isTemplatePage = page.content?.data?.template;
     return (
         <Menu
             className={menuStyles}
@@ -97,55 +90,78 @@ const PageOptionsMenu = props => {
                 />
             }
         >
-            <MenuItem onClick={handlePreviewClick}>
-                <ListItemGraphic>
-                    <Icon
-                        data-testid="pb-page-details-header-page-options-menu-preview"
-                        icon={<PreviewIcon />}
-                    />
-                </ListItemGraphic>
-                {previewButtonLabel}
-            </MenuItem>
+            <PreviewPage />
 
-            <SecureView permission={"pb.settings"}>
-                <MenuItem
-                    className={classNames({ disabled: isSpecialPage(page, "home") })}
-                    onClick={() => {
-                        showConfirmation(async () => {
-                            if (!page.locked) {
-                                const [publish] = publishPageMutation;
-                                await publish({
-                                    variables: { id: page.id }
-                                });
-                            }
-
-                            const [updateSettings] = updateSettingsMutation;
-                            const response = await updateSettings({
-                                variables: {
-                                    data: {
-                                        pages: {
-                                            ...settings.pages,
-                                            home: page.id
+            {flpCanManageContent && (
+                <>
+                    <SecureView permission={"pb.settings"}>
+                        <MenuItem
+                            className={classNames({ disabled: isSpecialPage(page.pid, "home") })}
+                            onClick={() => {
+                                showConfirmation(async () => {
+                                    if (!page.locked) {
+                                        const response = await pageBuilder.publishPage(page, {
+                                            client: pageBuilder.client
+                                        });
+                                        /**
+                                         * In case of exit in "publishPage" lifecycle, "publishPage" hook will return undefined,
+                                         * indicating an immediate exit.
+                                         */
+                                        if (!response) {
+                                            return;
+                                        }
+                                        const { error } = response;
+                                        if (error) {
+                                            return showSnackbar(error.message);
                                         }
                                     }
-                                }
-                            });
 
-                            const { error } = response.data.pageBuilder.updateSettings;
-                            if (error) {
-                                showSnackbar(error.message);
-                            } else {
-                                showSnackbar("Homepage set successfully!");
-                            }
-                        });
-                    }}
-                >
-                    <ListItemGraphic>
-                        <Icon icon={<HomeIcon />} />
-                    </ListItemGraphic>
-                    Set as homepage
-                </MenuItem>
-            </SecureView>
+                                    const [updateSettings] = updateSettingsMutation;
+                                    const response = await updateSettings({
+                                        variables: {
+                                            data: {
+                                                pages: {
+                                                    ...settings.pages,
+                                                    home: page.id
+                                                }
+                                            }
+                                        }
+                                    });
+
+                                    const { error } = response.data.pageBuilder.updateSettings;
+                                    if (error) {
+                                        showSnackbar(error.message);
+                                    } else {
+                                        showSnackbar("Homepage set successfully!");
+                                    }
+                                });
+                            }}
+                        >
+                            <ListItemGraphic>
+                                <Icon icon={<HomeIcon />} />
+                            </ListItemGraphic>
+                            Set as homepage
+                        </MenuItem>
+                    </SecureView>
+
+                    <DuplicatePage />
+
+                    {canCreateTemplate && !isTemplatePage && (
+                        <MenuItem onClick={() => setIsCreateTemplateDialogOpen(true)}>
+                            <ListItemGraphic>
+                                <Icon icon={<GridViewIcon />} />
+                            </ListItemGraphic>
+                            Save as a template
+                        </MenuItem>
+                    )}
+
+                    <CreatePageTemplateDialog
+                        open={isCreateTemplateDialogOpen}
+                        onClose={() => setIsCreateTemplateDialogOpen(false)}
+                        onSubmit={handleCreateTemplateClick}
+                    />
+                </>
+            )}
 
             {plugins
                 .byType<PbPageDetailsHeaderRightOptionsMenuItemPlugin>(

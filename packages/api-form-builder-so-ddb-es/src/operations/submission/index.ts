@@ -7,12 +7,12 @@ import {
     FormBuilderStorageOperationsListSubmissionsResponse,
     FormBuilderStorageOperationsUpdateSubmissionParams
 } from "@webiny/api-form-builder/types";
-import { Entity, Table } from "dynamodb-toolbox";
+import { Entity, Table } from "@webiny/db-dynamodb/toolbox";
 import { Client } from "@elastic/elasticsearch";
 import WebinyError from "@webiny/error";
-import { batchReadAll } from "@webiny/db-dynamodb/utils/batchRead";
+import { batchReadAll } from "@webiny/db-dynamodb";
 import { sortItems } from "@webiny/db-dynamodb/utils/sort";
-import { createLimit } from "@webiny/api-elasticsearch/limit";
+import { createLimit, decodeCursor, encodeCursor } from "@webiny/api-elasticsearch";
 import {
     createElasticsearchBody,
     createSubmissionElasticType
@@ -22,21 +22,22 @@ import {
     FormBuilderSubmissionStorageOperations,
     FormBuilderSubmissionStorageOperationsCreatePartitionKeyParams
 } from "~/types";
-import configurations from "~/configurations";
+import { configurations } from "~/configurations";
 import { cleanupItem } from "@webiny/db-dynamodb/utils/cleanup";
 import { parseIdentifier } from "@webiny/utils";
-import { decodeCursor, encodeCursor } from "@webiny/api-elasticsearch/cursors";
+import { ElasticsearchSearchResponse } from "@webiny/api-elasticsearch/types";
+import { deleteItem, getClean, put } from "@webiny/db-dynamodb";
 
-export interface Params {
+export interface CreateSubmissionStorageOperationsParams {
     entity: Entity<any>;
     esEntity: Entity<any>;
-    table: Table;
+    table: Table<string, string, string>;
     elasticsearch: Client;
     plugins: PluginsContainer;
 }
 
 export const createSubmissionStorageOperations = (
-    params: Params
+    params: CreateSubmissionStorageOperationsParams
 ): FormBuilderSubmissionStorageOperations => {
     const { entity, esEntity, table, elasticsearch, plugins } = params;
 
@@ -67,10 +68,13 @@ export const createSubmissionStorageOperations = (
         };
 
         try {
-            await entity.put({
-                ...submission,
-                ...keys,
-                TYPE: createSubmissionType()
+            await put({
+                entity,
+                item: {
+                    ...submission,
+                    ...keys,
+                    TYPE: createSubmissionType()
+                }
             });
         } catch (ex) {
             throw new WebinyError(
@@ -86,16 +90,20 @@ export const createSubmissionStorageOperations = (
 
         try {
             const { index } = configurations.es({
-                tenant: form.tenant
+                tenant: form.tenant,
+                locale: form.locale
             });
-            await esEntity.put({
-                index,
-                data: {
-                    ...submission,
-                    __type: createSubmissionElasticType()
-                },
-                TYPE: createSubmissionType(),
-                ...keys
+            await put({
+                entity: esEntity,
+                item: {
+                    index,
+                    data: {
+                        ...submission,
+                        __type: createSubmissionElasticType()
+                    },
+                    TYPE: createSubmissionType(),
+                    ...keys
+                }
             });
         } catch (ex) {
             throw new WebinyError(
@@ -124,10 +132,13 @@ export const createSubmissionStorageOperations = (
         };
 
         try {
-            await entity.put({
-                ...submission,
-                ...keys,
-                TYPE: createSubmissionType()
+            await put({
+                entity,
+                item: {
+                    ...submission,
+                    ...keys,
+                    TYPE: createSubmissionType()
+                }
             });
             return submission;
         } catch (ex) {
@@ -155,7 +166,10 @@ export const createSubmissionStorageOperations = (
         };
 
         try {
-            await entity.delete(keys);
+            await deleteItem({
+                entity,
+                keys
+            });
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not delete form submission from DynamoDB.",
@@ -169,7 +183,10 @@ export const createSubmissionStorageOperations = (
         }
 
         try {
-            await esEntity.delete(keys);
+            await deleteItem({
+                entity: esEntity,
+                keys
+            });
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not delete form submission from Elasticsearch.",
@@ -195,7 +212,7 @@ export const createSubmissionStorageOperations = (
         params: FormBuilderStorageOperationsListSubmissionsParams
     ): Promise<FbSubmission[]> => {
         const { where, sort } = params;
-        const items = where.id_in.map(id => {
+        const items = (where.id_in || []).map(id => {
             return entity.getBatch({
                 PK: createSubmissionPartitionKey({
                     ...where
@@ -226,7 +243,7 @@ export const createSubmissionStorageOperations = (
          */
         const submissions = results.filter(Boolean).map(submission => {
             return cleanupItem(entity, submission);
-        });
+        }) as FbSubmission[];
         if (!sort) {
             return submissions;
         }
@@ -240,7 +257,7 @@ export const createSubmissionStorageOperations = (
     const listSubmissions = async (
         params: FormBuilderStorageOperationsListSubmissionsParams
     ): Promise<FormBuilderStorageOperationsListSubmissionsResponse> => {
-        const { where, sort, limit: initialLimit, after } = params;
+        const { where, sort = [], limit: initialLimit, after } = params;
 
         if (where.id_in) {
             const items = await listSubmissionsByIds(params);
@@ -262,11 +279,12 @@ export const createSubmissionStorageOperations = (
             sort,
             limit: limit + 1,
             where,
-            after: decodeCursor(after) as any
+            after: decodeCursor(after)
         });
 
         const esConfig = configurations.es({
-            tenant: where.tenant
+            tenant: where.tenant,
+            locale: where.locale
         });
 
         const query = {
@@ -274,7 +292,7 @@ export const createSubmissionStorageOperations = (
             body
         };
 
-        let response;
+        let response: ElasticsearchSearchResponse<FbSubmission>;
         try {
             response = await elasticsearch.search(query);
         } catch (ex) {
@@ -305,7 +323,7 @@ export const createSubmissionStorageOperations = (
         const meta = {
             hasMoreItems,
             totalCount: total.value,
-            cursor: items.length > 0 ? encodeCursor(hits[items.length - 1].sort) : null
+            cursor: items.length > 0 ? encodeCursor(hits[items.length - 1].sort) || null : null
         };
 
         return {
@@ -316,7 +334,7 @@ export const createSubmissionStorageOperations = (
 
     const getSubmission = async (
         params: FormBuilderStorageOperationsGetSubmissionParams
-    ): Promise<FbSubmission> => {
+    ): Promise<FbSubmission | null> => {
         const { where } = params;
 
         const keys = {
@@ -328,13 +346,10 @@ export const createSubmissionStorageOperations = (
         };
 
         try {
-            const result = await entity.get(keys);
-
-            if (!result || !result.Item) {
-                return null;
-            }
-
-            return cleanupItem(entity, result.Item);
+            return await getClean<FbSubmission>({
+                entity,
+                keys
+            });
         } catch (ex) {
             throw new WebinyError(
                 ex.message || "Could not oad submission.",

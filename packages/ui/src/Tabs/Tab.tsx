@@ -1,7 +1,11 @@
-import * as React from "react";
-import { Tab as RmwcTab, TabProps as RmwcTabProps } from "@rmwc/tabs";
+import React, { useContext, useEffect, useRef } from "react";
+import { TabProps as RmwcTabProps } from "@rmwc/tabs";
+import { generateAlphaNumericId } from "@webiny/utils/generateId";
+import { TabsContext } from "./Tabs";
 
 export type TabProps = RmwcTabProps & {
+    visible?: boolean;
+
     tag?: string;
     /**
      * Is tab disabled?
@@ -11,9 +15,27 @@ export type TabProps = RmwcTabProps & {
      * Style object
      */
     style?: React.CSSProperties;
+    /**
+     * Tab ID for the testing.
+     */
+    "data-testid"?: string;
 };
 
-export const Tab = (props: TabProps) => {
-    const { children, ...rest } = props;
-    return <RmwcTab {...rest}>{children}</RmwcTab>;
-};
+export const Tab = React.memo((props: TabProps) => {
+    const tabsContext = useContext(TabsContext);
+    const idRef = useRef(generateAlphaNumericId(12));
+
+    useEffect(() => {
+        tabsContext!.addTab({ ...props, id: idRef.current, visible: props.visible ?? true });
+    }, [props]);
+
+    useEffect(() => {
+        return () => {
+            return tabsContext!.removeTab(idRef.current);
+        };
+    }, []);
+
+    return null;
+});
+
+Tab.displayName = "Tab";

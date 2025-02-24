@@ -1,8 +1,9 @@
 import { PluginsContainer } from "@webiny/plugins";
 import indexingPlugins from "~/elasticsearch/indexing";
-import cmsFieldTypePlugins from "@webiny/api-headless-cms/content/plugins/graphqlFields";
-import { CmsEntry } from "@webiny/api-headless-cms/types";
+import { createGraphQLFields } from "@webiny/api-headless-cms";
+import { CmsEntry, CmsModel, CmsModelField } from "@webiny/api-headless-cms/types";
 import { extractEntriesFromIndex, prepareEntryToIndex } from "~/helpers";
+import { CmsIndexEntry } from "~/types";
 
 const mockRichTextValue = [
     {
@@ -11,62 +12,73 @@ const mockRichTextValue = [
     }
 ];
 
+const createMockField = (
+    field: Partial<CmsModelField> & Pick<CmsModelField, "fieldId" | "type">
+): CmsModelField => {
+    return {
+        ...field,
+        id: field.fieldId,
+        storageId: field.fieldId,
+        label: field.fieldId
+    };
+};
+
 const mockTextValue = "some short searchable text";
 
-const mockModel: any = {
+const mockModel: Pick<CmsModel, "fields"> = {
     fields: [
-        {
+        createMockField({
             fieldId: "notAffectedNumber",
             type: "number"
-        },
-        {
+        }),
+        createMockField({
             fieldId: "notAffectedString",
             type: "text"
-        },
-        {
+        }),
+        createMockField({
             fieldId: "richText",
             type: "rich-text"
-        },
-        {
+        }),
+        createMockField({
             fieldId: "text",
             type: "text"
-        },
-        {
+        }),
+        createMockField({
             fieldId: "page",
             type: "object",
             settings: {
                 fields: [
-                    {
+                    createMockField({
                         fieldId: "title",
                         type: "text"
-                    },
-                    {
+                    }),
+                    createMockField({
                         fieldId: "number",
                         type: "number"
-                    },
-                    {
+                    }),
+                    createMockField({
                         fieldId: "richText",
                         type: "rich-text"
-                    },
-                    {
+                    }),
+                    createMockField({
                         fieldId: "settings",
                         type: "object",
                         settings: {
                             fields: [
-                                {
+                                createMockField({
                                     fieldId: "title",
                                     type: "text"
-                                },
-                                {
+                                }),
+                                createMockField({
                                     fieldId: "snippet",
                                     type: "rich-text"
-                                }
+                                })
                             ]
                         }
-                    }
+                    })
                 ]
             }
-        }
+        })
     ]
 };
 
@@ -132,14 +144,14 @@ const mockIndexedEntry: Partial<CmsEntry> & Record<string, any> = {
     }
 };
 
-const plugins = new PluginsContainer([...indexingPlugins(), ...cmsFieldTypePlugins()]);
+const plugins = new PluginsContainer([...indexingPlugins(), ...createGraphQLFields()]);
 
 describe("entryIndexing", () => {
     test("should prepare entry for indexing", () => {
         const entryToIndex = prepareEntryToIndex({
-            entry: mockInputEntry as any,
-            storageEntry: mockInputEntry as any,
-            model: mockModel,
+            entry: mockInputEntry as CmsEntry,
+            storageEntry: mockInputEntry as CmsEntry,
+            model: mockModel as unknown as CmsModel,
             plugins
         });
 
@@ -148,9 +160,9 @@ describe("entryIndexing", () => {
 
     test("should extract original entry from indexed data", () => {
         const [entryFromIndex] = extractEntriesFromIndex({
-            model: mockModel,
+            model: mockModel as unknown as CmsModel,
             plugins,
-            entries: [mockIndexedEntry as any]
+            entries: [mockIndexedEntry as CmsIndexEntry]
         });
 
         expect(entryFromIndex.values).toEqual(mockInputEntry.values);

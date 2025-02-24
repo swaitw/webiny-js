@@ -1,13 +1,19 @@
 import React from "react";
 import kebabCase from "lodash/kebabCase";
-import { DisplayMode, PbEditorPageElementPlugin, PbEditorTextElementPluginsArgs } from "~/types";
+import {
+    DisplayMode,
+    PbEditorElement,
+    PbEditorPageElementPlugin,
+    PbEditorTextElementPluginsArgs,
+    PbElement
+} from "~/types";
 import { createInitialPerDeviceSettingValue } from "../../elementSettings/elementSettingsUtils";
 import { createInitialTextValue } from "../utils/textUtils";
-import Heading from "./Heading";
+import { Heading } from "./Heading";
+import { defaultText, displayText } from "./elementText";
+export * from "./ActiveHeadingRenderer";
 
 export default (args: PbEditorTextElementPluginsArgs = {}): PbEditorPageElementPlugin => {
-    const defaultText = "Heading";
-
     const defaultSettings = [
         [
             "pb-editor-page-element-style-settings-text",
@@ -26,7 +32,7 @@ export default (args: PbEditorTextElementPluginsArgs = {}): PbEditorPageElementP
         title: "Heading",
         group: "pb-editor-element-group-basic",
         preview() {
-            return <h2>{defaultText}</h2>;
+            return <h2>{displayText}</h2>;
         }
     };
 
@@ -36,14 +42,19 @@ export default (args: PbEditorTextElementPluginsArgs = {}): PbEditorPageElementP
         name: `pb-editor-page-element-${elementType}`,
         type: "pb-editor-page-element",
         elementType: elementType,
+        /**
+         * TODO @ts-refactor @ashutosh
+         * Please check this. args.toolbar() and defaultToolbar are totally different types
+         */
+        // @ts-expect-error
         toolbar: typeof args.toolbar === "function" ? args.toolbar(defaultToolbar) : defaultToolbar,
         settings:
             typeof args.settings === "function" ? args.settings(defaultSettings) : defaultSettings,
-        target: ["cell", "block"],
-        create({ content = {}, ...options }) {
+        target: ["cell", "block", "repeater"],
+        create({ content = {}, ...options }: Partial<PbElement> & { content?: any }) {
             const previewText = content.text || defaultText;
 
-            const defaultValue = {
+            const defaultValue: Partial<PbEditorElement> = {
                 type: this.elementType,
                 elements: [],
                 data: {
@@ -66,10 +77,6 @@ export default (args: PbEditorTextElementPluginsArgs = {}): PbEditorPageElementP
                         ),
                         padding: createInitialPerDeviceSettingValue(
                             { all: "0px" },
-                            DisplayMode.DESKTOP
-                        ),
-                        horizontalAlign: createInitialPerDeviceSettingValue(
-                            "center",
                             DisplayMode.DESKTOP
                         )
                     }

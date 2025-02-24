@@ -1,11 +1,10 @@
-import { ContextInterface } from "@webiny/handler/types";
-import { PluginsContainer } from "@webiny/plugins";
+import { Context } from "@webiny/api";
 import { getExtraAttributes } from "~/utils/attributes";
-import { AttributePlugin, Params } from "~/plugins/definitions/AttributePlugin";
+import { AttributePlugin, AttributePluginParams } from "~/plugins/definitions/AttributePlugin";
 
 const testEntityName = "testEntity";
 class TestEntityAttributePlugin extends AttributePlugin {
-    public constructor(params: Omit<Params, "entity">) {
+    public constructor(params: Omit<AttributePluginParams, "entity">) {
         super({
             ...params,
             entity: testEntityName
@@ -33,14 +32,12 @@ const booleanAttribute = new TestEntityAttributePlugin({
 });
 
 describe("get extra attributes", () => {
-    let context: ContextInterface;
+    let context: Context;
 
     beforeEach(() => {
-        context = {
-            args: [],
-            plugins: new PluginsContainer(),
-            WEBINY_VERSION: process.env.WEBINY_VERSION
-        };
+        context = new Context({
+            WEBINY_VERSION: process.env.WEBINY_VERSION || "w.w.w"
+        });
         context.plugins.register([stringAttribute, numberAttribute, booleanAttribute]);
     });
 

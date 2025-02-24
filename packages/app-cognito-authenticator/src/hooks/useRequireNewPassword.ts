@@ -1,15 +1,17 @@
 import { useCallback } from "react";
-import Auth from "@aws-amplify/auth";
-import get from "lodash.get";
+import { Auth } from "@aws-amplify/auth";
+import get from "lodash/get";
 import { useAuthenticator } from "./useAuthenticator";
+import { AuthData } from "~/Authenticator";
 
+interface RequireNewPasswordConfirmParams {
+    password: string;
+    requiredAttributes: { [key: string]: string };
+}
 export interface RequireNewPassword {
     shouldRender: boolean;
 
-    confirm(params: {
-        password: string;
-        requiredAttributes: { [key: string]: string };
-    }): Promise<void>;
+    confirm(params: RequireNewPasswordConfirmParams): Promise<void>;
 
     requiredAttributes: string[];
 }
@@ -18,7 +20,7 @@ export function useRequireNewPassword(): RequireNewPassword {
     const { authState, authData, changeState } = useAuthenticator();
 
     const checkContact = useCallback(
-        user => {
+        (user: AuthData) => {
             Auth.verifiedContact(user).then(data => {
                 if (data.verified) {
                     changeState("signedIn", user);
@@ -31,7 +33,7 @@ export function useRequireNewPassword(): RequireNewPassword {
     );
 
     const confirm = useCallback(
-        async ({ password, requiredAttributes }) => {
+        async ({ password, requiredAttributes }: RequireNewPasswordConfirmParams) => {
             try {
                 const user = await Auth.completeNewPassword(authData, password, requiredAttributes);
                 if (user.challengeName === "SMS_MFA") {
@@ -51,6 +53,9 @@ export function useRequireNewPassword(): RequireNewPassword {
     return {
         confirm,
         shouldRender: authState === "requireNewPassword",
-        requiredAttributes: get(authData, "challengeParam.requiredAttributes", [])
+        /**
+         * It is safe to cast.
+         */
+        requiredAttributes: get(authData, "challengeParam.requiredAttributes", []) as string[]
     };
 }

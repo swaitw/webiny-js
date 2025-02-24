@@ -3,13 +3,13 @@ import { Plugin } from "@webiny/plugins/types";
 import { ApolloClient } from "apollo-client";
 import { CSSProperties } from "react";
 
-export type WebinyInitPlugin = Plugin & {
-    type: "webiny-init";
-    init(): void;
-};
+export type GenericRecordKey = string | number | symbol;
+
+export type GenericRecord<K extends GenericRecordKey = GenericRecordKey, V = any> = Record<K, V>;
 
 export type UploadOptions = {
     apolloClient: ApolloClient<object>;
+    onProgress?: (params: { sent: number; total: number; percentage: number }) => void;
 };
 
 export type UiStatePlugin = Plugin & {
@@ -17,31 +17,37 @@ export type UiStatePlugin = Plugin & {
     render(): React.ReactElement;
 };
 
+export interface UploadedFile {
+    id: string;
+    name: string;
+    type: string;
+    size: number;
+    key: string;
+}
+
 export type FileUploaderPlugin = Plugin & {
     type: "file-uploader";
-    // TODO: @adrian define type for the returned object
-    upload(file: File, options: UploadOptions): Promise<any>;
-};
-
-export type AppFileManagerStoragePlugin = Plugin & {
-    type: "app-file-manager-storage";
-    // TODO: @adrian define type for the returned object
-    upload(file: File, options: UploadOptions): Promise<any>;
+    name: "file-uploader";
+    upload(file: File, options: UploadOptions): Promise<UploadedFile>;
 };
 
 export { Plugin };
 
-export type ImageProps = {
+export interface ImageProps {
     src: string;
     preset?: string;
-    transform?: { [key: string]: any };
+    transform?: {
+        [key: string]: any;
+    };
     // "auto" is a special keyword - if present, plugins insert their own srcSet.
     srcSet?: { [key: string]: any } | "auto";
     className?: string;
     title?: string;
     alt?: string;
     style?: CSSProperties;
-};
+    width?: string | number;
+    height?: string | number;
+}
 
 /**
  * "getImageSrc" has to be defined as a separate property, so its functionality can be reused outside of
@@ -50,7 +56,7 @@ export type ImageProps = {
 export type ImageComponentPlugin = Plugin & {
     type: "image-component";
     render: (props: ImageProps) => React.ReactElement;
-    getImageSrc: (props?: Object) => string;
+    getImageSrc: (props?: Record<string, any>) => string;
     presets: { [key: string]: any };
 };
 
@@ -61,9 +67,4 @@ export type ImageComponentPlugin = Plugin & {
 export type RoutePlugin = Plugin & {
     type: "route";
     route: React.ReactElement;
-};
-
-export type CacheGetObjectIdPlugin = Plugin & {
-    type: "cache-get-object-id";
-    getObjectId(obj: Record<string, any>): string | undefined;
 };

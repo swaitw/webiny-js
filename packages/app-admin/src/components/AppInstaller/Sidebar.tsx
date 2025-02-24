@@ -1,20 +1,15 @@
 import React, { Fragment } from "react";
+import classSet from "classnames";
 import styled from "@emotion/styled";
 import { Typography } from "@webiny/ui/Typography";
-import classSet from "classnames";
-
-import webinyLogo from "../../assets/images/webiny-orange-logo.svg";
 import signInDivider from "./assets/sign-in-divider.svg";
-
-const SidebarWrapper = styled("div")({});
+import { Installer } from "./useInstaller";
+import { Brand } from "~/base/ui/Brand";
+import { Tags } from "~/base/ui/Tags";
 
 const Logo = styled("div")({
     padding: 15,
-    borderBottom: "1px solid var(--mdc-theme-background)",
-    img: {
-        width: "100px",
-        height: "auto"
-    }
+    borderBottom: "1px solid var(--mdc-theme-background)"
 });
 
 const List = styled("ul")({
@@ -66,12 +61,18 @@ const List = styled("ul")({
 const Note = styled("div")({
     padding: 15
 });
-
-const Installations = ({ title, allInstallers, installer, showLogin }) => {
+interface InstallationsProps {
+    title: React.ReactNode;
+    allInstallers: Installer[];
+    installer: Installer;
+    showLogin: boolean;
+}
+const Installations = (props: InstallationsProps) => {
+    const { title, allInstallers, installer, showLogin } = props;
     const renderList = () => {
         const loginItem = (
             <li key={"login"} className={"sign-in"}>
-                <img src={signInDivider} />
+                <img src={signInDivider} alt={""} />
                 <Typography use={"overline"} className={"note"}>
                     TO CONTINUE THE INSTALLATION AFTER THIS POINT YOU’LL NEED TO SIGN IN
                 </Typography>
@@ -115,37 +116,29 @@ const Installations = ({ title, allInstallers, installer, showLogin }) => {
     );
 };
 
-const Sidebar = ({ allInstallers, installer, showLogin }) => {
-    const upgrades = allInstallers.filter(installer => installer.type === "upgrade");
+interface SidebarProps {
+    allInstallers: Installer[];
+    installer: Installer;
+    showLogin: boolean;
+}
+
+const Sidebar = ({ allInstallers, installer, showLogin }: SidebarProps) => {
     const installations = allInstallers.filter(installer => installer.type === "install");
 
     return (
-        <SidebarWrapper>
+        <Tags tags={{ location: "installer" }}>
             <Logo>
-                <img src={webinyLogo} alt="Webiny CMS" />
+                <Brand />
             </Logo>
-            {upgrades.length > 0 ? (
-                <Installations
-                    title={
-                        <span>
-                            The following apps will be upgraded to{" "}
-                            <strong>{process.env.REACT_APP_WEBINY_VERSION}</strong>:
-                        </span>
-                    }
-                    allInstallers={upgrades}
-                    installer={installer}
-                    showLogin={showLogin}
-                />
-            ) : null}
             {installations.length > 0 && (
                 <Installations
                     title={"The following apps will be installed and configured:"}
                     allInstallers={installations}
                     installer={installer}
-                    showLogin={upgrades.length > 0 ? false : showLogin}
+                    showLogin={showLogin}
                 />
             )}
-        </SidebarWrapper>
+        </Tags>
     );
 };
 export default Sidebar;

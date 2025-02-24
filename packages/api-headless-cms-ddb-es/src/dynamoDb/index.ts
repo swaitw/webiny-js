@@ -1,5 +1,8 @@
-import richTextStorage from "./storage/richText";
-import longTextStorage from "./storage/longText";
-import dateStorage from "./storage/date";
+import { createRichTextStorageTransformPlugin } from "./storage/richText";
+import { createLongTextStorageTransformPlugin } from "./storage/longText";
 
-export default () => [richTextStorage(), longTextStorage(), dateStorage()];
+export default () => createDynamoDbPlugins();
+
+export const createDynamoDbPlugins = () => {
+    return [createRichTextStorageTransformPlugin(), createLongTextStorageTransformPlugin()];
+};

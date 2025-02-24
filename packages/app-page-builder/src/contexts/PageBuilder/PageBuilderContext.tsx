@@ -1,53 +1,59 @@
 import * as React from "react";
-import { plugins } from "@webiny/plugins";
-import { PbThemePlugin, PbTheme, DisplayMode } from "../../types";
+import { DisplayMode, PbTheme } from "~/types";
 
-export const PageBuilderContext = React.createContext(null);
+import { Theme } from "@webiny/app-theme/types";
+import { useTheme } from "@webiny/app-theme";
+import { PageElementsProvider } from "./PageElementsProvider";
+import { ILoaderCache } from "@webiny/app-page-builder-elements/hooks/useLoader/ILoaderCache";
 
-export type ResponsiveDisplayMode = {
-    displayMode: string;
-    setDisplayMode: Function;
-};
+export interface ResponsiveDisplayMode {
+    displayMode: DisplayMode;
+    setDisplayMode: (value: DisplayMode) => void;
+}
 
-export type ExportPageData = {
-    revisionType: string;
-    setRevisionType: Function;
-};
+export enum PbRevisionType {
+    published = "published",
+    latest = "latest"
+}
 
-export type PageBuilderContextValue = {
-    theme: PbTheme;
+export interface ExportPageData {
+    revisionType: PbRevisionType;
+    setRevisionType: (value: PbRevisionType) => void;
+}
+
+export interface PageBuilderContext {
+    theme: Theme | PbTheme | undefined;
+
+    loadThemeFromPlugins(): void;
+
     defaults?: {
         pages?: {
             notFound?: React.ComponentType<any>;
         };
     };
-    responsiveDisplayMode?: ResponsiveDisplayMode;
-    exportPageData?: ExportPageData;
-};
+    responsiveDisplayMode: ResponsiveDisplayMode;
+    exportPageData: ExportPageData;
+}
 
-export type PageBuilderProviderProps = {
+export interface PageBuilderProviderProps {
+    loaderCache: ILoaderCache;
     children?: React.ReactChild | React.ReactChild[];
-};
+}
 
-export const PageBuilderProvider = ({ children }: PageBuilderProviderProps) => {
+export const PageBuilderContext = React.createContext<PageBuilderContext | undefined>(undefined);
+
+export const PageBuilderProvider = ({ children, loaderCache }: PageBuilderProviderProps) => {
     const [displayMode, setDisplayMode] = React.useState(DisplayMode.DESKTOP);
-    const [revisionType, setRevisionType] = React.useState("published");
-
-    const value: PageBuilderContextValue = React.useMemo(() => {
-        const theme = Object.assign(
-            {},
-            ...plugins.byType<PbThemePlugin>("pb-theme").map(pl => pl.theme)
-        );
-
-        return {
-            theme
-        };
-    }, []);
+    const [revisionType, setRevisionType] = React.useState<PbRevisionType>(
+        PbRevisionType.published
+    );
+    const { theme, loadThemeFromPlugins } = useTheme();
 
     return (
         <PageBuilderContext.Provider
             value={{
-                ...value,
+                theme,
+                loadThemeFromPlugins,
                 responsiveDisplayMode: {
                     displayMode,
                     setDisplayMode
@@ -58,13 +64,7 @@ export const PageBuilderProvider = ({ children }: PageBuilderProviderProps) => {
                 }
             }}
         >
-            {children}
+            <PageElementsProvider loaderCache={loaderCache}>{children}</PageElementsProvider>
         </PageBuilderContext.Provider>
     );
 };
-
-export const PageBuilderConsumer = ({ children }) => (
-    <PageBuilderContext.Consumer>
-        {props => React.cloneElement(children, { pageBuilder: props })}
-    </PageBuilderContext.Consumer>
-);

@@ -1,17 +1,22 @@
 import { TableModifier } from "~/types";
-import { DocumentClient } from "aws-sdk/clients/dynamodb";
-import { Table } from "dynamodb-toolbox";
+import { DynamoDBDocument } from "@webiny/aws-sdk/client-dynamodb";
+import { Table, TableConstructor } from "@webiny/db-dynamodb/toolbox";
 
-export interface Params {
+export interface CreateTableParams {
     table?: TableModifier;
-    documentClient: DocumentClient;
+    documentClient: DynamoDBDocument;
 }
-export const createTable = ({ table, documentClient }: Params): Table => {
-    const tableConfig = {
-        name: process.env.DB_TABLE_HEADLESS_CMS || process.env.DB_TABLE,
+export const createTable = ({
+    table,
+    documentClient
+}: CreateTableParams): Table<string, string, string> => {
+    const tableConfig: TableConstructor<string, string, string> = {
+        name: process.env.DB_TABLE_HEADLESS_CMS || (process.env.DB_TABLE as string),
         partitionKey: "PK",
         sortKey: "SK",
-        DocumentClient: documentClient
+        DocumentClient: documentClient,
+        autoExecute: true,
+        autoParse: true
     };
 
     const config = typeof table === "function" ? table(tableConfig) : tableConfig;

@@ -1,8 +1,6 @@
 export const DATA_FIELD = /* GraphQL */ `
     {
         id
-        category
-        preview
         name
         content
         type
@@ -24,7 +22,7 @@ export const ERROR_FIELD = /* GraphQL */ `
 `;
 
 export const CREATE_PAGE_ELEMENT = /* GraphQL */ `
-    mutation CreatePageElement($data: PbPageElementInput!) {
+    mutation CreatePageElement($data: PbCreatePageElementInput!) {
         pageBuilder {
             createPageElement(data: $data) {
                 data ${DATA_FIELD}
@@ -35,7 +33,7 @@ export const CREATE_PAGE_ELEMENT = /* GraphQL */ `
 `;
 
 export const UPDATE_PAGE_ELEMENT = /* GraphQL */ `
-    mutation UpdatePageElement($id: ID!, $data: PbPageElementInput!) {
+    mutation UpdatePageElement($id: ID!, $data: PbUpdatePageElementInput!) {
         pageBuilder {
             updatePageElement(id: $id, data: $data) {
                 data ${DATA_FIELD}
@@ -71,7 +69,7 @@ export const DELETE_PAGE_ELEMENT = /* GraphQL */ `
     mutation DeletePageElement($id: ID!) {
         pageBuilder {
             deletePageElement(id: $id) {
-                data ${DATA_FIELD}
+                data
                 error ${ERROR_FIELD}
             }
         }

@@ -1,20 +1,26 @@
 import { ElementStylesModifier } from "~/types";
 
 const border: ElementStylesModifier = ({ element, theme }) => {
-    const { border } = element.data.settings;
+    const { border } = element.data.settings || {};
     if (!border) {
         return {};
     }
 
-    return Object.keys(theme.breakpoints).reduce((returnStyles, breakpointName) => {
+    return Object.keys(theme.breakpoints || {}).reduce((returnStyles, breakpointName) => {
         if (!border[breakpointName]) {
             return returnStyles;
         }
 
         const values = border[breakpointName];
+
+        let borderColor = values.color;
+        if (theme.styles.colors?.[borderColor]) {
+            borderColor = theme.styles.colors?.[borderColor];
+        }
+
         const styles = {
             borderStyle: values.style,
-            borderColor: values.color
+            borderColor
         };
 
         const { width } = values;
@@ -30,7 +36,7 @@ const border: ElementStylesModifier = ({ element, theme }) => {
                 });
             } else {
                 Object.assign(styles, {
-                    borderWidth: parseInt(width.all)
+                    borderWidth: parseInt(width.all || "0")
                 });
             }
         }
@@ -39,13 +45,13 @@ const border: ElementStylesModifier = ({ element, theme }) => {
         if (radius) {
             if (radius.advanced) {
                 Object.assign(styles, {
-                    borderRadiusTop: radius.top && parseInt(radius.top),
-                    borderRadiusRight: radius.right && parseInt(radius.right),
-                    borderRadiusBottom: radius.bottom && parseInt(radius.bottom),
-                    borderRadiusLeft: radius.left && parseInt(radius.left)
+                    borderTopLeftRadius: radius.topLeft && parseInt(radius.topLeft),
+                    borderTopRightRadius: radius.topRight && parseInt(radius.topRight),
+                    borderBottomLeftRadius: radius.bottomLeft && parseInt(radius.bottomLeft),
+                    borderBottomRightRadius: radius.bottomRight && parseInt(radius.bottomRight)
                 });
             } else {
-                Object.assign(styles, { borderRadius: parseInt(radius.all) });
+                Object.assign(styles, { borderRadius: parseInt(radius.all || "0") });
             }
         }
 

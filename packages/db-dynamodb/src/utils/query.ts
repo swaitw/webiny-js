@@ -1,15 +1,16 @@
-import { queryOptions as DynamoDBToolboxQueryOptions } from "dynamodb-toolbox/dist/classes/Table";
 import WebinyError from "@webiny/error";
-import { Entity } from "dynamodb-toolbox";
+import { Entity, EntityQueryOptions } from "~/toolbox";
+import { cleanupItem, cleanupItems } from "~/utils/cleanup";
+import { GenericRecord } from "@webiny/api/types";
 
 export interface QueryAllParams {
     entity: Entity<any>;
     partitionKey: string;
-    options?: DynamoDBToolboxQueryOptions;
+    options?: EntityQueryOptions;
 }
 
 export interface QueryOneParams extends QueryAllParams {
-    options?: Omit<DynamoDBToolboxQueryOptions, "limit">;
+    options?: Omit<EntityQueryOptions, "limit">;
 }
 
 export interface QueryParams extends QueryAllParams {
@@ -21,7 +22,7 @@ export interface QueryResult<T> {
     items: T[];
 }
 
-type DbItem<T> = T & {
+export type DbItem<T> = T & {
     PK: string;
     SK: string;
     TYPE: string;
@@ -96,13 +97,19 @@ export const queryOne = async <T>(params: QueryOneParams): Promise<DbItem<T> | n
             limit: 1
         }
     });
-    if (items.length === 0) {
+    const item = items.shift();
+    return item ? item : null;
+};
+
+export const queryOneClean = async <T>(params: QueryOneParams): Promise<T | null> => {
+    const result = await queryOne<T>(params);
+    if (!result) {
         return null;
     }
-    return items.shift();
+    return cleanupItem(params.entity, result);
 };
 /**
- * Will run the query to fetch the results no matter how much iterations it needs to go through.
+ * Will run the query to fetch the results no matter how many iterations it needs to go through.
  */
 export const queryAll = async <T>(params: QueryAllParams): Promise<DbItem<T>[]> => {
     const items: DbItem<T>[] = [];
@@ -116,4 +123,58 @@ export const queryAll = async <T>(params: QueryAllParams): Promise<DbItem<T>[]> 
         previousResult = results.result;
     }
     return items;
+};
+
+export const queryAllClean = async <T>(params: QueryAllParams): Promise<T[]> => {
+    const results = await queryAll<T>(params);
+    return cleanupItems(params.entity, results);
+};
+
+export interface IQueryPageResponse<T> {
+    items: T[];
+    lastEvaluatedKey: GenericRecord;
+}
+
+export const queryPerPage = async <T>(params: QueryAllParams): Promise<IQueryPageResponse<T>> => {
+    const result = await query<T>({
+        ...params,
+        options: {
+            ...params.options,
+            limit: params.options?.limit || 50
+        }
+    });
+
+    return {
+        items: result.items,
+        lastEvaluatedKey: result.result?.LastEvaluatedKey
+    };
+};
+
+export const queryPerPageClean = async <T>(
+    params: QueryAllParams
+): Promise<IQueryPageResponse<T>> => {
+    const result = await queryPerPage<T>(params);
+    return {
+        items: cleanupItems<T>(params.entity, result.items),
+        lastEvaluatedKey: result.lastEvaluatedKey
+    };
+};
+
+/**
+ * Will run the query to fetch the results no matter how many iterations it needs to go through.
+ * Results of each iteration will be passed to the provided callback
+ */
+export const queryAllWithCallback = async <T>(
+    params: QueryAllParams,
+    callback: (items: DbItem<T>[]) => Promise<void>
+): Promise<void> => {
+    let results: QueryResult<DbItem<T>>;
+    let previousResult: any = undefined;
+    while ((results = await query({ ...params, previous: previousResult }))) {
+        if (!results.result) {
+            break;
+        }
+        await callback(results.items);
+        previousResult = results.result;
+    }
 };

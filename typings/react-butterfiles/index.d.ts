@@ -5,6 +5,10 @@ declare module "react-butterfiles" {
         type: string;
         size: number;
         src: {
+            /**
+             * Native browser File
+             * @see https://developer.mozilla.org/en-US/docs/Web/API/File
+             */
             file?: File;
             base64?: string;
         };
@@ -19,6 +23,8 @@ declare module "react-butterfiles" {
             | "multipleMaxCountExceeded"
             | "multipleNotAllowed";
         file?: SelectedFile | File;
+        multipleMaxCount: number;
+        multipleMaxSize: number;
     };
 
     export type BrowseFilesParams = {
@@ -27,10 +33,10 @@ declare module "react-butterfiles" {
     };
 
     export type FilesRenderChildren = {
-        browseFiles: (params: BrowseFilesParams) => void;
+        browseFiles: (params?: BrowseFilesParams) => void;
         getDropZoneProps: (additionalProps?: Object) => Object;
         getLabelProps(additionalProps?: Object): Object;
-        validateFiles(files: Array<SelectedFile> | Array<File>): Array<FileError>;
+        validateFiles(files: SelectedFile[] | File[]): FileError[];
     };
 
     export type FilesRules = {

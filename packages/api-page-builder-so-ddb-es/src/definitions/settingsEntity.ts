@@ -1,11 +1,12 @@
-import { Entity, Table } from "dynamodb-toolbox";
-import { getExtraAttributes } from "@webiny/db-dynamodb/utils/attributes";
-import { PbContext } from "@webiny/api-page-builder/graphql/types";
+import { Entity, Table } from "@webiny/db-dynamodb/toolbox";
 
-export const defineSettingsEntity = (params: { context: PbContext; table: Table }): Entity<any> => {
-    const { context, table } = params;
-    const entityName = "PbSettings";
-    const attributes = getExtraAttributes(context, entityName);
+interface Params {
+    table: Table<string, string, string>;
+    entityName: string;
+}
+
+export const createSettingsEntity = (params: Params): Entity<any> => {
+    const { entityName, table } = params;
     return new Entity({
         name: entityName,
         table,
@@ -16,43 +17,12 @@ export const defineSettingsEntity = (params: { context: PbContext; table: Table 
             SK: {
                 sortKey: true
             },
-            name: {
-                type: "string"
-            },
-            websiteUrl: {
-                type: "string"
-            },
-            websitePreviewUrl: {
-                type: "string"
-            },
-            favicon: {
-                type: "map"
-            },
-            logo: {
-                type: "map"
-            },
-            prerendering: {
-                type: "map"
-            },
-            social: {
-                type: "map"
-            },
-            pages: {
-                type: "map"
-            },
-            type: {
-                type: "string"
-            },
-            tenant: {
-                type: "string"
-            },
-            locale: {
-                type: "string"
-            },
             TYPE: {
                 type: "string"
             },
-            ...attributes
+            data: {
+                type: "map"
+            }
         }
     });
 };

@@ -2,7 +2,7 @@ const fs = require("fs");
 const rimraf = require("rimraf");
 const { join, dirname, extname, relative, parse } = require("path");
 const babel = require("@babel/core");
-const ts = require("ttypescript");
+const ts = require("ts-patch/compiler");
 const glob = require("glob");
 const merge = require("lodash/merge");
 
@@ -12,9 +12,15 @@ module.exports = async options => {
     const { cwd } = options;
     options.logs !== false && console.log("Deleting existing build files...");
     rimraf.sync(join(cwd, "./dist"));
-    rimraf.sync(join(cwd, "*.tsbuildinfo"));
+    rimraf.sync(join(cwd, "*.tsbuildinfo"), { glob: true });
 
     options.logs !== false && console.log("Building...");
+
+    // Make sure `overrides` is an object.
+    if (options.overrides && typeof options.overrides === "string") {
+        options.overrides = JSON.parse(options.overrides);
+    }
+
     await Promise.all([tsCompile(options), babelCompile(options)]);
 
     options.logs !== false && console.log("Copying meta files...");
@@ -50,7 +56,12 @@ const getDistCopyFilePath = ({ file, cwd }) => {
 const babelCompile = async ({ cwd }) => {
     // We're passing "*.*" just because we want to copy all files that cannot be compiled.
     // We want to have the same behaviour that the Babel CLI's "--copy-files" flag provides.
-    const files = glob.sync(join(cwd, "src/**/*.*").replace(/\\/g, "/"), { nodir: true });
+    const pattern = join(cwd, "src/**/*.*").replace(/\\/g, "/");
+    const files = glob.sync(pattern, {
+        nodir: true,
+        dot: true
+    });
+
     const compilations = [];
     const copies = [];
 
@@ -58,7 +69,12 @@ const babelCompile = async ({ cwd }) => {
         const file = files[i];
         if (BABEL_COMPILE_EXTENSIONS.includes(extname(file))) {
             compilations.push(
-                babel.transformFileAsync(file, { cwd }).then(results => [file, results])
+                babel
+                    .transformFileAsync(file, {
+                        cwd,
+                        sourceMaps: true
+                    })
+                    .then(results => [file, results])
             );
         } else {
             copies.push(
@@ -79,21 +95,32 @@ const babelCompile = async ({ cwd }) => {
         }
     }
 
-    // At this point, just wait for compilations to be completed so we can proceed with writing the files ASAP.
+    // At this point, just wait for compilations to be completed, so we can proceed with writing the files ASAP.
     await Promise.all(compilations);
 
     const writes = [];
     for (let i = 0; i < compilations.length; i++) {
-        const [file, { code, map }] = await compilations[i];
+        const [file, result] = await compilations[i];
+        const { code, map } = result;
 
         const paths = getDistFilePaths({ file, cwd });
         fs.mkdirSync(dirname(paths.code), { recursive: true });
-        writes.push(fs.promises.writeFile(paths.code, code, "utf8"));
-        writes.push(paths.map, map, "utf8");
+
+        // Save the compiled JS file.
+        writes.push(fs.promises.writeFile(paths.code, withSourceMapUrl(file, code), "utf8"));
+
+        // Save source maps file.
+        const mapJson = JSON.stringify(map);
+        writes.push(fs.promises.writeFile(paths.map, mapJson, "utf8"));
     }
 
     // Wait until all files have been written to disk.
     return Promise.all([...writes, ...copies]);
+};
+
+const withSourceMapUrl = (file, code) => {
+    const { name } = parse(file);
+    return [code, "", `//# sourceMappingURL=${name}.js.map`].join("\n");
 };
 
 const tsCompile = ({ cwd, overrides, debug }) => {
@@ -115,7 +142,6 @@ const tsCompile = ({ cwd, overrides, debug }) => {
                 console.log(readTsConfig);
             }
         }
-
         const parsedJsonConfigFile = ts.parseJsonConfigFileContent(readTsConfig, ts.sys, cwd);
 
         const { projectReferences, options, fileNames, errors } = parsedJsonConfigFile;

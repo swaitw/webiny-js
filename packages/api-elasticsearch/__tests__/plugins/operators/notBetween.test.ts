@@ -4,16 +4,15 @@ import { ElasticsearchQueryBuilderOperatorNotBetweenPlugin } from "~/plugins/ope
 
 describe("ElasticsearchQueryBuilderOperatorNotBetweenPlugin", () => {
     const plugin = new ElasticsearchQueryBuilderOperatorNotBetweenPlugin();
-    const context: any = {};
 
     it("should apply not between range correctly", () => {
         const query = createBlankQuery();
 
         plugin.apply(query, {
+            name: "id",
             path: "id",
             basePath: "id",
             value: [100, 200],
-            context,
             keyword: false
         });
 

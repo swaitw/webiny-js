@@ -75,7 +75,13 @@ const TargetDataModelsForm = () => {
                     </SimpleFormContent>
                     <SimpleFormFooter>
                         <ButtonDefault onClick={cancelEditing}>Cancel</ButtonDefault>
-                        <ButtonPrimary onClick={submit}>Save Target Data Model</ButtonPrimary>
+                        <ButtonPrimary
+                            onClick={ev => {
+                                submit(ev);
+                            }}
+                        >
+                            Save Target Data Model
+                        </ButtonPrimary>
                     </SimpleFormFooter>
                 </SimpleForm>
             )}

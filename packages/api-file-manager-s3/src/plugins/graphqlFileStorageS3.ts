@@ -1,43 +1,75 @@
+import { S3 } from "@webiny/aws-sdk/client-s3";
+import pMap from "p-map";
 import { GraphQLSchemaPlugin } from "@webiny/handler-graphql/types";
 import { ErrorResponse, Response } from "@webiny/handler-graphql/responses";
-import checkBasePermissions from "@webiny/api-file-manager/plugins/crud/utils/checkBasePermissions";
 import { FileManagerContext } from "@webiny/api-file-manager/types";
-import getPresignedPostPayload from "../utils/getPresignedPostPayload";
-
-const BATCH_UPLOAD_MAX_FILES = 20;
+import { getPresignedPostPayload } from "~/utils/getPresignedPostPayload";
+import WebinyError from "@webiny/error";
+import { checkPermissions } from "~/plugins/checkPermissions";
+import { PresignedPostPayloadData } from "~/types";
+import { CreateMultiPartUploadUseCase } from "~/multiPartUpload/CreateMultiPartUploadUseCase";
+import { CompleteMultiPartUploadUseCase } from "~/multiPartUpload/CompleteMultiPartUploadUseCase";
+import { createFileNormalizerFromContext } from "~/utils/createFileNormalizerFromContext";
 
 const plugin: GraphQLSchemaPlugin<FileManagerContext> = {
     type: "graphql-schema",
     name: "graphql-schema-api-file-manager-s3",
     schema: {
         typeDefs: /* GraphQL */ `
+            type UploadFileResponseDataFile {
+                id: ID!
+                name: String!
+                type: String!
+                size: Long!
+                key: String!
+            }
+
             input PreSignedPostPayloadInput {
                 name: String!
                 type: String!
-                size: Int!
+                size: Long!
+                key: String
+                keyPrefix: String
             }
 
             type GetPreSignedPostPayloadResponseDataFile {
-                name: String
-                type: String
-                size: Int
-                key: String
+                id: ID!
+                name: String!
+                type: String!
+                size: Long!
+                key: String!
             }
 
             type GetPreSignedPostPayloadResponseData {
                 # Contains data that is necessary for initiating a file upload.
-                data: JSON
-                file: UploadFileResponseDataFile
+                data: JSON!
+                file: UploadFileResponseDataFile!
             }
 
             type GetPreSignedPostPayloadResponse {
-                error: FileError
+                error: FmError
                 data: GetPreSignedPostPayloadResponseData
             }
 
+            type MultiPartUploadFilePart {
+                partNumber: Int!
+                url: String!
+            }
+
+            type CreateMultiPartUploadResponseData {
+                file: GetPreSignedPostPayloadResponseDataFile!
+                uploadId: String!
+                parts: [MultiPartUploadFilePart!]!
+            }
+
+            type CompleteMultiPartUploadResponse {
+                data: Boolean
+                error: FmError
+            }
+
             type GetPreSignedPostPayloadsResponse {
-                error: FileError
-                data: [GetPreSignedPostPayloadResponseData]!
+                error: FmError
+                data: [GetPreSignedPostPayloadResponseData!]!
             }
 
             extend type FmQuery {
@@ -48,18 +80,53 @@ const plugin: GraphQLSchemaPlugin<FileManagerContext> = {
                     data: [PreSignedPostPayloadInput]!
                 ): GetPreSignedPostPayloadsResponse
             }
+
+            type CreateMultiPartUploadResponse {
+                data: CreateMultiPartUploadResponseData
+                error: FmError
+            }
+
+            input MultiPartUploadFilePartInput {
+                partNumber: Int!
+                etag: String!
+            }
+
+            extend type FmMutation {
+                createMultiPartUpload(
+                    data: PreSignedPostPayloadInput!
+                    numberOfParts: Number!
+                ): CreateMultiPartUploadResponse
+
+                completeMultiPartUpload(
+                    fileKey: String!
+                    uploadId: String!
+                ): CompleteMultiPartUploadResponse
+            }
         `,
         resolvers: {
             FmQuery: {
-                getPreSignedPostPayload: async (_, args, context) => {
+                getPreSignedPostPayload: async (_, args: any, context) => {
                     try {
-                        await checkBasePermissions(context, { rwd: "w" });
+                        await checkPermissions(context, { rwd: "w" });
 
-                        const { data } = args;
-                        const settings = await context.fileManager.settings.getSettings();
-                        const response = await getPresignedPostPayload(data, settings);
+                        const data = args.data as PresignedPostPayloadData;
 
-                        return new Response(response);
+                        const settings = await context.fileManager.getSettings();
+                        if (!settings) {
+                            throw new WebinyError(
+                                "Missing File Manager Settings.",
+                                "FILE_MANAGER_SETTINGS_ERROR",
+                                { file: data }
+                            );
+                        }
+
+                        const normalizer = createFileNormalizerFromContext(context);
+                        const presignedPayload = await getPresignedPostPayload(
+                            await normalizer.normalizeFile(data),
+                            settings
+                        );
+
+                        return new Response(presignedPayload);
                     } catch (e) {
                         return new ErrorResponse({
                             message: e.message,
@@ -69,40 +136,88 @@ const plugin: GraphQLSchemaPlugin<FileManagerContext> = {
                     }
                 },
                 getPreSignedPostPayloads: async (_, args, context) => {
-                    await checkBasePermissions(context, { rwd: "w" });
+                    await checkPermissions(context, { rwd: "w" });
 
-                    const { data: files } = args;
-                    if (!Array.isArray(files)) {
-                        return new ErrorResponse({
-                            code: "UPLOAD_FILES_NON_ARRAY",
-                            message: `"data" argument must be an array.`
-                        });
-                    }
-
-                    if (files.length === 0) {
-                        return new ErrorResponse({
-                            code: "UPLOAD_FILES_MIN_FILES",
-                            message: `"data" argument must contain at least one file.`
-                        });
-                    }
-
-                    if (files.length > BATCH_UPLOAD_MAX_FILES) {
-                        return new ErrorResponse({
-                            code: "UPLOAD_FILES_MAX_FILES",
-                            message: `"data" argument must not contain more than ${BATCH_UPLOAD_MAX_FILES} files.`
-                        });
-                    }
+                    const files = args.data as PresignedPostPayloadData[];
 
                     try {
-                        const settings = await context.fileManager.settings.getSettings();
-
-                        const promises = [];
-                        for (let i = 0; i < files.length; i++) {
-                            const item = files[i];
-                            promises.push(getPresignedPostPayload(item, settings));
+                        const settings = await context.fileManager.getSettings();
+                        if (!settings) {
+                            throw new WebinyError(
+                                "Missing File Manager Settings.",
+                                "FILE_MANAGER_SETTINGS_ERROR",
+                                { files }
+                            );
                         }
 
-                        return new Response(await Promise.all(promises));
+                        const normalizer = createFileNormalizerFromContext(context);
+
+                        const presignedPayloads = await pMap(files, async data => {
+                            return getPresignedPostPayload(
+                                await normalizer.normalizeFile(data),
+                                settings
+                            );
+                        });
+
+                        return new Response(presignedPayloads);
+                    } catch (e) {
+                        return new ErrorResponse({
+                            message: e.message,
+                            code: e.code,
+                            data: e.data
+                        });
+                    }
+                }
+            },
+            FmMutation: {
+                createMultiPartUpload: async (_, args, context) => {
+                    await checkPermissions(context, { rwd: "w" });
+
+                    const s3Client = new S3({
+                        region: process.env.AWS_REGION
+                    });
+
+                    try {
+                        const useCase = new CreateMultiPartUploadUseCase(
+                            String(process.env.S3_BUCKET),
+                            s3Client
+                        );
+
+                        const normalizer = createFileNormalizerFromContext(context);
+
+                        const multiPartUpload = await useCase.execute({
+                            file: await normalizer.normalizeFile(args.data),
+                            numberOfParts: args.numberOfParts
+                        });
+
+                        return new Response(multiPartUpload);
+                    } catch (e) {
+                        return new ErrorResponse({
+                            message: e.message,
+                            code: e.code,
+                            data: e.data
+                        });
+                    }
+                },
+                completeMultiPartUpload: async (_, args, context) => {
+                    await checkPermissions(context, { rwd: "w" });
+
+                    const s3Client = new S3({
+                        region: process.env.AWS_REGION
+                    });
+
+                    try {
+                        const useCase = new CompleteMultiPartUploadUseCase(
+                            String(process.env.S3_BUCKET),
+                            s3Client
+                        );
+
+                        await useCase.execute({
+                            fileKey: args.fileKey,
+                            uploadId: args.uploadId
+                        });
+
+                        return new Response(true);
                     } catch (e) {
                         return new ErrorResponse({
                             message: e.message,

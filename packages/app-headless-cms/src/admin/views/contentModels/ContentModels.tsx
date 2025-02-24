@@ -1,10 +1,12 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
+import { CloneContentModelDialog } from "./CloneContentModelDialog";
+import NewContentModelDialog from "./NewContentModelDialog";
+import ContentModelsDataList from "./ContentModelsDataList";
 import { css } from "emotion";
 import { useSecurity } from "@webiny/app-security";
-import ContentModelsDataList from "./ContentModelsDataList";
-import NewContentModelDialog from "./NewContentModelDialog";
-import { Cell } from "@webiny/ui/Grid";
-import { Grid } from "@webiny/ui/Grid";
+import { Cell, Grid } from "@webiny/ui/Grid";
+import { CmsModel, CmsSecurityPermission } from "~/types";
+import { ImportContentModelsDialog } from "./importing/ImportContentModelsDialog";
 
 const grid = css({
     "&.mdc-layout-grid": {
@@ -22,11 +24,11 @@ const centeredContent = css({
         display: "flex",
         flexDirection: "column",
         height: "calc(100vh - 70px)",
-        ".mdc-list": {
+        ".mdc-deprecated-list": {
             overflow: "auto"
         }
     },
-    ">.mdc-list": {
+    ">.mdc-deprecated-list": {
         display: "flex",
         flexDirection: "column",
         maxHeight: "calc(100vh - 70px)",
@@ -34,13 +36,15 @@ const centeredContent = css({
     }
 });
 
-function ContentModels() {
+const ContentModels = () => {
     const [newContentModelDialogOpened, openNewContentModelDialog] = React.useState(false);
 
-    const { identity } = useSecurity();
+    const [cloneContentModel, setCloneContentModel] = React.useState<CmsModel | null>(null);
 
-    const canCreate = useMemo(() => {
-        const permission = identity.getPermission("cms.contentModel");
+    const { identity, getPermission } = useSecurity();
+
+    const canCreate = useMemo((): boolean => {
+        const permission = getPermission<CmsSecurityPermission>("cms.contentModel");
         if (!permission) {
             return false;
         }
@@ -50,23 +54,53 @@ function ContentModels() {
         }
 
         return permission.rwd.includes("w");
+    }, [identity]);
+
+    const closeCloneModal = useCallback(() => {
+        setCloneContentModel(null);
     }, []);
 
-    const onCreate = useCallback(() => openNewContentModelDialog(true), []);
-    const onClose = useCallback(() => openNewContentModelDialog(false), []);
+    const onCreate = useCallback((): void => openNewContentModelDialog(true), []);
+    const onClose = useCallback((): void => openNewContentModelDialog(false), []);
+    const onClone = useCallback(
+        (contentModel: CmsModel): void => setCloneContentModel(contentModel),
+        []
+    );
+    const onCloneClose = useCallback((): void => setCloneContentModel(null), []);
+
+    const [importModels, setImportModels] = useState(false);
+    const showImportModelModal = useCallback(() => {
+        setImportModels(true);
+    }, []);
+    const closeImportModelModal = useCallback(() => {
+        setImportModels(false);
+    }, []);
 
     return (
         <>
             <NewContentModelDialog open={newContentModelDialogOpened} onClose={onClose} />
+            {cloneContentModel && (
+                <CloneContentModelDialog
+                    contentModel={cloneContentModel}
+                    onClose={onCloneClose}
+                    closeModal={closeCloneModal}
+                />
+            )}
+            {importModels && <ImportContentModelsDialog onClose={closeImportModelModal} />}
             <Grid className={grid}>
                 <Cell span={3} />
                 <Cell span={6} className={centeredContent}>
-                    <ContentModelsDataList canCreate={canCreate} onCreate={onCreate} />
+                    <ContentModelsDataList
+                        showImportModelModal={showImportModelModal}
+                        canCreate={canCreate}
+                        onCreate={onCreate}
+                        onClone={onClone}
+                    />
                 </Cell>
                 <Cell span={3} />
             </Grid>
         </>
     );
-}
+};
 
 export default ContentModels;

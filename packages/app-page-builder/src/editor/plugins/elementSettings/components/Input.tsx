@@ -1,13 +1,13 @@
 import React from "react";
 import { activeElementAtom, elementByIdSelector } from "../../../recoil/modules";
-import { get } from "lodash";
+import get from "lodash/get";
 import { Typography } from "@webiny/ui/Typography";
 import { Grid, Cell } from "@webiny/ui/Grid";
 import { Input as InputCmp } from "@webiny/ui/Input";
 import { useRecoilValue } from "recoil";
 import { InputContainer } from "./StyledComponents";
 
-type InputPropsType = {
+interface InputPropsType {
     label: string;
     placeholder?: string;
     value?: string | number;
@@ -20,9 +20,9 @@ type InputPropsType = {
     // TODO check - not used anywhere
     className?: string;
     containerClassName?: string;
-};
+}
 
-const Input: React.FunctionComponent<InputPropsType> = ({
+const Input = ({
     label,
     value,
     valueKey,
@@ -32,9 +32,9 @@ const Input: React.FunctionComponent<InputPropsType> = ({
     inputWidth,
     className,
     containerClassName
-}) => {
+}: InputPropsType) => {
     const activeElementId = useRecoilValue(activeElementAtom);
-    const element = useRecoilValue(elementByIdSelector(activeElementId));
+    const element = useRecoilValue(elementByIdSelector(activeElementId as string));
     const keyValue = valueKey ? get(element, valueKey, defaultValue) : value;
     return (
         <Grid className={containerClassName}>

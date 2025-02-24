@@ -5,7 +5,7 @@ import WebinyError from "@webiny/error";
 
 type Records<T> = Record<string, T>;
 
-export interface Params {
+export interface ApplyWhereParams {
     query: ElasticsearchBoolQueryConfig;
     where: Records<any>;
     fields: Records<ElasticsearchFieldPlugin>;
@@ -17,7 +17,10 @@ export interface ParseWhereKeyResult {
     operator: string;
 }
 
-const parseWhereKeyRegExp = new RegExp(/^([a-zA-Z0-9]+)(_[a-zA-Z0-9_]+)?$/);
+/**
+ * TODO remove the wbyAco prefix when we move the user fields to the values property.
+ */
+const parseWhereKeyRegExp = new RegExp(/^((?:wbyAco_)?[a-zA-Z0-9]+)(_[a-zA-Z0-9_]+)?$/);
 
 export const parseWhereKey = (key: string): ParseWhereKeyResult => {
     const match = key.match(parseWhereKeyRegExp);
@@ -28,18 +31,18 @@ export const parseWhereKey = (key: string): ParseWhereKeyResult => {
 
     const [, field, operation = "eq"] = match;
 
-    if (!field.match(/^([a-zA-Z]+)$/)) {
+    if (!field.match(/^(?:wbyAco_)?([a-zA-Z0-9]+)$/)) {
         throw new Error(`Cannot filter by "${field}".`);
     }
 
-    const operator = operation.match(/^_/) ? operation.substr(1) : operation;
+    const operator = operation.match(/^_/) ? operation.slice(1) : operation;
 
     return { field, operator };
 };
 
 const ALL = ElasticsearchFieldPlugin.ALL;
 
-export const applyWhere = (params: Params): void => {
+export const applyWhere = (params: ApplyWhereParams): void => {
     const { query, where, fields, operators } = params;
 
     for (const key in where) {
@@ -91,6 +94,7 @@ export const applyWhere = (params: Params): void => {
         });
 
         operatorPlugin.apply(query, {
+            name: field,
             value,
             path,
             basePath,

@@ -2,12 +2,13 @@ import React, { useState, useCallback } from "react";
 import classnames from "classnames";
 import styled from "@emotion/styled";
 import { css } from "emotion";
-import { isEqual } from "lodash";
-import { ChromePicker } from "react-color";
+import isEqual from "lodash/isEqual";
+import { ChromePicker, ColorState, RGBColor } from "react-color";
 import { Menu } from "@webiny/ui/Menu";
 import { usePageBuilder } from "../../../hooks/usePageBuilder";
 import { ReactComponent as IconPalette } from "../../assets/icons/round-color_lens-24px.svg";
 
+import { Theme } from "@webiny/app-theme/types";
 const ColorPickerStyle = styled("div")({
     display: "flex",
     flexWrap: "wrap",
@@ -111,8 +112,8 @@ const styles = {
 
 type ColorPickerProps = {
     value: string;
-    onChange: Function;
-    onChangeComplete: Function;
+    onChange: (value: string) => void;
+    onChangeComplete: (value: string) => void;
     compact?: boolean;
     handlerClassName?: string;
 };
@@ -126,19 +127,19 @@ const ColorPicker = ({
 }: ColorPickerProps) => {
     const [showPicker, setShowPicker] = useState(false);
 
-    const getColorValue = useCallback(rgb => {
+    const getColorValue = useCallback((rgb: RGBColor) => {
         return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${rgb.a})`;
     }, []);
 
     const onColorChange = useCallback(
-        color => {
+        (color: ColorState) => {
             onChange(getColorValue(color.rgb));
         },
         [onChange]
     );
 
     const onColorChangeComplete = useCallback(
-        ({ rgb }) => {
+        ({ rgb }: ColorState) => {
             onChangeComplete(getColorValue(rgb));
         },
         [onChangeComplete]
@@ -149,7 +150,7 @@ const ColorPicker = ({
     }, [setShowPicker]);
 
     const togglePicker = useCallback(
-        e => {
+        (e: React.MouseEvent) => {
             e.stopPropagation();
             setShowPicker(!showPicker);
         },
@@ -160,9 +161,12 @@ const ColorPicker = ({
 
     let themeColor = false;
 
+    const newTheme = theme as Theme;
+    const themeColors = newTheme.styles.colors;
+
     const colorPicker = (
         <ColorPickerStyle onClick={hidePicker}>
-            {Object.values(theme.colors).map((color, index) => {
+            {Object.values(themeColors).map((color, index) => {
                 if (color === value || value === "transparent") {
                     themeColor = true;
                 }
@@ -170,7 +174,7 @@ const ColorPicker = ({
                 return (
                     <ColorBox key={index}>
                         <Color
-                            className={color === value ? styles.selectedColor : null}
+                            className={color === value ? styles.selectedColor : ""}
                             style={{ backgroundColor: color }}
                             onClick={() => {
                                 hidePicker();
@@ -195,7 +199,7 @@ const ColorPicker = ({
 
             <ColorBox>
                 <Color
-                    className={value && !themeColor ? styles.selectedColor : null}
+                    className={value && !themeColor ? styles.selectedColor : ""}
                     style={{ backgroundColor: themeColor ? "#fff" : value }}
                     onClick={togglePicker}
                 >

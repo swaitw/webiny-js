@@ -1,57 +1,63 @@
-import * as React from "react";
+import React from "react";
 import {
     IconButton as RIconButton,
     IconButtonProps as RmwcIconButtonProps
 } from "@rmwc/icon-button";
+import styled from "@emotion/styled";
 
 import { FormComponentProps } from "../../types";
 
-export type IconButtonProps = FormComponentProps &
-    RmwcIconButtonProps & {
-        id?: string;
-        /**
-         * Icon should be provided as an SvgComponent.
-         */
-        icon: React.ReactNode;
+const StyledRIconButton = styled(RIconButton)`
+    i {
+        all: unset;
+        pointer-events: none;
+    }
+`;
 
-        /**
-         * Button label
-         */
-        label?: string;
+export interface IconButtonProps extends Omit<FormComponentProps, "onChange">, RmwcIconButtonProps {
+    id?: string;
+    /**
+     * Icon should be provided as an SvgComponent.
+     */
+    icon: React.ReactNode;
 
-        /**
-         * onClick handler
-         * @param event
-         */
-        onClick?: (event: React.MouseEvent) => void;
+    /**
+     * Button label
+     */
+    label?: string;
 
-        /**
-         * Custom CSS class
-         */
-        className?: string;
-        /**
-         * For testing purposes.
-         */
+    /**
+     * onClick handler
+     * @param event
+     */
+    onClick?: (event: React.MouseEvent) => void;
 
-        "data-testid"?: string;
+    /**
+     * Custom CSS class
+     */
+    className?: string;
+    /**
+     * For testing purposes.
+     */
 
-        /**
-         * Should icon be disabled?
-         */
-        disabled?: boolean;
-    };
+    "data-testid"?: string;
+
+    /**
+     * Should icon be disabled?
+     */
+    disabled?: boolean;
+
+    children?: React.ReactNode;
+}
 
 /**
  * Shows the icon button.
- * @param props
- * @returns {*}
- * @constructor
  */
 const IconButton = (props: IconButtonProps) => {
-    const { id, icon, label, onClick, className, disabled, ripple = true } = props;
+    const { id, icon, label, onClick, className, disabled, ripple } = props;
 
     return (
-        <RIconButton
+        <StyledRIconButton
             id={id}
             data-testid={props["data-testid"]}
             onClick={onClick}

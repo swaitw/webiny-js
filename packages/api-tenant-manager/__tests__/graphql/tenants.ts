@@ -2,7 +2,13 @@ const fields = /* GraphQL */ `
     id
     name
     description
+    tags
     parent
+    settings {
+        domains {
+            fqdn
+        }
+    }
 `;
 
 const ERROR_FIELD = /* GraphQL */ `

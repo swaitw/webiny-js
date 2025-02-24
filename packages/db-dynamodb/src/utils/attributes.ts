@@ -1,5 +1,5 @@
-import { ContextInterface } from "@webiny/handler/types";
-import { AttributePlugin, DefinitionParams } from "~/plugins/definitions/AttributePlugin";
+import { Context } from "@webiny/api/types";
+import { AttributePlugin } from "~/plugins/definitions/AttributePlugin";
 import { PluginsContainer } from "@webiny/plugins";
 
 /**
@@ -8,16 +8,16 @@ import { PluginsContainer } from "@webiny/plugins";
  * @deprecated
  */
 export const getExtraAttributes = (
-    context: ContextInterface,
+    context: Context,
     entity: string
-): Record<string, DefinitionParams> => {
+): Record<string, AttributePlugin["_params"]> => {
     return getExtraAttributesFromPlugins(context.plugins, entity);
 };
 
 export const getExtraAttributesFromPlugins = (
     plugins: PluginsContainer,
     entity: string
-): Record<string, DefinitionParams> => {
+): Record<string, AttributePlugin["_params"]> => {
     return plugins
         .byType<AttributePlugin>(AttributePlugin.type)
         .filter(plugin => plugin.entity === entity)

@@ -1,17 +1,13 @@
-import React from "react";
-import kebabCase from "lodash/kebabCase";
-import Button from "./Button";
-import { PbRenderElementPluginArgs, PbRenderElementPlugin } from "../../../../types";
+import { ButtonRenderer } from "@webiny/app-page-builder-elements/renderers/button";
+import { PbRenderElementPlugin } from "~/types";
 
-export default (args: PbRenderElementPluginArgs = {}): PbRenderElementPlugin => {
-    const elementType = kebabCase(args.elementType || "button");
-
-    return {
-        name: `pb-render-page-element-${elementType}`,
-        type: "pb-render-page-element",
-        elementType: elementType,
-        render(props) {
-            return <Button {...props} />;
-        }
-    };
+export default () => {
+    return [
+        {
+            name: `pb-render-page-element-button`,
+            type: "pb-render-page-element",
+            elementType: "button",
+            render: ButtonRenderer
+        } as PbRenderElementPlugin
+    ];
 };

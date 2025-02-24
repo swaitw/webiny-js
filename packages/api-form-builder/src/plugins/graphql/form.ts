@@ -1,4 +1,5 @@
 import { parseAsync } from "json2csv";
+import { format } from "date-fns";
 import {
     ErrorResponse,
     ListResponse,
@@ -6,7 +7,9 @@ import {
     Response
 } from "@webiny/handler-graphql/responses";
 import { GraphQLSchemaPlugin } from "@webiny/handler-graphql/types";
-import { FormBuilderContext } from "~/types";
+import { sanitizeFormSubmissionData, flattenSubmissionMeta } from "~/plugins/crud/utils";
+import { FormBuilderContext, FbFormField } from "~/types";
+import { mdbid } from "@webiny/utils";
 
 const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
     type: "graphql-schema",
@@ -36,7 +39,7 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                 name: String!
                 slug: String!
                 fields: [FbFormFieldType!]!
-                layout: [[String]]!
+                steps: [FbFormStepType!]!
                 settings: FbFormSettingsType!
                 triggers: JSON
                 published: Boolean!
@@ -49,6 +52,11 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
             type FbFieldOptionsType {
                 label: String
                 value: String
+            }
+
+            input FbFormStepInput {
+                title: String
+                layout: [[String]]
             }
 
             input FbFieldOptionsInput {
@@ -66,6 +74,11 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                 name: String!
                 message: String
                 settings: JSON
+            }
+
+            type FbFormStepType {
+                title: String
+                layout: [[String]]
             }
 
             type FbFormFieldType {
@@ -119,6 +132,7 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
             type FbFormSettingsType {
                 layout: FbFormSettingsLayoutType
                 submitButtonLabel: String
+                fullWidthSubmitButton: Boolean
                 successMessage: JSON
                 termsOfServiceMessage: FbTermsOfServiceMessage
                 reCaptcha: FbReCaptcha
@@ -155,6 +169,7 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
             input FbFormSettingsInput {
                 layout: FbFormSettingsLayoutInput
                 submitButtonLabel: String
+                fullWidthSubmitButton: Boolean
                 successMessage: JSON
                 termsOfServiceMessage: FbTermsOfServiceMessageInput
                 reCaptcha: FbReCaptchaInput
@@ -163,7 +178,7 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
             input FbUpdateFormInput {
                 name: String
                 fields: [FbFormFieldInput]
-                layout: [[String]]
+                steps: [FbFormStepInput]
                 settings: FbFormSettingsInput
                 triggers: JSON
             }
@@ -196,8 +211,8 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                 parent: ID
                 name: String
                 version: Int
-                layout: [[String]]
                 fields: [FbFormFieldType]
+                steps: [FbFormStepType]
             }
 
             type FbFormSubmission {
@@ -207,9 +222,15 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                 form: FbSubmissionFormData
             }
 
+            type FbSubmissionMetaUrl {
+                location: String
+                query: JSON
+            }
+
             type FbSubmissionMeta {
                 ip: String
                 submittedOn: DateTime
+                url: FbSubmissionMetaUrl
             }
 
             type FbListSubmissionsMeta {
@@ -311,8 +332,18 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
         `,
         resolvers: {
             FbForm: {
-                overallStats: (form, _, { formBuilder }) => {
-                    return formBuilder.getFormStats(form.id);
+                overallStats: async (form, _, { formBuilder }) => {
+                    try {
+                        return await formBuilder.getFormStats(form.id);
+                    } catch (ex) {
+                        console.log(`Could not fetch form "${form.id}" stats.`);
+                        console.log(ex.message);
+                    }
+                    return {
+                        views: 0,
+                        submissions: 0,
+                        conversionRate: 0
+                    };
                 },
                 settings: async (form, _, { formBuilder }) => {
                     const settings = await formBuilder.getSettings({ auth: false });
@@ -327,7 +358,7 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                 }
             },
             FbQuery: {
-                getForm: async (_, args, { formBuilder }) => {
+                getForm: async (_, args: any, { formBuilder }) => {
                     try {
                         const form = await formBuilder.getForm(args.revision);
 
@@ -336,7 +367,7 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                         return new ErrorResponse(e);
                     }
                 },
-                getFormRevisions: async (_, args, { formBuilder }) => {
+                getFormRevisions: async (_, args: any, { formBuilder }) => {
                     try {
                         const revisions = await formBuilder.getFormRevisions(args.id);
 
@@ -354,11 +385,7 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                         return new ErrorResponse(e);
                     }
                 },
-                getPublishedForm: async (
-                    _,
-                    args: { revision: string; parent: string },
-                    { formBuilder }
-                ) => {
+                getPublishedForm: async (_, args: any, { formBuilder }) => {
                     if (!args.revision && !args.parent) {
                         return new NotFoundResponse("Revision ID or Form ID missing.");
                     }
@@ -383,16 +410,7 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
 
                     return new Response(form);
                 },
-                listFormSubmissions: async (
-                    _,
-                    args: {
-                        form: string;
-                        sort?: string[];
-                        limit?: number;
-                        after?: string;
-                    },
-                    { formBuilder }
-                ) => {
+                listFormSubmissions: async (_, args: any, { formBuilder }) => {
                     try {
                         const { form, ...options } = args;
                         const [submissions, meta] = await formBuilder.listFormSubmissions(
@@ -409,7 +427,7 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                 /**
                  * Creates a new form
                  */
-                createForm: async (_, args, { formBuilder }) => {
+                createForm: async (_, args: any, { formBuilder }) => {
                     try {
                         const form = await formBuilder.createForm(args.data);
 
@@ -421,7 +439,7 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                 /**
                  * Deletes the entire form with all of its revisions
                  */
-                deleteForm: async (_, args, { formBuilder }) => {
+                deleteForm: async (_, args: any, { formBuilder }) => {
                     try {
                         await formBuilder.deleteForm(args.id);
 
@@ -433,10 +451,9 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                 /**
                  * Creates a revision from the given revision
                  */
-                createRevisionFrom: async (_, args, { formBuilder }) => {
+                createRevisionFrom: async (_, args: any, { formBuilder }) => {
                     try {
                         const form = await formBuilder.createFormRevision(args.revision);
-
                         return new Response(form);
                     } catch (e) {
                         return new ErrorResponse(e);
@@ -445,10 +462,9 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                 /**
                  * Updates revision
                  */
-                updateRevision: async (_, args, { formBuilder }) => {
+                updateRevision: async (_, args: any, { formBuilder }) => {
                     try {
                         const form = await formBuilder.updateForm(args.revision, args.data);
-
                         return new Response(form);
                     } catch (e) {
                         return new ErrorResponse(e);
@@ -466,7 +482,7 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                         return new ErrorResponse(e);
                     }
                 },
-                unpublishRevision: async (_, args, { formBuilder }) => {
+                unpublishRevision: async (_, args: any, { formBuilder }) => {
                     try {
                         const form = await formBuilder.unpublishForm(args.revision);
 
@@ -478,7 +494,7 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                 /**
                  * Delete a revision
                  */
-                deleteRevision: async (_, args, { formBuilder }) => {
+                deleteRevision: async (_, args: any, { formBuilder }) => {
                     try {
                         await formBuilder.deleteFormRevision(args.revision);
 
@@ -487,7 +503,7 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                         return new ErrorResponse(e);
                     }
                 },
-                saveFormView: async (_, args, { formBuilder }) => {
+                saveFormView: async (_, args: any, { formBuilder }) => {
                     try {
                         const form = await formBuilder.incrementFormViews(args.revision);
 
@@ -496,7 +512,7 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                         return new ErrorResponse(e);
                     }
                 },
-                createFormSubmission: async (_: any, args, { formBuilder }) => {
+                createFormSubmission: async (_: any, args: any, { formBuilder }) => {
                     const { revision, data, reCaptchaResponseToken, meta = {} } = args;
 
                     try {
@@ -512,10 +528,11 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                         return new ErrorResponse(e);
                     }
                 },
-                exportFormSubmissions: async (_: any, args, { formBuilder, fileManager }) => {
+                exportFormSubmissions: async (_: any, args: any, { formBuilder, fileManager }) => {
                     const { form } = args;
 
                     try {
+                        await formBuilder.onFormSubmissionsBeforeExport.publish({ form });
                         const [submissions] = await formBuilder.listFormSubmissions(form, {
                             limit: 10000
                         });
@@ -530,8 +547,9 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                         const revisions = await formBuilder.getFormRevisions(form);
                         const publishedRevisions = revisions.filter(r => r.published);
 
-                        const rows = [];
-                        const fields = {};
+                        const rows: Record<string, string>[] = [];
+                        const fields: Record<string, string> = {};
+                        const fieldsData: FbFormField[] = [];
 
                         /**
                          * First extract all distinct fields across all form submissions.
@@ -541,7 +559,28 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                             for (let j = 0; j < revision.fields.length; j++) {
                                 const field = revision.fields[j];
                                 if (!fields[field.fieldId]) {
+                                    fieldsData.push(field);
                                     fields[field.fieldId] = field.label;
+
+                                    if (field?.options && field?.options?.length > 0) {
+                                        fields[`${field.fieldId}_label`] = `${field.label} (Label)`;
+                                    }
+                                }
+                            }
+                        }
+
+                        /**
+                         * Add meta fields.
+                         */
+                        for (let i = 0; i < submissions.length; i++) {
+                            const flattenedSubmissionMeta = flattenSubmissionMeta(
+                                submissions[i].meta.url || {},
+                                "meta_url"
+                            );
+
+                            for (const metaKey in flattenedSubmissionMeta) {
+                                if (!fields[metaKey]) {
+                                    fields[metaKey] = metaKey;
                                 }
                             }
                         }
@@ -550,11 +589,33 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                          * Build rows.
                          */
                         for (let i = 0; i < submissions.length; i++) {
-                            const submissionData = submissions[i].data;
-                            const row = {};
+                            const submissionData = sanitizeFormSubmissionData(
+                                fieldsData,
+                                submissions[i].data
+                            );
+
+                            const flattenedSubmissionMeta = flattenSubmissionMeta(
+                                submissions[i].meta.url || {},
+                                "meta_url"
+                            );
+                            for (const metaKey in flattenedSubmissionMeta) {
+                                submissionData[metaKey] = flattenedSubmissionMeta[metaKey];
+                            }
+
+                            const row: Record<string, string> = {};
+
+                            row["Date submitted (UTC)"] = format(
+                                new Date(submissions[i].createdOn),
+                                "yyyy-MM-dd HH:mm:ss"
+                            );
+
                             Object.keys(fields).map(fieldId => {
                                 if (fieldId in submissionData) {
-                                    row[fields[fieldId]] = submissionData[fieldId];
+                                    const value = submissionData[fieldId];
+                                    // Remove brackets from arrays;
+                                    row[fields[fieldId]] = Array.isArray(value)
+                                        ? value.map(item => `"${item}"`).join(", ")
+                                        : value;
                                 } else {
                                     row[fields[fieldId]] = "N/A";
                                 }
@@ -565,23 +626,33 @@ const plugin: GraphQLSchemaPlugin<FormBuilderContext> = {
                         /**
                          * Save CSV file and return its URL to the client.
                          */
-                        const csv = await parseAsync(rows, { fields: Object.values(fields) });
+                        const csv = await parseAsync(rows, {
+                            fields: ["Date submitted (UTC)", ...Object.values(fields)]
+                        });
+
                         const buffer = Buffer.from(csv);
-                        const { key } = await fileManager.storage.upload({
+                        const id = mdbid();
+
+                        const fileData = {
                             buffer,
+                            id,
                             size: buffer.length,
                             name: "form_submissions_export.csv",
+                            key: `${id}/form_submissions_export.csv`,
                             type: "text/csv",
                             keyPrefix: "form-submissions",
                             hideInFileManager: true
-                        });
+                        };
 
-                        const settings = await fileManager.settings.getSettings();
+                        const { key } = await fileManager.storage.upload(fileData);
+
+                        const settings = await fileManager.getSettings();
 
                         const result = {
                             key,
-                            src: settings.srcPrefix + key
+                            src: (settings?.srcPrefix || "") + key
                         };
+                        await formBuilder.onFormSubmissionsAfterExport.publish({ result });
 
                         return new Response(result);
                     } catch (e) {

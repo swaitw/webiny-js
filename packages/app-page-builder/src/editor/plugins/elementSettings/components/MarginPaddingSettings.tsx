@@ -9,6 +9,7 @@ import { Typography } from "@webiny/ui/Typography";
 import { Tooltip } from "@webiny/ui/Tooltip";
 import { plugins } from "@webiny/plugins";
 import {
+    PbEditorElement,
     PbEditorPageElementSettingsRenderComponentProps,
     PbEditorResponsiveModePlugin
 } from "../../../../types";
@@ -143,19 +144,32 @@ const options = {
 const SIDES = ["top", "right", "bottom", "left"];
 const DEFAULT_VALUE = "0px";
 
-const MarginPaddingSettings: React.FunctionComponent<
-    PMSettingsPropsType & PbEditorPageElementSettingsRenderComponentProps
-> = ({ styleAttribute, defaultAccordionValue }) => {
+type MarginPaddingSettingsProps = PMSettingsPropsType &
+    PbEditorPageElementSettingsRenderComponentProps;
+
+const MarginPaddingSettings = ({
+    styleAttribute,
+    defaultAccordionValue
+}: MarginPaddingSettingsProps) => {
     const valueKey = `data.settings.${styleAttribute}`;
     const { displayMode } = useRecoilValue(uiAtom);
     const activeElementId = useRecoilValue(activeElementAtom);
-    const element = useRecoilValue(elementWithChildrenByIdSelector(activeElementId));
+    const element = useRecoilValue(
+        elementWithChildrenByIdSelector(activeElementId)
+    ) as PbEditorElement;
 
-    const { config: activeEditorModeConfig } = useMemo(() => {
+    const memoizedResponsiveModePlugin = useMemo(() => {
         return plugins
             .byType<PbEditorResponsiveModePlugin>("pb-editor-responsive-mode")
             .find(pl => pl.config.displayMode === displayMode);
     }, [displayMode]);
+
+    const { config: activeEditorModeConfig } = memoizedResponsiveModePlugin || {
+        config: {
+            displayMode: null,
+            icon: null
+        }
+    };
 
     const fallbackValue = useMemo(
         () => applyFallbackDisplayMode(displayMode, mode => get(element, `${valueKey}.${mode}`)),
@@ -203,7 +217,7 @@ const MarginPaddingSettings: React.FunctionComponent<
     });
 
     const toggleAdvanced = useCallback(
-        event => {
+        (event: React.MouseEvent) => {
             event.stopPropagation();
             getUpdateValue(`${displayMode}.advanced`)(!advanced);
         },
@@ -273,7 +287,7 @@ const MarginPaddingSettings: React.FunctionComponent<
                 <TopLeft />
                 <Top className="align-center">
                     <SpacingPicker
-                        value={top}
+                        value={top || ""}
                         onChange={updateValueTop}
                         options={options[styleAttribute]}
                     />
@@ -281,14 +295,14 @@ const MarginPaddingSettings: React.FunctionComponent<
                 <TopRight />
                 <Left>
                     <SpacingPicker
-                        value={left}
+                        value={left || ""}
                         onChange={updateValueLeft}
                         options={options[styleAttribute]}
                         disabled={!advanced}
                     />
                 </Left>
                 <Center className="align-center">
-                    <Typography className={"text mono"} use={"subtitle2"}>
+                    <Typography className={"text mono"} use={"body2"}>
                         {get(element, "data.settings.width.value", "auto")}
                         &nbsp;x&nbsp;
                         {get(element, "data.settings.height.value", "auto")}
@@ -296,7 +310,7 @@ const MarginPaddingSettings: React.FunctionComponent<
                 </Center>
                 <Right>
                     <SpacingPicker
-                        value={right}
+                        value={right || ""}
                         onChange={updateValueRight}
                         options={options[styleAttribute]}
                         disabled={!advanced}
@@ -305,7 +319,7 @@ const MarginPaddingSettings: React.FunctionComponent<
                 <BottomLeft />
                 <Bottom className={"align-center"}>
                     <SpacingPicker
-                        value={bottom}
+                        value={bottom || ""}
                         onChange={updateValueBottom}
                         options={options[styleAttribute]}
                         disabled={!advanced}

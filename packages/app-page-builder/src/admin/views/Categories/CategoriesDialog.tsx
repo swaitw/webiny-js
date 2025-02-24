@@ -18,6 +18,7 @@ import {
 } from "@webiny/ui/List";
 import { ButtonDefault } from "@webiny/ui/Button";
 import { LIST_CATEGORIES } from "./graphql";
+import { PageBuilderListCategoriesResponse, PbCategory } from "~/types";
 
 const narrowDialog = css({
     ".mdc-dialog__surface": {
@@ -29,16 +30,14 @@ const narrowDialog = css({
 export type CategoriesDialogProps = {
     open: boolean;
     onClose: DialogOnClose;
-    onSelect: Function;
+    onSelect: (item: PbCategory) => void;
     children: any;
 };
-
-const CategoriesDialog: React.FC<CategoriesDialogProps> = ({
-    open,
-    onClose,
-    onSelect,
-    children
-}) => {
+interface ListCategoriesQueryResponse {
+    data: PageBuilderListCategoriesResponse;
+    loading?: boolean;
+}
+const CategoriesDialog = ({ open, onClose, onSelect, children }: CategoriesDialogProps) => {
     const { history } = useRouter();
     return (
         <Dialog
@@ -52,19 +51,23 @@ const CategoriesDialog: React.FC<CategoriesDialogProps> = ({
             <DialogContent>
                 <List twoLine>
                     <Query query={LIST_CATEGORIES}>
-                        {({ data, loading }) => {
+                        {({ data, loading }: ListCategoriesQueryResponse) => {
                             if (loading) {
                                 return <span>Loading categories...</span>;
                             }
 
+                            const categories = data?.pageBuilder?.listCategories?.data;
+                            if (!categories) {
+                                return <></>;
+                            }
                             return (
                                 <React.Fragment>
-                                    {data?.pageBuilder?.listCategories?.data.map(item => (
+                                    {categories.map(item => (
                                         <ListItem
                                             key={item.slug}
                                             onClick={() => {
                                                 onSelect(item);
-                                                // @ts-ignore
+                                                // @ts-expect-error
                                                 onClose();
                                             }}
                                         >

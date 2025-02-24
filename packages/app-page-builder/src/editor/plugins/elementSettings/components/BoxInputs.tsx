@@ -1,5 +1,5 @@
 import React, { useCallback } from "react";
-import { get } from "lodash";
+import get from "lodash/get";
 import classNames from "classnames";
 import { css } from "emotion";
 import { Grid, Cell } from "@webiny/ui/Grid";
@@ -85,21 +85,21 @@ const defaultCorners = [
  * This component is reused in Padding and Margin plugins since the behavior of both CSS attributes is the same.
  */
 
-type PMSettingsPropsType = {
+interface PMSettingsPropsType {
     label: string;
     value: any;
     valueKey: string;
     getUpdateValue: any;
     sides?: Record<string, any>[];
-};
+}
 
-const BoxInputs: React.FunctionComponent<PMSettingsPropsType> = ({
+const BoxInputs = ({
     label,
     value,
     valueKey,
     getUpdateValue,
     sides = defaultCorners
-}) => {
+}: PMSettingsPropsType) => {
     const advanced = get(value, `${valueKey}.advanced`, false);
     const all = get(value, `${valueKey}.all`, 0);
     const [top, right, bottom, left] = sides.map(({ key, label }) => ({
@@ -109,7 +109,7 @@ const BoxInputs: React.FunctionComponent<PMSettingsPropsType> = ({
     }));
 
     const toggleLinked = useCallback(
-        e => {
+        (e: React.MouseEvent) => {
             e.stopPropagation();
             getUpdateValue(`${valueKey}.advanced`)(!advanced);
         },
@@ -119,7 +119,7 @@ const BoxInputs: React.FunctionComponent<PMSettingsPropsType> = ({
     return (
         <Grid className={classes.gridWrapper}>
             <Cell span={12}>
-                <Typography use={"subtitle2"}>{label}</Typography>
+                <Typography use={"body2"}>{label}</Typography>
             </Cell>
             <Cell span={12} className={classes.wrapper}>
                 <div className={classes.inputWrapper}>

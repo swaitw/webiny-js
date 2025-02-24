@@ -2,7 +2,7 @@ import React, { useMemo, useCallback } from "react";
 import { css } from "emotion";
 import classNames from "classnames";
 import { FormElementMessage } from "@webiny/ui/FormElementMessage";
-import { BindComponentRenderPropValidation, Form } from "@webiny/form";
+import { BindComponentRenderPropValidation, Form, FormOnSubmit } from "@webiny/form";
 import InputField from "./InputField";
 import SelectField from "./SelectField";
 
@@ -49,8 +49,8 @@ const defaultSelectStyle = css({
     }
 });
 
-type SpacingPickerProps = {
-    value: any;
+interface SpacingPickerProps {
+    value: string;
     onChange: (value: string | number) => void;
     options: any[];
     disabled?: boolean;
@@ -59,9 +59,15 @@ type SpacingPickerProps = {
     className?: string;
     inputClassName?: string;
     selectClassName?: string;
-};
+}
+
+interface SpacingPickerFormData {
+    unit: string;
+    value: string | number;
+}
+
 const SpacingPicker = ({
-    value,
+    value = "",
     onChange,
     disabled,
     options = [],
@@ -72,8 +78,8 @@ const SpacingPicker = ({
     useDefaultStyle = true
 }: SpacingPickerProps) => {
     const formData = useMemo(() => {
-        const parsedValue = parseInt(value);
-        const regx = new RegExp(`${parsedValue}`, "g");
+        const parsedValue = parseFloat(value);
+        const regx = new RegExp(`[0-9.+-]+`, "g");
         const unit = value.replace(regx, "");
 
         if (Number.isNaN(parsedValue) && unit === "auto") {
@@ -88,48 +94,69 @@ const SpacingPicker = ({
         };
     }, [value]);
 
-    const onFormChange = useCallback(formData => {
-        if (formData.unit === "auto") {
-            onChange(formData.unit);
-        } else {
-            onChange(formData.value + formData.unit);
-        }
-    }, []);
+    const defaultUnitValue = options[0] ? options[0].value : "";
+
+    const onFormChange: FormOnSubmit<SpacingPickerFormData> = useCallback(
+        formData => {
+            if (formData.unit === "auto") {
+                onChange(formData.unit);
+                return;
+            }
+            onChange(formData.value + (formData.unit || defaultUnitValue));
+        },
+        [defaultUnitValue, onChange]
+    );
 
     return (
-        <Form data={formData} onChange={onFormChange}>
-            {({ data, Bind }) => (
-                <div className={classNames(className, { [defaultWrapperStyle]: useDefaultStyle })}>
-                    <div className={"inner-wrapper"}>
-                        <Bind name={"value"}>
-                            <InputField
-                                className={classNames(inputClassName, {
-                                    [defaultInputStyle]: useDefaultStyle
-                                })}
-                                disabled={data.unit === "auto" || disabled}
-                                type={"number"}
-                            />
-                        </Bind>
-                        <Bind name={"unit"}>
-                            <SelectField
-                                className={classNames(selectClassName, {
-                                    [defaultSelectStyle]: useDefaultStyle
-                                })}
-                                disabled={disabled}
-                            >
-                                {options.map(item => (
-                                    <option key={item.value} value={item.value}>
-                                        {item.label}
-                                    </option>
-                                ))}
-                            </SelectField>
-                        </Bind>
+        <Form<SpacingPickerFormData> data={formData} onChange={onFormChange}>
+            {({ data, Bind }) => {
+                const unitValue = data.unit || defaultUnitValue;
+                return (
+                    <div
+                        className={classNames(className, {
+                            [defaultWrapperStyle]: useDefaultStyle
+                        })}
+                    >
+                        <div className={"inner-wrapper"}>
+                            <Bind name={"value"}>
+                                <InputField
+                                    className={classNames(inputClassName, {
+                                        [defaultInputStyle]: useDefaultStyle
+                                    })}
+                                    disabled={data.unit === "auto" || disabled}
+                                    type={"number"}
+                                    onFocus={(event: React.FocusEvent<HTMLInputElement>) =>
+                                        event.target.select()
+                                    }
+                                    onBlur={(event: React.FocusEvent<HTMLInputElement>) => {
+                                        if (event.target.value === "") {
+                                            onChange("0" + (formData.unit || defaultUnitValue));
+                                        }
+                                    }}
+                                />
+                            </Bind>
+                            <Bind name={"unit"}>
+                                <SelectField
+                                    className={classNames(selectClassName, {
+                                        [defaultSelectStyle]: useDefaultStyle
+                                    })}
+                                    disabled={disabled}
+                                    value={unitValue}
+                                >
+                                    {options.map(item => (
+                                        <option key={item.value} value={item.value}>
+                                            {item.label}
+                                        </option>
+                                    ))}
+                                </SelectField>
+                            </Bind>
+                        </div>
+                        {validation && validation.isValid === false && (
+                            <FormElementMessage error>{validation.message}</FormElementMessage>
+                        )}
                     </div>
-                    {validation && validation.isValid === false && (
-                        <FormElementMessage error>{validation.message}</FormElementMessage>
-                    )}
-                </div>
-            )}
+                );
+            }}
         </Form>
     );
 };

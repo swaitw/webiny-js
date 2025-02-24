@@ -1,12 +1,14 @@
 {
   "extends": "../../tsconfig.json",
-  "include": ["src", "__tests__/**/*.ts"],
+  "include": ["src", "__tests__"],
   "references": [
     { "path": "../app" },
+    { "path": "../app-admin" },
     { "path": "../app-cognito-authenticator" },
     { "path": "../app-security" },
     { "path": "../form" },
     { "path": "../plugins" },
+    { "path": "../react-composition" },
     { "path": "../ui" },
     { "path": "../validation" }
   ],
@@ -16,8 +18,11 @@
     "declarationDir": "./dist",
     "paths": {
       "~/*": ["./src/*"],
+      "~tests/*": ["./__tests__/*"],
       "@webiny/app/*": ["../app/src/*"],
       "@webiny/app": ["../app/src"],
+      "@webiny/app-admin/*": ["../app-admin/src/*"],
+      "@webiny/app-admin": ["../app-admin/src"],
       "@webiny/app-cognito-authenticator/*": ["../app-cognito-authenticator/src/*"],
       "@webiny/app-cognito-authenticator": ["../app-cognito-authenticator/src"],
       "@webiny/app-security/*": ["../app-security/src/*"],
@@ -26,6 +31,8 @@
       "@webiny/form": ["../form/src"],
       "@webiny/plugins/*": ["../plugins/src/*"],
       "@webiny/plugins": ["../plugins/src"],
+      "@webiny/react-composition/*": ["../react-composition/src/*"],
+      "@webiny/react-composition": ["../react-composition/src"],
       "@webiny/ui/*": ["../ui/src/*"],
       "@webiny/ui": ["../ui/src"],
       "@webiny/validation/*": ["../validation/src/*"],

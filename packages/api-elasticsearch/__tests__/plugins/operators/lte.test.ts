@@ -4,21 +4,21 @@ import { ElasticsearchQueryBuilderOperatorLesserThanOrEqualToPlugin } from "~/pl
 
 describe("ElasticsearchQueryBuilderOperatorLesserThanOrEqualToPlugin", () => {
     const plugin = new ElasticsearchQueryBuilderOperatorLesserThanOrEqualToPlugin();
-    const context: any = {};
 
     it("should apply lte correctly", () => {
         const query = createBlankQuery();
         plugin.apply(query, {
+            name: "id",
             value: 100,
             path: "id",
             basePath: "id",
-            context,
             keyword: false
         });
 
         const expected: ElasticsearchBoolQueryConfig = {
             must_not: [],
-            must: [
+            must: [],
+            filter: [
                 {
                     range: {
                         id: {
@@ -27,7 +27,6 @@ describe("ElasticsearchQueryBuilderOperatorLesserThanOrEqualToPlugin", () => {
                     }
                 }
             ],
-            filter: [],
             should: []
         };
 
@@ -37,25 +36,26 @@ describe("ElasticsearchQueryBuilderOperatorLesserThanOrEqualToPlugin", () => {
     it("should apply multiple lte correctly", () => {
         const query = createBlankQuery();
         plugin.apply(query, {
+            name: "id",
             value: 100,
             path: "id",
             basePath: "id",
-            context,
             keyword: false
         });
 
-        const to = new Date();
+        const to = new Date().toISOString();
         plugin.apply(query, {
+            name: "id",
             value: to,
             path: "date",
             basePath: "date",
-            context,
             keyword: false
         });
 
         const expected: ElasticsearchBoolQueryConfig = {
             must_not: [],
-            must: [
+            must: [],
+            filter: [
                 {
                     range: {
                         id: {
@@ -66,12 +66,11 @@ describe("ElasticsearchQueryBuilderOperatorLesserThanOrEqualToPlugin", () => {
                 {
                     range: {
                         date: {
-                            lte: to as any
+                            lte: to
                         }
                     }
                 }
             ],
-            filter: [],
             should: []
         };
         expect(query).toEqual(expected);

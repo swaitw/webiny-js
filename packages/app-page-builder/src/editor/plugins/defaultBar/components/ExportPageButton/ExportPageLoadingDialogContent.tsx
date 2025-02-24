@@ -1,14 +1,18 @@
-import React, { FunctionComponent, useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
 import { useQuery } from "@apollo/react-hooks";
-import { GET_PAGE_IMPORT_EXPORT_TASK } from "~/admin/graphql/pageImportExport.gql";
-import get from "lodash/get";
+import {
+    GET_PAGE_EXPORT_TASK,
+    GetPageExportTaskResponse,
+    GetPageExportTaskVariables
+} from "~/admin/graphql/pageImportExport.gql";
 import { Typography } from "@webiny/ui/Typography";
 import { i18n } from "@webiny/app/i18n";
-import { LoadingDialog } from "../ImportPageButton/styledComponents";
-import ProgressBar from "../ImportPageButton/ProgressBar";
+import { LoadingDialog } from "../ImportButton/styledComponents";
+import ProgressBar from "../ImportButton/ProgressBar";
 import useExportPageDialog from "./useExportPageDialog";
-import { PageImportExportTaskStatus } from "~/types";
+import { ImportExportTaskStatus, PbErrorResponse } from "~/types";
+import { PbTaskStatus } from "~/admin/graphql/types";
 
 const t = i18n.ns("app-page-builder/editor/plugins/defaultBar/importPage");
 
@@ -16,47 +20,62 @@ const completionMessage = t`All pages have been exported`;
 const errorMessage = t`Failed to import pages`;
 const pendingMessage = t`Waiting for operation status`;
 const processingMessage = t`Exporting pages`;
+const abortedMessage = t`Importing pages aborted`;
 
-const INTERVAL = 0.5 * 1000;
+const INTERVAL = 1000;
 
-const MESSAGES = {
-    [PageImportExportTaskStatus.COMPLETED]: completionMessage,
-    [PageImportExportTaskStatus.PROCESSING]: processingMessage,
-    [PageImportExportTaskStatus.PENDING]: pendingMessage
+const MESSAGES: Record<PbTaskStatus, string> = {
+    [PbTaskStatus.success]: completionMessage,
+    [PbTaskStatus.running]: processingMessage,
+    [PbTaskStatus.pending]: pendingMessage,
+    [PbTaskStatus.failed]: errorMessage,
+    [PbTaskStatus.aborted]: abortedMessage
 };
 
-const ExportPageLoadingDialogContent: FunctionComponent<{ taskId: string }> = ({ taskId }) => {
+interface ExportPageLoadingDialogContent {
+    taskId: string;
+}
+
+const ExportPageLoadingDialogContent = ({ taskId }: ExportPageLoadingDialogContent) => {
     const [completed, setCompleted] = useState<boolean>(false);
-    const [error, setError] = useState(null);
+    const [error, setError] = useState<PbErrorResponse | undefined | null>(null);
     const { showSnackbar } = useSnackbar();
     const { showExportPageContentDialog } = useExportPageDialog();
 
-    const { data } = useQuery(GET_PAGE_IMPORT_EXPORT_TASK, {
-        variables: {
-            id: taskId
-        },
-        skip: taskId === null,
-        fetchPolicy: "network-only",
-        pollInterval: completed ? 0 : INTERVAL,
-        notifyOnNetworkStatusChange: true
-    });
+    const { data } = useQuery<GetPageExportTaskResponse, GetPageExportTaskVariables>(
+        GET_PAGE_EXPORT_TASK,
+        {
+            variables: {
+                id: taskId
+            },
+            skip: !taskId,
+            fetchPolicy: "network-only",
+            pollInterval: completed ? 0 : INTERVAL,
+            notifyOnNetworkStatusChange: true
+        }
+    );
 
-    const pollExportPageTaskStatus = useCallback(response => {
-        const { error, data } = get(response, "pageBuilder.getPageImportExportTask", {});
+    const pollExportPageTaskStatus = useCallback((response: GetPageExportTaskResponse) => {
+        const { error, data } = response.pageBuilder.getExportPagesTask;
         if (error) {
-            return showSnackbar(error.message);
+            showSnackbar(error.message);
+            return;
         }
 
         // Handler failed task
-        if (data && data.status === "failed") {
+        if (data && data.status === PbTaskStatus.failed) {
             setCompleted(true);
             showSnackbar("Error: Failed to export pages!");
-            setError(data.error);
+            setError(data.data?.error);
         }
 
-        if (data && data.status === "completed") {
+        if (data && data.status === PbTaskStatus.success) {
             setCompleted(true);
-            // getSubTasks();
+
+            if (!data.data?.url) {
+                showSnackbar("Missing exported files URL! Please check task logs.");
+                return;
+            }
             showExportPageContentDialog({ exportUrl: data.data.url });
         }
     }, []);
@@ -69,10 +88,8 @@ const ExportPageLoadingDialogContent: FunctionComponent<{ taskId: string }> = ({
         pollExportPageTaskStatus(data);
     }, [data]);
 
-    const { status, stats } = get(data, "pageBuilder.getPageImportExportTask.data", {
-        status: PageImportExportTaskStatus.PENDING,
-        stats: null
-    });
+    const { status = ImportExportTaskStatus.PENDING, stats } =
+        data?.pageBuilder.getExportPagesTask.data || {};
 
     return (
         <LoadingDialog.Wrapper>
@@ -85,7 +102,7 @@ const ExportPageLoadingDialogContent: FunctionComponent<{ taskId: string }> = ({
                         <LoadingDialog.CancelIcon />
                         <Typography use={"subtitle1"}>{errorMessage}</Typography>
                     </LoadingDialog.TitleContainer>
-                ) : status === PageImportExportTaskStatus.COMPLETED ? (
+                ) : status === PbTaskStatus.success ? (
                     <LoadingDialog.TitleContainer>
                         <LoadingDialog.CheckMarkIcon />
                         <Typography use={"subtitle1"}>{MESSAGES[status]}</Typography>
@@ -102,7 +119,7 @@ const ExportPageLoadingDialogContent: FunctionComponent<{ taskId: string }> = ({
                 <LoadingDialog.StatsContainer>
                     {error && (
                         <LoadingDialog.StatusContainer>
-                            <LoadingDialog.StatusTitle use={"subtitle2"}>
+                            <LoadingDialog.StatusTitle use={"body2"}>
                                 {t`Error`}
                             </LoadingDialog.StatusTitle>
                             <LoadingDialog.StatusBody use={"body2"}>
@@ -112,10 +129,10 @@ const ExportPageLoadingDialogContent: FunctionComponent<{ taskId: string }> = ({
                     )}
                     {stats && (
                         <LoadingDialog.ProgressContainer>
-                            <LoadingDialog.StatusTitle use={"subtitle2"}>
+                            <LoadingDialog.StatusTitle use={"body2"}>
                                 {t`{completed} of {total} completed`({
-                                    completed: stats.completed,
-                                    total: stats.total
+                                    completed: `${stats.completed}`,
+                                    total: `${stats.total}`
                                 })}
                             </LoadingDialog.StatusTitle>
                             <ProgressBar

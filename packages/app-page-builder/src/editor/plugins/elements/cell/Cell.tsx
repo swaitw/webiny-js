@@ -1,35 +1,17 @@
 import React from "react";
-import styled from "@emotion/styled";
-import DropZone from "../../../components/DropZone";
-import Element from "../../../components/Element";
-import { DragObjectWithTypeWithTarget } from "../../../components/Droppable";
+import { PbEditorElement } from "~/types";
 
-const CellStyle = styled("div")({
-    position: "relative"
-});
-type CellPropsType = {
-    id: string;
-    dropElement: (source: DragObjectWithTypeWithTarget, index: number) => void;
-    type: string;
-    index: number;
-    isLast?: boolean;
-};
-const Cell: React.FunctionComponent<CellPropsType> = ({
-    id,
-    dropElement,
-    index,
-    isLast = false,
-    type
-}) => {
-    return (
-        <CellStyle>
-            <DropZone.Above type={type} onDrop={source => dropElement(source, index)} />
-            <Element id={id} />
-            {isLast && (
-                <DropZone.Below type={type} onDrop={source => dropElement(source, index + 1)} />
-            )}
-        </CellStyle>
-    );
+import PeCell from "~/editor/plugins/elements/cell/PeCell";
+import { Element } from "@webiny/app-page-builder-elements/types";
+
+interface CellProps {
+    element: PbEditorElement;
+    isActive: boolean;
+}
+
+const Cell = (props: CellProps) => {
+    const { element, ...rest } = props;
+    return <PeCell element={element as Element} {...rest} />;
 };
 
-export default React.memo(Cell);
+export default Cell;

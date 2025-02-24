@@ -1,7 +1,7 @@
 import React from "react";
 import styled from "@emotion/styled";
-import Droppable from "../Droppable";
-import { DragSource } from "~/admin/components/FieldEditor/FieldEditorContext";
+import { Droppable, IsVisibleCallable } from "../Droppable";
+import { DragSource } from "~/types";
 
 const InnerDivVertical = styled("div")({
     position: "absolute",
@@ -20,12 +20,12 @@ const BackgroundColorDiv = styled("div")({
     height: "100%"
 });
 
-type OuterDivVerticalProps = {
+interface OuterDivVerticalProps {
     isOver: boolean;
     last?: boolean;
-    isVisible?: any;
+    isVisible?: IsVisibleCallable;
     isDragging?: boolean;
-};
+}
 
 const OuterDivVertical = styled("div")(
     {
@@ -39,12 +39,12 @@ const OuterDivVertical = styled("div")(
     (props: OuterDivVerticalProps) => ({
         [props.last ? "right" : "left"]: -9,
         textAlign: props.last ? "right" : "left",
-        // @ts-ignore
+        // @ts-expect-error
         [InnerDivVertical]: {
             borderColor: props.isOver ? "var(--mdc-theme-primary)" : "var(--mdc-theme-secondary)",
             [props.last ? "right" : "left"]: -2,
             display: props.isDragging ? "block" : "none",
-            // @ts-ignore
+            // @ts-expect-error
             [BackgroundColorDiv]: {
                 opacity: 0.5,
                 backgroundColor: props.isOver
@@ -55,12 +55,12 @@ const OuterDivVertical = styled("div")(
     })
 );
 
-type VerticalProps = {
+interface VerticalProps {
     depth?: number;
     onDrop(item: DragSource): void;
     last?: boolean;
     isVisible?: any;
-};
+}
 
 const Vertical = ({ depth, last, onDrop, isVisible }: VerticalProps) => {
     return (
@@ -76,7 +76,7 @@ const Vertical = ({ depth, last, onDrop, isVisible }: VerticalProps) => {
                         position: "absolute",
                         top: 0,
                         [last ? "right" : "left"]: 0,
-                        zIndex: isDragging ? 1000 + depth : -1
+                        zIndex: isDragging ? 1000 + (depth || 0) : -1
                     }}
                 >
                     <OuterDivVertical isOver={isOver} isDragging={isDragging} last={last}>

@@ -6,7 +6,6 @@ import { useQuery, useMutation } from "@apollo/react-hooks";
 import { LIST_MENUS, DELETE_MENU } from "./graphql";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
 import { useConfirmationDialog } from "@webiny/app-admin/hooks/useConfirmationDialog";
-import { useSecurity } from "@webiny/app-security";
 
 import {
     DataList,
@@ -27,6 +26,8 @@ import { ReactComponent as FilterIcon } from "@webiny/app-admin/assets/icons/fil
 import SearchUI from "@webiny/app-admin/components/SearchUI";
 import { Cell, Grid } from "@webiny/ui/Grid";
 import { Select } from "@webiny/ui/Select";
+import { PbMenu } from "~/types";
+import { useMenusPermissions } from "~/hooks/permissions";
 
 const t = i18n.ns("app-page-builder/admin/menus/data-list");
 
@@ -49,9 +50,14 @@ const SORTERS = [
     }
 ];
 
-type PageBuilderMenusDataListProps = {
+interface MenuDataListResponse {
+    data: PbMenu[];
+}
+
+interface PageBuilderMenusDataListProps {
     canCreate: boolean;
-};
+}
+
 const PageBuilderMenusDataList = ({ canCreate }: PageBuilderMenusDataListProps) => {
     const [filter, setFilter] = useState("");
     const [sort, setSort] = useState<string>(SORTERS[0].sort);
@@ -65,7 +71,7 @@ const PageBuilderMenusDataList = ({ canCreate }: PageBuilderMenusDataListProps) 
     const { showConfirmation } = useConfirmationDialog();
 
     const filterMenus = useCallback(
-        ({ title, slug, description }) => {
+        ({ title, slug, description }: PbMenu) => {
             return (
                 title.toLowerCase().includes(filter) ||
                 slug.toLowerCase().includes(filter) ||
@@ -76,12 +82,12 @@ const PageBuilderMenusDataList = ({ canCreate }: PageBuilderMenusDataListProps) 
     );
 
     const sortMenus = useCallback(
-        menus => {
+        (menus: PbMenu[]) => {
             if (!sort) {
                 return menus;
             }
             const [field, order] = sort.split("_");
-            return orderBy(menus, field, order.toLowerCase());
+            return orderBy(menus, field, order.toLowerCase() as "asc" | "desc");
         },
         [sort]
     );
@@ -90,7 +96,7 @@ const PageBuilderMenusDataList = ({ canCreate }: PageBuilderMenusDataListProps) 
     const slug = new URLSearchParams(location.search).get("slug");
 
     const deleteItem = useCallback(
-        item => {
+        (item: PbMenu) => {
             showConfirmation(async () => {
                 const response = await deleteIt({
                     variables: item
@@ -111,23 +117,7 @@ const PageBuilderMenusDataList = ({ canCreate }: PageBuilderMenusDataListProps) 
         [slug]
     );
 
-    const { identity } = useSecurity();
-    const pbMenuPermission = useMemo(() => {
-        return identity.getPermission("pb.menu");
-    }, []);
-
-    const canDelete = useCallback(item => {
-        if (pbMenuPermission.own) {
-            const identityId = identity.id || identity.login;
-            return item.createdBy.id === identityId;
-        }
-
-        if (typeof pbMenuPermission.rwd === "string") {
-            return pbMenuPermission.rwd.includes("d");
-        }
-
-        return true;
-    }, []);
+    const { canDelete } = useMenusPermissions();
 
     const menusDataListModalOverlay = useMemo(
         () => (
@@ -138,7 +128,7 @@ const PageBuilderMenusDataList = ({ canCreate }: PageBuilderMenusDataListProps) 
                             value={sort}
                             onChange={setSort}
                             label={t`Sort by`}
-                            description={"Sort pages by"}
+                            description={"Sort menus by"}
                         >
                             {SORTERS.map(({ label, sort: value }) => {
                                 return (
@@ -186,7 +176,7 @@ const PageBuilderMenusDataList = ({ canCreate }: PageBuilderMenusDataListProps) 
                 />
             }
         >
-            {({ data }) => (
+            {({ data }: MenuDataListResponse) => (
                 <ScrollList data-testid="default-data-list">
                     {data.map(item => (
                         <ListItem key={item.slug} selected={item.slug === slug}>
@@ -201,10 +191,13 @@ const PageBuilderMenusDataList = ({ canCreate }: PageBuilderMenusDataListProps) 
                                 </ListItemTextSecondary>
                             </ListItemText>
 
-                            {canDelete(item) && (
+                            {canDelete(item?.createdBy?.id) && (
                                 <ListItemMeta>
                                     <ListActions>
-                                        <DeleteIcon onClick={() => deleteItem(item)} />
+                                        <DeleteIcon
+                                            onClick={() => deleteItem(item)}
+                                            data-testid={"pb-menus-list-delete-menu-btn"}
+                                        />
                                     </ListActions>
                                 </ListItemMeta>
                             )}

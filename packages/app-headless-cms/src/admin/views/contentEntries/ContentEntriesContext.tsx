@@ -1,45 +1,32 @@
-import React, { useState, useMemo, Dispatch, SetStateAction } from "react";
+import React, { useMemo } from "react";
 import { useSecurity } from "@webiny/app-security";
-import { i18n } from "@webiny/app/i18n";
-import { CmsEditorContentModel } from "~/types";
-
-const t = i18n.ns("app-headless-cms/admin/contents/entries");
-
-const SORTERS = [
-    {
-        label: t`Newest to oldest`,
-        value: "savedOn_DESC"
-    },
-    {
-        label: t`Oldest to newest`,
-        value: "savedOn_ASC"
-    }
-];
-
-export interface ListQueryVariables {
-    sort?: string;
-    status?: string;
-}
+import { CmsModel, CmsSecurityPermission } from "~/types";
 
 export interface ContentEntriesContext {
-    contentModel: CmsEditorContentModel;
-    sorters: Array<{ label: string; value: string }>;
+    contentModel: CmsModel;
     canCreate: boolean;
-    listQueryVariables: ListQueryVariables;
-    setListQueryVariables: Dispatch<SetStateAction<ListQueryVariables>>;
+    insideDialog?: boolean;
 }
 
-export const Context = React.createContext<ContentEntriesContext>(null);
+export const ContentEntriesContext = React.createContext<ContentEntriesContext | undefined>(
+    undefined
+);
 
-export const Provider = ({ contentModel, children }) => {
-    const { identity } = useSecurity();
+export interface ContentEntriesContextProviderProps {
+    contentModel: CmsModel;
+    children: React.ReactNode;
+    insideDialog?: boolean;
+}
 
-    const [listQueryVariables, setListQueryVariables] = useState({
-        sort: SORTERS[0].value
-    });
+export const ContentEntriesProvider = ({
+    contentModel,
+    children,
+    insideDialog
+}: ContentEntriesContextProviderProps) => {
+    const { identity, getPermission } = useSecurity();
 
-    const canCreate = useMemo(() => {
-        const permission = identity.getPermission("cms.contentEntry");
+    const canCreate = useMemo((): boolean => {
+        const permission = getPermission<CmsSecurityPermission>("cms.contentEntry");
         if (!permission) {
             return false;
         }
@@ -49,39 +36,17 @@ export const Provider = ({ contentModel, children }) => {
         }
 
         return permission.rwd.includes("w");
-    }, []);
-
-    const sorters = useMemo(() => {
-        const titleField = contentModel.fields.find(
-            field => field.fieldId === contentModel.titleFieldId
-        );
-        const titleFieldLabel = titleField ? titleField.label : null;
-        if (!titleFieldLabel) {
-            return SORTERS;
-        }
-
-        return [
-            ...SORTERS,
-            {
-                label: t`{titleFieldLabel} A-Z`({ titleFieldLabel }),
-                value: `${contentModel.titleFieldId}_ASC`
-            },
-            {
-                label: t`{titleFieldLabel} Z-A`({ titleFieldLabel }),
-                value: `${contentModel.titleFieldId}_DESC`
-            }
-        ];
-    }, [contentModel.modelId]);
+    }, [identity]);
 
     const value = {
+        insideDialog,
         contentModel,
-        sorters,
-        canCreate,
-        listQueryVariables,
-        setListQueryVariables
+        canCreate
     };
 
-    return <Context.Provider value={value}>{children}</Context.Provider>;
+    return (
+        <ContentEntriesContext.Provider value={value}>{children}</ContentEntriesContext.Provider>
+    );
 };
 
-Provider.displayName = "ContentEntriesProvider";
+ContentEntriesProvider.displayName = "ContentEntriesProvider";

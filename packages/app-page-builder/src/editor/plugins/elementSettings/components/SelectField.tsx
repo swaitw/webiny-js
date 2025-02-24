@@ -39,22 +39,23 @@ const selectStyle = css({
     "& option": { fontWeight: "normal" }
 });
 
-type SelectProps = {
+interface SelectProps {
     value?: string;
-    onChange?: (value: any) => void;
+    onChange?: (value: string) => void;
     // One or more <option> or <optgroup> elements.
     children?: Array<React.ReactElement<"option"> | React.ReactElement<"optgroup">>;
     className?: string;
     [key: string]: any;
-};
+}
 
 const SelectField = ({
-    value,
+    value = "",
     onChange,
     children,
     className,
     validation = { isValid: true },
     description,
+    placeholder = "",
     ...props
 }: SelectProps) => {
     return (
@@ -63,10 +64,18 @@ const SelectField = ({
                 className={classNames(selectStyle, className)}
                 value={value}
                 onChange={({ target: { value } }) => {
+                    if (!onChange) {
+                        return;
+                    }
                     onChange(value);
                 }}
                 {...omit(props, "validate")}
             >
+                {placeholder ? (
+                    <option value="" disabled hidden>
+                        {placeholder}
+                    </option>
+                ) : null}
                 {children}
             </select>
             {validation.isValid === false && (

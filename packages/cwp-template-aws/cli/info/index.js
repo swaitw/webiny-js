@@ -1,58 +1,106 @@
-const getStackOutput = require("@webiny/cli-plugin-deploy-pulumi/utils/getStackOutput");
-const { green } = require("chalk");
+const {
+    getStackOutput,
+    splitStackName,
+    getPulumi
+} = require("@webiny/cli-plugin-deploy-pulumi/utils");
+const path = require("path");
+const { blue } = require("chalk");
 
-const line = `-------------------------`;
-
-const printEnvOutput = async (env, context) => {
-    console.log(line);
-    console.log(`Environment: ${green(env)}`);
-    console.log(line);
-
-    let stacksDeployedCount = 0;
-    let output = getStackOutput({ folder: "api", env });
-    if (output) {
-        stacksDeployedCount++;
-        console.log(
-            [
-                `➜ Main GraphQL API: ${green(output.apiUrl + "/graphql")}`,
-                `➜ Headless CMS GraphQL API:`,
-                `   - Manage API: ${green(output.apiUrl + "/cms/manage/{LOCALE_CODE}")}`,
-                `   - Read API: ${green(output.apiUrl + "/cms/read/{LOCALE_CODE}")}`,
-                `   - Preview API: ${green(output.apiUrl + "/cms/preview/{LOCALE_CODE}")}`
-            ].join("\n")
+const getInfo = async params => {
+    if (typeof params !== "object" || !params.env) {
+        throw new Error("Please provide an object with `env` and `variant` properties.");
+    }
+    const { env, variant } = params;
+    const apiOutputPromise = new Promise(resolve => {
+        resolve(
+            getStackOutput({
+                folder: "apps/api",
+                env,
+                variant
+            })
         );
-    } else {
-        context.info(`Stack ${green("api")} not deployed yet.`);
-    }
+    });
 
-    output = getStackOutput({ folder: "apps/admin", env });
-    if (output) {
-        stacksDeployedCount++;
-        console.log([`➜ Admin app: ${green(output.appUrl)}`].join("\n"));
-    } else {
-        context.info(`Stack ${green("apps/admin")} not deployed yet.`);
-    }
-
-    output = getStackOutput({ folder: "apps/website", env });
-    if (output) {
-        stacksDeployedCount++;
-        console.log(
-            [
-                `➜ Public website:`,
-                `   - Website URL: ${green(output.deliveryUrl)}`,
-                `   - Website preview URL: ${green(output.appUrl)}`
-            ].join("\n")
+    const adminOutputPromise = new Promise(resolve => {
+        resolve(
+            getStackOutput({
+                folder: "apps/admin",
+                env,
+                variant
+            })
         );
-    } else {
-        context.info(`Stack ${green("apps/website")} not deployed yet.`);
-    }
+    });
+
+    const websiteOutputPromise = new Promise(resolve => {
+        resolve(
+            getStackOutput({
+                folder: "apps/website",
+                env,
+                variant
+            })
+        );
+    });
+
+    const outputs = await Promise.all([apiOutputPromise, adminOutputPromise, websiteOutputPromise]);
+
+    const stacksDeployedCount = outputs.filter(Boolean).length;
 
     if (stacksDeployedCount === 0) {
-        context.info("It seems none of the stacks were deployed, so no info could be provided.");
-        context.info(`Please check if the provided environment ${green(env)} is correct.`);
+        const variantMessage = variant ? ` and variant ${variant}` : "";
+        return [
+            "It seems none of the stacks were deployed, so no info could be provided.",
+            `Please check if the provided environment ${env}${variantMessage} is correct.`
+        ].join(" ");
     }
 
-    console.log(line + "\n");
+    const [api, admin, website] = outputs;
+
+    const output = [];
+
+    // API.
+    if (api) {
+        output.push(
+            `‣ Environment name: ${blue(env)}`,
+            `‣ Environment variant name: ${variant ? blue(variant) : "-"}`,
+            `‣ AWS region: ${api?.region}`,
+            `‣ Main GraphQL API: ${api.apiUrl + "/graphql"}`,
+            `‣ Headless CMS GraphQL API:`,
+            `   · Manage API: ${api.apiUrl + "/cms/manage/{LOCALE_CODE}"}`,
+            `   · Read API: ${api.apiUrl + "/cms/read/{LOCALE_CODE}"}`,
+            `   · Preview API: ${api.apiUrl + "/cms/preview/{LOCALE_CODE}"}`
+        );
+    } else {
+        output.push(
+            `‣ Environment name: -`,
+            `‣ Environment variant name: -`,
+            `‣ AWS region: -`,
+            `‣ Main GraphQL API: -`,
+            `‣ Headless CMS GraphQL API:`,
+            `   · Manage API: -`,
+            `   · Read API: -`,
+            `   · Preview API: -`
+        );
+    }
+
+    // Admin.
+    if (admin) {
+        output.push(`‣ Admin app: ${admin.appUrl}`);
+    } else {
+        output.push(`‣ Admin app: -`);
+    }
+
+    // Website.
+    if (website) {
+        output.push(
+            `‣ Public website:`,
+            `   · Website URL: ${website.deliveryUrl}`,
+            `   · Website preview URL: ${website.appUrl}`
+        );
+    } else {
+        output.push(`‣ Public website:`, `   · Website URL: -`, `   · Website preview URL: -`);
+    }
+
+    return output.join("\n");
 };
 
 module.exports = {
@@ -64,7 +112,7 @@ module.exports = {
             `Lists all relevant URLs for deployed project applications.`,
             yargs => {
                 yargs.option("env", {
-                    describe: `Environment`,
+                    describe: `Environment (required if Pulumi state files are not stored locally)`,
                     type: "string",
                     required: false
                 });
@@ -74,34 +122,68 @@ module.exports = {
                 });
             },
             async args => {
-                const { env } = args;
+                // This will ensure that the user has Pulumi CLI installed.
+                await getPulumi();
 
-                if (!env) {
+                if (!args.env) {
                     // Get all existing environments
                     const glob = require("fast-glob");
-                    const pulumiFiles = await glob(["**/Pulumi.*.yaml"], {
-                        cwd: context.project.root,
-                        onlyFiles: true,
-                        ignore: ["**/node_modules/**"]
-                    });
 
-                    const existingEnvs = new Set();
-                    const regex = /Pulumi\.(\w+)\.yaml/;
-                    pulumiFiles.forEach(file => {
-                        if (file.match(regex)) {
-                            existingEnvs.add(RegExp.$1);
+                    // We just get stack files for deployed Core application. That's enough
+                    // to determine into which environments the user has deployed their project.
+                    const pulumiAdminStackFilesPaths = glob.sync(
+                        ".pulumi/**/apps/core/.pulumi/stacks/**/*.json",
+                        {
+                            cwd: context.project.root,
+                            onlyFiles: true,
+                            dot: true
                         }
+                    );
+
+                    const existingEnvs = pulumiAdminStackFilesPaths.map(current => {
+                        return splitStackName(path.basename(current, ".json"));
                     });
 
-                    for (const env of existingEnvs) {
-                        await printEnvOutput(env, context);
+                    if (existingEnvs.length === 0) {
+                        context.info(
+                            "It seems that no environments have been deployed yet. Please deploy the project first."
+                        );
+                        return;
                     }
 
-                    return;
+                    if (existingEnvs.length === 1) {
+                        context.info("There is one deployed environment.");
+                        context.info("Here is the information for the environment.");
+                    } else {
+                        context.info(
+                            "There's a total of %d deployed environments.",
+                            existingEnvs.length
+                        );
+                        context.info("Here is the information for each environment.");
+                        console.log();
+                    }
+
+                    for (const { env, variant } of existingEnvs) {
+                        console.log(await getInfo({ env, variant }));
+                        console.log();
+                    }
+                } else {
+                    console.log(
+                        await getInfo({
+                            env: args.env,
+                            variant: args.variant || ""
+                        })
+                    );
+                    console.log();
                 }
 
-                await printEnvOutput(env, context);
+                context.info(
+                    "If some of the information is missing for a particular environment, make sure that the project has been fully deployed into that environment. You can do that by running the %s command.",
+                    "yarn webiny deploy --env {ENVIRONMENT_NAME}"
+                );
             }
         );
     }
 };
+
+module.exports.getInfo = getInfo;

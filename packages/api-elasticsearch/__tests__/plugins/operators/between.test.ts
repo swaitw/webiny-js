@@ -4,21 +4,21 @@ import { ElasticsearchBoolQueryConfig } from "~/types";
 
 describe("ElasticsearchQueryBuilderOperatorBetweenPlugin", () => {
     const plugin = new ElasticsearchQueryBuilderOperatorBetweenPlugin();
-    const context: any = {};
 
     it("should apply between correctly", () => {
         const query = createBlankQuery();
         plugin.apply(query, {
+            name: "id",
             value: [100, 110],
             path: "id",
             basePath: "id",
-            context,
             keyword: false
         });
 
         const expected: ElasticsearchBoolQueryConfig = {
             must_not: [],
-            must: [
+            must: [],
+            filter: [
                 {
                     range: {
                         id: {
@@ -28,7 +28,6 @@ describe("ElasticsearchQueryBuilderOperatorBetweenPlugin", () => {
                     }
                 }
             ],
-            filter: [],
             should: []
         };
 
@@ -38,10 +37,10 @@ describe("ElasticsearchQueryBuilderOperatorBetweenPlugin", () => {
     it("should apply multiple between correctly", () => {
         const query = createBlankQuery();
         plugin.apply(query, {
+            name: "id",
             value: [100, 110],
             path: "id",
             basePath: "id",
-            context,
             keyword: false
         });
 
@@ -49,16 +48,17 @@ describe("ElasticsearchQueryBuilderOperatorBetweenPlugin", () => {
         const to = new Date();
         to.setTime(from.getTime() + 1000000);
         plugin.apply(query, {
-            value: [from, to],
+            name: "id",
+            value: [from.toISOString(), to.toISOString()],
             path: "date",
             basePath: "date",
-            context,
             keyword: false
         });
 
         const expected: ElasticsearchBoolQueryConfig = {
             must_not: [],
-            must: [
+            must: [],
+            filter: [
                 {
                     range: {
                         id: {
@@ -70,13 +70,12 @@ describe("ElasticsearchQueryBuilderOperatorBetweenPlugin", () => {
                 {
                     range: {
                         date: {
-                            lte: to as any,
-                            gte: from as any
+                            lte: to.toISOString(),
+                            gte: from.toISOString()
                         }
                     }
                 }
             ],
-            filter: [],
             should: []
         };
         expect(query).toEqual(expected);
@@ -87,10 +86,10 @@ describe("ElasticsearchQueryBuilderOperatorBetweenPlugin", () => {
 
         expect(() => {
             plugin.apply(query, {
+                name: "id",
                 value: "notAnArray",
                 path: "id",
                 basePath: "id",
-                context,
                 keyword: false
             });
         }).toThrow(
@@ -107,10 +106,10 @@ describe("ElasticsearchQueryBuilderOperatorBetweenPlugin", () => {
 
             expect(() => {
                 plugin.apply(query, {
+                    name: "id",
                     value,
                     path: "id",
                     basePath: "id",
-                    context,
                     keyword: false
                 });
             }).toThrow(`You must pass 2 values in the array for field path "id" filtering.`);

@@ -6,63 +6,54 @@ import { useQuery, useMutation } from "@apollo/react-hooks";
 import { useSnackbar } from "@webiny/app-admin/hooks/useSnackbar";
 import { useConfirmationDialog } from "@webiny/app-admin/hooks/useConfirmationDialog";
 import { useI18N } from "~/hooks/useI18N";
-import { LIST_LOCALES, DELETE_LOCALE } from "./graphql";
+import { LIST_LOCALES, DELETE_LOCALE, ListI18NLocalesResponse } from "./graphql";
 import { useCurrentLocale } from "./useCurrentLocale";
+import { I18NLocaleItem } from "~/types";
 
 const t = i18n.ns("app-i18n/admin/locales/data-list");
 
-const serializeSorters = data => {
-    if (!data) {
-        return data;
-    }
-    const [[key, value]] = Object.entries(data);
-    return `${key}:${value}`;
-};
-
-const deserializeSorters = (data: string): Record<string, "asc" | "desc" | boolean> => {
+type SortTypes = "asc" | "desc";
+export const deserializeSorters = (data: string): [string, SortTypes] => {
     if (typeof data !== "string") {
         return data;
     }
-
-    const [key, value] = data.split(":") as [string, "asc" | "desc" | boolean];
-    return {
-        [key]: value
-    };
+    const [field, orderBy] = data.split("_") as [string, SortTypes];
+    const order = String(orderBy).toLowerCase() === "asc" ? "asc" : "desc";
+    return [field, order];
 };
 
+interface Sorter {
+    label: string;
+    sorter: string;
+}
+
 interface Config {
-    sorters: { label: string; sorters: Record<string, string> }[];
+    sorters: Sorter[];
 }
 
 interface UseLocalesListHook {
     (config: Config): {
         loading: boolean;
-        locales: Array<{
-            code: string;
-            default: boolean;
-            createdOn: string;
-            [key: string]: any;
-        }>;
-        currentLocaleCode: string;
+        locales: I18NLocaleItem[];
+        currentLocaleCode: string | null;
         createLocale: () => void;
         filter: string;
         setFilter: (filter: string) => void;
-        sort: string;
+        sort: string | null;
         setSort: (sort: string) => void;
-        serializeSorters: (data: Record<string, string>) => string;
-        editLocale: (code: string) => void;
-        deleteLocale: (code: string) => void;
+        editLocale: (code: I18NLocaleItem) => void;
+        deleteLocale: (code: I18NLocaleItem) => void;
     };
 }
 
 export const useLocalesList: UseLocalesListHook = (config: Config) => {
-    const defaultSorter = config.sorters.length ? config.sorters[0].sorters : null;
+    const defaultSorter = config.sorters.length ? config.sorters[0].sorter : null;
     const [filter, setFilter] = useState<string>("");
-    const [sort, setSort] = useState<string>(serializeSorters(defaultSorter));
+    const [sort, setSort] = useState<string | null>(defaultSorter);
     const { refetchLocales, getDefaultLocale, getCurrentLocale, setCurrentLocale } = useI18N();
     const { history } = useRouter();
     const { showSnackbar } = useSnackbar();
-    const listQuery = useQuery(LIST_LOCALES);
+    const listQuery = useQuery<ListI18NLocalesResponse>(LIST_LOCALES);
     const currentLocaleCode = useCurrentLocale();
     const [deleteIt, deleteMutation] = useMutation(DELETE_LOCALE, {
         refetchQueries: [{ query: LIST_LOCALES }]
@@ -73,27 +64,27 @@ export const useLocalesList: UseLocalesListHook = (config: Config) => {
     });
 
     const filterLocales = useCallback(
-        ({ code }) => {
+        ({ code }: I18NLocaleItem) => {
             return code.toLowerCase().includes(filter);
         },
         [filter]
     );
 
     const sortLocaleList = useCallback(
-        locales => {
+        (locales: I18NLocaleItem[]) => {
             if (!sort) {
                 return locales;
             }
-            const [[key, value]] = Object.entries(deserializeSorters(sort));
+            const [key, value] = deserializeSorters(sort);
             return orderBy(locales, [key], [value]);
         },
         [sort]
     );
 
-    const data = listQuery.loading ? [] : listQuery.data.i18n.listI18NLocales.data;
+    const data = listQuery.loading ? [] : listQuery.data?.i18n.listI18NLocales.data || [];
 
     const deleteLocale = useCallback(
-        item => {
+        (item: I18NLocaleItem) => {
             showConfirmation(async () => {
                 const response = await deleteIt({
                     variables: item
@@ -109,7 +100,9 @@ export const useLocalesList: UseLocalesListHook = (config: Config) => {
                 if (getCurrentLocale("content") === item.code) {
                     // Update current "content" locale
                     const defaultLocale = getDefaultLocale();
-                    setCurrentLocale(defaultLocale.code, "content");
+                    if (defaultLocale) {
+                        setCurrentLocale(defaultLocale.code, "content");
+                    }
                 }
 
                 if (currentLocaleCode === item.code) {
@@ -130,8 +123,8 @@ export const useLocalesList: UseLocalesListHook = (config: Config) => {
 
     const createLocale = useCallback(() => history.push("/i18n/locales?new=true"), []);
 
-    const editLocale = useCallback(code => {
-        history.push(`/i18n/locales?code=${code}`);
+    const editLocale = useCallback((item: I18NLocaleItem) => {
+        history.push(`/i18n/locales?code=${item.code}`);
     }, []);
 
     return {
@@ -143,7 +136,6 @@ export const useLocalesList: UseLocalesListHook = (config: Config) => {
         setFilter,
         sort,
         setSort,
-        serializeSorters,
         editLocale,
         deleteLocale
     };

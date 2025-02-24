@@ -1,7 +1,7 @@
 import React from "react";
 import styled from "@emotion/styled";
-import Droppable from "../Droppable";
-import { DragSource } from "~/admin/components/FieldEditor/FieldEditorContext";
+import { Droppable, IsVisibleCallable } from "../Droppable";
+import { DragSource } from "~/types";
 
 const InnerDiv = styled("div")({
     height: 15,
@@ -19,7 +19,11 @@ const BackgroundColorDiv = styled("div")({
     height: "100%"
 });
 
-type OuterDivProps = { isOver: boolean; isDragging: boolean; last: boolean };
+interface OuterDivProps {
+    isOver: boolean;
+    isDragging: boolean;
+    last: boolean;
+}
 
 const OuterDiv = styled("div")(
     {
@@ -34,11 +38,11 @@ const OuterDiv = styled("div")(
     },
     (props: OuterDivProps) => ({
         [props.last ? "bottom" : "top"]: -15,
-        // @ts-ignore
+        // @ts-expect-error
         [InnerDiv]: {
             borderColor: props.isOver ? "var(--mdc-theme-primary)" : "var(--mdc-theme-secondary)",
             display: props.isDragging ? "block" : "none",
-            // @ts-ignore
+            // @ts-expect-error
             [BackgroundColorDiv]: {
                 opacity: 0.5,
                 backgroundColor: props.isOver
@@ -49,11 +53,12 @@ const OuterDiv = styled("div")(
     })
 );
 
-type HorizontalProps = {
+interface HorizontalProps {
     onDrop(item: DragSource): void;
     last?: boolean;
-    isVisible?: any;
-};
+    isVisible?: IsVisibleCallable;
+    ["data-testid"]?: string;
+}
 
 const Horizontal = ({ last, onDrop, isVisible, ...rest }: HorizontalProps) => {
     return (
@@ -72,7 +77,7 @@ const Horizontal = ({ last, onDrop, isVisible, ...rest }: HorizontalProps) => {
                         zIndex: isDragging ? 1000 : -1
                     }}
                 >
-                    <OuterDiv isOver={isOver} isDragging={isDragging} last={last}>
+                    <OuterDiv isOver={isOver} isDragging={isDragging} last={last ? true : false}>
                         <InnerDiv>
                             <BackgroundColorDiv />
                         </InnerDiv>

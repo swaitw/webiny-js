@@ -1,14 +1,10 @@
-import * as React from "react";
-import { Scrollbars } from "react-custom-scrollbars";
+import React from "react";
+import { ScrollbarProps, Scrollbars } from "react-custom-scrollbars";
 
-type Props = {
-    // Element on which the scrollbars will be applied.
-    children?: React.ReactNode;
-
+interface Props extends ScrollbarProps {
     style?: React.CSSProperties;
-
     [key: string]: any;
-};
+}
 
 /**
  * Use Scrollbar component to show vertical or horizontal scrollbars.

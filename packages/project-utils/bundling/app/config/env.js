@@ -28,9 +28,19 @@ process.env.NODE_PATH = (process.env.NODE_PATH || "")
 // injected into the application via DefinePlugin in Webpack configuration.
 const REACT_APP = /^REACT_APP_/i;
 
-function getClientEnvironment(publicUrl) {
+function getClientEnvironment({ publicUrl, projectApplication }) {
     const raw = Object.keys(process.env)
-        .filter(key => REACT_APP.test(key))
+        .filter(key => {
+            if (REACT_APP.test(key)) {
+                return true;
+            }
+
+            if (projectApplication) {
+                return new RegExp(`^WEBINY_${projectApplication.id.toUpperCase()}_`).test(key);
+            }
+
+            return false;
+        })
         .reduce(
             (env, key) => {
                 env[key] = process.env[key];
@@ -48,13 +58,14 @@ function getClientEnvironment(publicUrl) {
             }
         );
 
-    // Stringify all values so we can feed into Webpack DefinePlugin
-    const stringified = {
-        "process.env": Object.keys(raw).reduce((env, key) => {
-            env[key] = JSON.stringify(raw[key]);
-            return env;
-        }, {})
-    };
+    // Stringify all values so we can feed into Webpack DefinePlugin.
+    // Provide values one by one, not as a single process.env object,
+    // because otherwise plugin will put a big JSON object every time process.env is used in code.
+    // This way minifier also removes reduntant code on prod (like if(process.env.NODE_ENV === 'development')).
+    const stringified = {};
+    for (const key of Object.keys(raw)) {
+        stringified[`process.env.${key}`] = JSON.stringify(raw[key]);
+    }
 
     return { raw, stringified };
 }
