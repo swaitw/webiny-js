@@ -10,10 +10,6 @@ import Case from "case";
 import { replaceInPath } from "replace-in-path";
 import WebinyError from "@webiny/error";
 import validateNpmPackageName from "validate-npm-package-name";
-/**
- * Write types for log.
- */
-// @ts-expect-error
 import { getProject, log } from "@webiny/cli/utils";
 
 const ncp = util.promisify(ncpBase.ncp);

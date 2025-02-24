@@ -45,6 +45,7 @@ export const ApiGraphql = createAppModule({
         const graphql = app.addResource(aws.lambda.Function, {
             name: "graphql",
             config: {
+                description: "Webiny's GraphQL APIs",
                 runtime: LAMBDA_RUNTIME,
                 handler: "handler.handler",
                 role: role.output.arn,

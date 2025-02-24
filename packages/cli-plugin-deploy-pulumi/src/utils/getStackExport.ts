@@ -2,23 +2,11 @@ import type { IUserCommandInput } from "~/types";
 import execa from "execa";
 import { getProject } from "@webiny/cli/utils";
 
-interface ILambdaFunctionResourceOutputsCodeAsset {
-    path: string;
-}
-
-interface ILambdaFunctionResource {
-    type: "aws:lambda/function:Function";
-    outputs: {
-        name: string;
-        code: {
-            assets: {
-                [key: string]: ILambdaFunctionResourceOutputsCodeAsset;
-            };
-        };
-    };
-}
-
-export type IStackExportResponseDeploymentResource = ILambdaFunctionResource;
+export type IStackExportResponseDeploymentResource = {
+    type: string;
+    inputs: Record<string, any>;
+    outputs: Record<string, any>;
+};
 
 export interface IStackExportResponseDeployment {
     resources: IStackExportResponseDeploymentResource[];
@@ -29,7 +17,8 @@ export interface IStackExportResponse {
 }
 
 const cache: Record<string, any> = {};
-const getOutputJson = ({
+
+const runPulumiStackExport = ({
     folder,
     env,
     variant,
@@ -40,7 +29,7 @@ const getOutputJson = ({
     const cacheKey = [folder, env, variant].filter(Boolean).join("_");
 
     if (cache[cacheKey]) {
-        return cache[cacheKey];
+        return structuredClone(cache[cacheKey]);
     }
 
     try {
@@ -60,7 +49,7 @@ const getOutputJson = ({
             return null;
         }
         cache[cacheKey] = parsed;
-        return parsed;
+        return structuredClone(cache[cacheKey]);
     } catch (e) {
         return null;
     }
@@ -77,5 +66,5 @@ export const getStackExport = (
         throw new Error(`Please specify environment, for example "dev".`);
     }
 
-    return getOutputJson(args);
+    return runPulumiStackExport(args);
 };

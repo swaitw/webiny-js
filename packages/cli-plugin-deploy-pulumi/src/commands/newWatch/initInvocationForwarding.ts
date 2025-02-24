@@ -2,6 +2,7 @@ import path from "path";
 import { Worker } from "worker_threads";
 import { compress, decompress } from "@webiny/utils/compression/gzip";
 import mqtt from "mqtt";
+import type { listLambdaFunctions } from "~/commands/newWatch/listLambdaFunctions";
 
 const WEBINY_WATCH_FN_INVOCATION_EVENT = "webiny.watch.functionInvocation";
 const WEBINY_WATCH_FN_INVOCATION_RESULT_EVENT = "webiny.watch.functionInvocationResult";
@@ -33,14 +34,14 @@ export interface IInitInvocationForwardingParams {
     iotEndpoint: string;
     iotEndpointTopic: string;
     sessionId: number;
-    lambdaFunctions: IInitInvocationForwardingParamsLambdaFunction[];
+    functionsList: ReturnType<typeof listLambdaFunctions>;
 }
 
 export const initInvocationForwarding = async ({
     iotEndpoint,
     iotEndpointTopic,
     sessionId,
-    lambdaFunctions
+    functionsList
 }: IInitInvocationForwardingParams) => {
     const client = await mqtt.connectAsync(iotEndpoint);
 
@@ -57,7 +58,7 @@ export const initInvocationForwarding = async ({
             return;
         }
 
-        const invokedLambdaFunction = lambdaFunctions.find(
+        const invokedLambdaFunction = functionsList.list.find(
             lambdaFunction => lambdaFunction.name === payload.data.functionName
         );
         if (!invokedLambdaFunction) {

@@ -233,7 +233,7 @@ export const commands: CliCommandPlugin[] = [
                         yargs.option("inspect", {
                             alias: "i",
                             describe:
-                                "Enable Node debugger (used with local AWS Lambda development)",
+                                "[EXPERIMENTAL] Enable Node debugger (used with local AWS Lambda development)",
                             type: "boolean"
                         });
                         yargs.option("depth", {

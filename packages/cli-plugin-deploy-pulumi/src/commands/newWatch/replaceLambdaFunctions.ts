@@ -6,32 +6,48 @@ import {
     UpdateFunctionCodeCommand,
     UpdateFunctionConfigurationCommand
 } from "@webiny/aws-sdk/client-lambda";
+import { getStackExport } from "~/utils";
+import { type listLambdaFunctions } from "./listLambdaFunctions";
+import { Context } from "~/types";
 
-const WATCH_MODE_NOTE_IN_DESCRIPTION = " (watch mode 💡)";
+const WATCH_MODE_NOTE_IN_DESCRIPTION = " (💡 local development mode, redeploy to remove)";
 const DEFAULT_INCREASE_TIMEOUT = 120;
 
-export interface IReplaceLambdaFunctionsParamsLambdaFunction {
-    name: string;
-}
-
 export interface IReplaceLambdaFunctionsParams {
+    folder: string;
+    env: string;
+    variant?: string;
     iotEndpoint: string;
     iotEndpointTopic: string;
     sessionId: number;
-    lambdaFunctions: IReplaceLambdaFunctionsParamsLambdaFunction[];
+    functionsList: ReturnType<typeof listLambdaFunctions>;
     increaseTimeout?: number;
+    context: Context;
 }
 
 export const replaceLambdaFunctions = async ({
+    folder,
+    env,
+    variant,
     iotEndpoint,
     iotEndpointTopic,
     sessionId,
-    lambdaFunctions,
-    increaseTimeout
+    functionsList,
+    increaseTimeout,
+    context
 }: IReplaceLambdaFunctionsParams) => {
+    const stackExport = getStackExport({ folder, env, variant });
+    if (!stackExport) {
+        // If no stack export is found, return an empty array. This is a valid scenario.
+        // For example, watching the Admin app locally, but not deploying it.
+        context.debug("No AWS Lambda functions to replace.");
+        return [];
+    }
+
+    context.debug("replacing %s AWS Lambda function(s).", functionsList.meta.count);
     const lambdaClient = new LambdaClient();
 
-    return lambdaFunctions.map(async fn => {
+    const replacementsPromises = functionsList.list.map(async fn => {
         const getFnConfigCmd = new GetFunctionConfigurationCommand({ FunctionName: fn.name });
         const lambdaFnConfiguration = await lambdaClient.send(getFnConfigCmd);
 
@@ -49,24 +65,31 @@ export const replaceLambdaFunctions = async ({
 
         const Timeout = increaseTimeout || DEFAULT_INCREASE_TIMEOUT;
 
-        const updateFnConfigCmd = new UpdateFunctionConfigurationCommand({
-            FunctionName: fn.name,
-            Timeout,
-            Description,
-            Environment: {
-                Variables: {
-                    ...lambdaFnConfiguration.Environment?.Variables,
-                    WEBINY_WATCH: JSON.stringify({
-                        enabled: true,
-                        sessionId,
-                        iotEndpoint,
-                        iotEndpointTopic,
-                        functionName: fn.name
-                    })
-                }
-            }
-        });
+        await pRetry(() =>
+            lambdaClient.send(
+                new UpdateFunctionConfigurationCommand({
+                    FunctionName: fn.name,
+                    Timeout,
+                    Description,
+                    Environment: {
+                        Variables: {
+                            ...lambdaFnConfiguration.Environment?.Variables,
+                            WEBINY_WATCH: JSON.stringify({
+                                enabled: true,
+                                sessionId,
+                                iotEndpoint,
+                                iotEndpointTopic,
+                                functionName: fn.name
+                            })
+                        }
+                    }
+                })
+            )
+        );
+    });
 
-        await pRetry(() => lambdaClient.send(updateFnConfigCmd));
+    return Promise.all(replacementsPromises).then(res => {
+        context.debug("%s AWS Lambda function(s) replaced.", functionsList.meta.count);
+        return res;
     });
 };

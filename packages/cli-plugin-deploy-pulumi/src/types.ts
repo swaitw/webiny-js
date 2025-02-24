@@ -21,12 +21,14 @@ export interface IUserCommandInput {
     telemetry?: boolean;
     logs?: boolean;
     json?: boolean;
+    file?: string;
     build?: boolean;
     deploy?: boolean;
     package?: string;
     preview?: boolean;
     inspect?: boolean;
     depth?: number;
+    function?: string | string[];
     allowProduction?: boolean;
     increaseTimeout?: number;
     deploymentLogs?: boolean;

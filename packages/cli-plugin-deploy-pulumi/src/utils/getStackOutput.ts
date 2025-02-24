@@ -17,7 +17,7 @@ const getOutputJson = ({ folder, env, cwd, variant }: IGetOutputJsonParams) => {
     const cacheKey = [folder, env, variant].filter(Boolean).join("_");
 
     if (cache[cacheKey]) {
-        return cache[cacheKey];
+        return structuredClone(cache[cacheKey]);
     }
 
     try {
@@ -45,7 +45,7 @@ const getOutputJson = ({ folder, env, cwd, variant }: IGetOutputJsonParams) => {
             return null;
         }
         cache[cacheKey] = parsed;
-        return parsed;
+        return structuredClone(cache[cacheKey]);
     } catch (e) {
         return null;
     }

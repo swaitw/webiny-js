@@ -192,7 +192,7 @@ export interface CliContext {
      * Only trivial data should be passed here, specific to the current project.
      */
     localStorage: {
-        set: (key: string, value: string) => Record<string, any>;
+        set: (key: string, value: any) => Record<string, any>;
         get: (key: string) => any;
     };
 }
